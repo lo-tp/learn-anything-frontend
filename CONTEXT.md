@@ -17,3 +17,7 @@ Glossary for the AI conversation-driven learning assistant. Definitions only —
 **The doc** — the course's single Markdown document, continuously edited by the assistant throughout the course: the learning plan with live status plus evolving study notes. The assistant's visible, shared memory.
 
 **Phase** — the coarse stage of a course: baseline → planning → execution → complete.
+
+**Anchor** — the grading key on a graded free-text question card: a self-contained short paragraph stating the core claim a correct answer must convey, the acceptable scope around it, and the misconception the check targets.
+
+**Grader** — the evaluation of a graded free-text answer against its anchor. The grader's verdict is advisory: it judges, it never teaches, never advances the course, and never writes to the doc.
