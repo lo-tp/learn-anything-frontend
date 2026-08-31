@@ -117,7 +117,7 @@ As a learner, I want a step to be marked passed when I correctly answer its (re-
 
 **US-E5 — One markdown tracks the whole progress**
 As a learner, I want a single markdown document, updated live, that tracks the session's whole progress — plan checklist, per-question outcomes, explanations given — so that one document tells the whole story of my learning.
-- AC1: The markdown is viewable at any time and updates live after every turn.
+- AC1: The markdown is viewable and downloadable at any time, and updates live after every turn.
 - AC2: It is rendered in the client from the server-folded session state (never read back by the app) and is identical on every device I resume from.
 - AC3: The markdown shows the approved plan labelled with its revision number (e.g. "Plan v3"); intermediate review drafts are not shown.
 
@@ -151,7 +151,6 @@ Deferred past the MVP — not spec'd in the stories above:
 - Deleting / abandoning sessions (in-flight or complete)
 - The same session active on two devices at once (concurrent writes)
 - AI failure modes (timeouts, provider errors, malformed output) and state-safety guarantees
-- Exporting the progress markdown (download / share) — US-E5 is view-only in the MVP
 - Email verification and password policy beyond "valid email and password"
 - Re-running a knowledge point (duplicate sessions) — assumed not to happen in the MVP
 

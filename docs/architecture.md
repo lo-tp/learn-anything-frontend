@@ -83,7 +83,7 @@ One Next.js (TypeScript) frontend in the same monolith: chat sidebar + read-only
 - **CSS:** Tailwind v4; the design's token palette is ported into the theme; `@tailwindcss/typography` for the document pane, with the `react-markdown` `components` mapping owning the domain blocks (plan checklist, per-question outcomes).
 - **Components:** shadcn/ui (Radix-based, in-repo). No runtime component frameworks.
 - **Icons / fonts:** lucide-react; Geist + JetBrains Mono via `next/font/google`.
-- **Markdown:** `react-markdown` + `remark-gfm` + shiki for code blocks. The `state → markdown` render is the shared pure `core/markdown` module running in the FE (SSR for first paint); the BE never emits a markdown string. Export/download is deferred.
+- **Markdown:** `react-markdown` + `remark-gfm` + shiki for code blocks. The `state → markdown` render is the shared pure `core/markdown` module running in the FE (SSR for first paint); the BE never emits a markdown string. Download is a client-side Blob of that same in-memory string — no BE route.
 - **Chat / turns:** `ai` package client (`useChat`), streaming; the turn response carries the folded state summary that drives the document pane; chat rehydrates from the `raw_messages` `UIMessage[]` projection (ADR 0004).
 - **The document pane is not an editor.** The progress markdown is a read-only projection (ADR 0001); learner adjustments flow through chat turns. No editor library (CodeMirror/Monaco) is in the stack.
 - **Deliberately absent:** state-management, form, animation, and data-fetching libraries.

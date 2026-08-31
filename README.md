@@ -11,7 +11,7 @@ An AI conversation-driven learning assistant. Describe the knowledge you want to
 3. **The AI generates a plan.** An ordered list of incrementally small learning steps from your current boundary to mastery — dependencies first (understand `F`, `m`, `a` before `F=ma`).
 4. **You review and adjust it.** In your own words you can add, remove, or change the depth or difficulty of the plan (*"I don't know the definition of gravity — add this"*). Every adjustment regenerates the full plan; execution starts when you approve.
 5. **You get drilled.** From this point on, everything asked of you is a multiple-choice or true/false question — one at a time, generated for the current step. Answer wrong and the AI explains why yours is wrong and why the correct one is right, then re-tests you with a *different* question on the same step, until you pass.
-6. **One markdown tracks it all.** A single live-updated markdown document per session — plan checklist, per-question outcomes, explanations — visible at any time.
+6. **One markdown tracks it all.** A single live-updated markdown document per session — plan checklist, per-question outcomes, explanations — viewable and downloadable at any time.
 7. **You finish when you've mastered it.** The session ends when every plan step has been passed, with a closing summary.
 
 ## Also
