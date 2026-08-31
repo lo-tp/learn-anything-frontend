@@ -23,6 +23,10 @@ An AI conversation-driven learning assistant. Describe the knowledge you want to
 ## Docs
 
 - [User stories](docs/user-stories.md) — what the app does, story by story, with acceptance criteria
+- [Architecture](docs/architecture.md) — components, the per-turn data flow, and what is deliberately deferred
+- [Schema](docs/schema.md) — the Postgres tables, and which invariants the database enforces versus the stage machine
 - [Glossary](CONTEXT.md) — the app's exact terminology
 - [ADR 0001](docs/adr/0001-database-is-source-of-truth.md) — the database is the source of truth; the progress markdown is a projection
 - [ADR 0002](docs/adr/0002-execution-time-quiz-generation.md) — quizzes are generated at execution time, not plan time
+- [ADR 0003](docs/adr/0003-deterministic-stage-machine.md) — the stage machine is deterministic; the LLM generates content, it does not drive the session
+- [ADR 0004](docs/adr/0004-session-state-is-the-llm-turn-log.md) — session state is the LLM-turn log; everything else is a projection

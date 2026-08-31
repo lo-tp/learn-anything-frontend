@@ -16,6 +16,10 @@ _Avoid_: topic, subject
 A learner's current frontier of understanding in a knowledge point: what they already know versus what they don't.
 _Avoid_: baseline, level
 
+**Stage**:
+The phase of a session in its lifecycle: intake, probing, planning, review, executing, or complete.
+_Avoid_: phase, status, step
+
 **Probing**:
 The multiple-choice / true-false self-assessment phase that establishes the boundary, before any plan exists.
 _Avoid_: assessment, intake quiz
@@ -23,6 +27,10 @@ _Avoid_: assessment, intake quiz
 **Plan**:
 The ordered list of LearningSteps taking a learner from their boundary to mastery of the knowledge point. Contains concepts only — no quizzes.
 _Avoid_: syllabus, curriculum
+
+**Plan revision**:
+An immutable numbered snapshot of the plan; every learner adjustment produces a new revision, and the progress markdown shows the approved plan's revision number.
+_Avoid_: version, iteration
 
 **LearningStep**:
 One incrementally small concept a learner must understand on the way to mastery (e.g. "what F is", before "F=ma").

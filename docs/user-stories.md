@@ -32,7 +32,7 @@ As a learner, I want my sessions to be visible only under my own account, so tha
 
 **US-H1 — See all my sessions**
 As a learner, I want a home view listing my sessions with knowledge point, stage, progress, and last activity, so that I can see what I'm learning and pick up any of them.
-- AC1: Each session shows its knowledge point, current stage (probing / planning / review / executing / complete), and progress — steps passed / total steps from executing onward; earlier stages are identified by the stage label.
+- AC1: Each session shows its knowledge point, current stage (intake / probing / planning / review / executing / complete), and progress — steps passed / total steps from executing onward; earlier stages are identified by the stage label.
 - AC2: Opening a session resumes it from stored state.
 - AC3: "Start new session" is available from this view at any time.
 
