@@ -1,0 +1,235 @@
+<!DOCTYPE html><html class="dark" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Lumina Editor - Split Screen</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-container-highest": "#2a3548",
+                        "primary": "#c0c1ff",
+                        "tertiary": "#c4c7c9",
+                        "on-tertiary-fixed": "#191c1e",
+                        "tertiary-fixed": "#e0e3e5",
+                        "tertiary-container": "#8e9193",
+                        "secondary-fixed": "#dae2fd",
+                        "outline": "#908fa0",
+                        "on-primary": "#1000a9",
+                        "surface-tint": "#c0c1ff",
+                        "surface": "#081425",
+                        "on-primary-fixed": "#07006c",
+                        "surface-container-low": "#111c2d",
+                        "secondary-fixed-dim": "#bec6e0",
+                        "inverse-primary": "#494bd6",
+                        "on-surface-variant": "#c7c4d7",
+                        "on-secondary-container": "#adb4ce",
+                        "inverse-surface": "#d8e3fb",
+                        "on-tertiary-fixed-variant": "#444749",
+                        "on-error-container": "#ffdad6",
+                        "error": "#ffb4ab",
+                        "on-primary-fixed-variant": "#2f2ebe",
+                        "on-tertiary-container": "#272a2c",
+                        "on-primary-container": "#0d0096",
+                        "on-tertiary": "#2d3133",
+                        "surface-container-lowest": "#040e1f",
+                        "primary-fixed-dim": "#c0c1ff",
+                        "on-secondary-fixed-variant": "#3f465c",
+                        "secondary": "#bec6e0",
+                        "primary-container": "#8083ff",
+                        "on-secondary": "#283044",
+                        "secondary-container": "#3f465c",
+                        "on-surface": "#d8e3fb",
+                        "tertiary-fixed-dim": "#c4c7c9",
+                        "surface-variant": "#2a3548",
+                        "surface-bright": "#2f3a4c",
+                        "outline-variant": "#464554",
+                        "on-background": "#d8e3fb",
+                        "primary-fixed": "#e1e0ff",
+                        "surface-container": "#152031",
+                        "on-secondary-fixed": "#131b2e",
+                        "inverse-on-surface": "#263143",
+                        "surface-container-high": "#1f2a3c",
+                        "error-container": "#93000a",
+                        "background": "#081425",
+                        "on-error": "#690005",
+                        "surface-dim": "#081425"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    spacing: {
+                        "margin-page": "2rem",
+                        "base": "4px",
+                        "gutter": "1.5rem",
+                        "editor_max_width": "840px",
+                        "sidebar_width": "320px"
+                    },
+                    fontFamily: {
+                        "label-sm": ["JetBrains Mono"],
+                        "body-md": ["Geist"],
+                        "body-lg": ["Geist"],
+                        "headline-md": ["Geist"],
+                        "headline-lg": ["Geist"],
+                        "code-md": ["JetBrains Mono"],
+                        "display": ["Geist"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #3f465c;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md h-screen overflow-hidden flex flex-col antialiased">
+<!-- TopAppBar -->
+<header class="docked full-width top-0 z-50 bg-surface border-b border-outline-variant flex justify-between items-center h-16 px-gutter w-full">
+<div class="flex items-center gap-4">
+<span class="font-headline-lg text-headline-lg font-semibold text-primary">Lumina Editor</span>
+</div>
+<nav class="hidden md:flex gap-6 items-center">
+<a class="text-primary border-b-2 border-primary font-bold font-body-md text-body-md px-2 py-4" href="#">Project</a>
+<a class="text-on-surface-variant hover:bg-surface-container-highest transition-colors font-body-md text-body-md px-2 py-4 rounded-t-md" href="#">History</a>
+<a class="text-on-surface-variant hover:bg-surface-container-highest transition-colors font-body-md text-body-md px-2 py-4 rounded-t-md" href="#">Export</a>
+</nav>
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant hover:bg-surface-container-highest transition-colors p-2 rounded-full">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container-highest transition-colors p-2 rounded-full">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<img alt="User avatar" class="w-8 h-8 rounded-full object-cover" data-alt="A small circular avatar placeholder image showing a subtle, dark-themed gradient background. Perfect for a generic user profile icon in a sleek UI setting. Designed with deep navy blues and faint violet accents for a technical aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAPUAmy4GXqJl0MeQH2ddLVom9PtSCVwOuE9inumSYgY5DKz_l-sOCnUdgJ6vWqxxyMhyoJG-YyCPJX6H41rBpkUNZ208x5N6hjPc7rHg_lZNXNtqLRdXy6QziJuE7jQX2_VKCAKRyV6j8cLvUw05ythiU8gABhs1x0hUJn5ECUcfvpK9EyIZonTxK8rE37Dtl_Ca3gx7YfwuSXC7ZyaQ0zKg74rvxDopji6zFbRk9ZcaOQ40GcamBw">
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex flex-1 overflow-hidden relative">
+<!-- SideNavBar (Lumina Assistant Chat) -->
+<aside class="flex flex-col h-full w-[320px] bg-surface-container-low border-r border-outline-variant z-40 shrink-0">
+<div class="p-4 border-b border-outline-variant shrink-0 flex items-center justify-between bg-surface-container-low">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-container/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" data-icon="forum">forum</span>
+</div>
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface">Lumina AI</h2>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Ready to assist</p>
+</div>
+</div>
+</div>
+<!-- Chat History -->
+<div class="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
+<!-- User Message -->
+<div class="flex justify-end">
+<div class="max-w-[85%] bg-transparent border-l-2 border-outline-variant pl-4 py-1">
+<p class="font-body-md text-on-surface">Can you help me outline the structure for a new React project? We are building a documentation site.</p>
+</div>
+</div>
+<!-- AI Message -->
+<div class="flex justify-start">
+<div class="max-w-[90%] bg-surface-container-high rounded-lg p-4 shadow-sm border border-outline-variant/30">
+<p class="font-body-md text-on-surface mb-2">Certainly. I've drafted a baseline structure in the editor. To refine the styling and component approach, what aesthetic are you aiming for?</p>
+<!-- Choice Cards -->
+<div class="gap-2 mt-4 flex-col flex">
+<button class="bg-surface hover:bg-surface-container-highest border border-outline-variant rounded-md p-3 text-left transition-colors group focus:border-primary ring-2 ring-primary"><span class="text-[10px] text-on-surface-variant block text-center">Clean, sparse, focus on content</span></button>
+<button class="bg-surface hover:bg-surface-container-highest border border-outline-variant rounded-md p-3 text-left transition-colors group"><span class="text-[10px] text-on-surface-variant block text-center">Structured, corporate, dense</span></button>
+<button class="bg-surface hover:bg-surface-container-highest border border-outline-variant rounded-md p-3 text-left transition-colors group"><span class="text-[10px] text-on-surface-variant block text-center">Vibrant, playful, bold typography</span></button>
+<button class="bg-surface hover:bg-surface-container-highest border border-outline-variant rounded-md p-3 text-left transition-colors group"><span class="text-[10px] text-on-surface-variant block text-center">High density, citation focused</span></button>
+</div><button class="w-full mt-4 bg-primary text-on-primary font-bold py-3 rounded-md hover:bg-primary-fixed transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" data-icon="check_circle">check_circle</span>
+  Confirm Selection
+</button>
+</div>
+</div>
+</div>
+<!-- Chat Input -->
+<div class="p-4 bg-surface-container-low border-t border-outline-variant shrink-0">
+<div class="relative">
+<textarea class="w-full bg-surface border-b border-outline-variant border-x-0 border-t-0 focus:ring-0 focus:border-primary text-on-surface font-body-md resize-none py-3 pr-10 bg-transparent placeholder-on-surface-variant" placeholder="Reply to Lumina..." rows="1"></textarea>
+<button class="absolute right-2 bottom-3 text-primary hover:text-primary-fixed transition-colors">
+<span class="material-symbols-outlined" data-icon="send">send</span>
+</button>
+</div>
+</div>
+</aside>
+<!-- Editor Area -->
+<section class="flex-1 bg-background overflow-y-auto custom-scrollbar relative flex flex-col items-center">
+<div class="w-full max-w-editor_max_width px-gutter py-margin-page my-8 bg-surface-dim rounded-xl border border-outline-variant/20 shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+<h1 class="font-display text-display text-on-surface mb-6 border-b border-outline-variant/30 pb-4">Project Specification</h1>
+<div class="prose prose-invert max-w-none font-body-lg text-on-surface-variant space-y-6">
+<p class="">This document outlines the initial structure for the new React-based documentation portal.</p>
+<h2 class="font-headline-lg text-headline-lg text-on-surface mt-8 mb-4">Directory Structure</h2>
+<div class="bg-surface-container rounded-lg p-4 border border-outline-variant font-code-md text-code-md text-secondary">
+<pre><code>src/
+├── components/
+│   ├── layout/
+│   │   ├── Sidebar.tsx
+│   │   ├── TopNav.tsx
+│   │   └── MainLayout.tsx
+│   ├── shared/
+│   │   ├── Button.tsx
+│   │   └── Card.tsx
+│   └── mdx/
+│       ├── CodeBlock.tsx
+│       └── Callout.tsx
+├── pages/
+│   ├── index.tsx
+│   ├── docs/
+│   │   └── [...slug].tsx
+│   └── _app.tsx
+├── styles/
+│   └── globals.css
+├── lib/
+│   └── mdx.ts
+└── public/
+    └── assets/</code></pre>
+</div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface mt-8 mb-4">Key Technologies</h2>
+<ul class="list-disc pl-6 space-y-2">
+<li class=""><strong>Next.js (App Router):</strong> For server-side rendering and static site generation.</li>
+<li class=""><strong>Tailwind CSS:</strong> Utility-first styling aligned with our design system tokens.</li>
+<li class=""><strong>MDX:</strong> Allowing JSX within Markdown for interactive documentation components.</li>
+</ul>
+<div class="flex items-center gap-2 mt-8 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+<span class="material-symbols-outlined text-primary" data-icon="info">info</span>
+<span class="font-body-md text-on-surface-variant">Awaiting aesthetic selection from the Assistant to finalize styling approaches.</span>
+</div>
+</div>
+</div>
+<!-- Bottom Status Bar -->
+<div class="absolute bottom-0 left-0 w-full h-6 bg-surface-container-lowest border-t border-outline-variant flex items-center justify-between px-4 z-10">
+<div class="flex items-center gap-4 text-on-surface-variant">
+<span class="font-label-sm text-label-sm">Markdown</span>
+<span class="font-label-sm text-label-sm">UTF-8</span>
+<span class="font-label-sm text-label-sm">Words: 142</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+<span class="font-label-sm text-label-sm text-primary">AI Ready</span>
+</div>
+</div>
+</section>
+</main>
+
+
+
+
+</body></html>
