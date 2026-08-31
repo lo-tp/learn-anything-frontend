@@ -76,6 +76,18 @@ Because calls never happen without learner input, a turn that crosses a stage bo
 - `core/llm` sits behind a small interface so the full loop is testable with a fake LLM: no API keys, deterministic.
 - The local model must support structured output. Local is the flow-testing box; DeepSeek is the quality bar.
 
+## Frontend
+
+One Next.js (TypeScript) frontend in the same monolith: chat sidebar + read-only progress-markdown pane, per the design in [`design/code.html`](../design/code.html).
+
+- **CSS:** Tailwind v4; the design's token palette is ported into the theme; `@tailwindcss/typography` for the document pane, with the `react-markdown` `components` mapping owning the domain blocks (plan checklist, per-question outcomes).
+- **Components:** shadcn/ui (Radix-based, in-repo). No runtime component frameworks.
+- **Icons / fonts:** lucide-react; Geist + JetBrains Mono via `next/font/google`.
+- **Markdown:** `react-markdown` + `remark-gfm` + shiki for code blocks. Progress-markdown download is a plain Blob — no library.
+- **Chat / turns:** `ai` package client (`useChat`), streaming; chat rehydrates from the `raw_messages` `UIMessage[]` projection (ADR 0004).
+- **The document pane is not an editor.** The progress markdown is a read-only projection (ADR 0001); learner adjustments flow through chat turns. No editor library (CodeMirror/Monaco) is in the stack.
+- **Deliberately absent:** state-management, form, animation, and data-fetching libraries.
+
 ## Deployment
 
 - One Docker container (the Next.js app) + one Postgres instance.

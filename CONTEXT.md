@@ -46,8 +46,12 @@ _Avoid_: retry, repeat
 
 **Progress markdown**:
 The rendered, live-updated, downloadable markdown report of one session's whole progress. A view, never the source of truth — the database is.
-_Avoid_: transcript, log file
+_Avoid_: transcript, log file, specification, spec doc
 
 **Session**:
 One learner's in-flight journey to master one knowledge point, resumable on any device from the database.
-_Avoid_: course, run, attempt
+_Avoid_: course, run, attempt, project
+
+**History**:
+The list of a learner's sessions — in-flight and complete — from which a learner resumes one or starts another.
+_Avoid_: projects, archive, past sessions
