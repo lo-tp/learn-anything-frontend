@@ -45,7 +45,7 @@ A different Question on the same LearningStep, generated after a wrong answer in
 _Avoid_: retry, repeat
 
 **Progress markdown**:
-The rendered, live-updated, downloadable markdown report of one session's whole progress. A view, never the source of truth — the database is.
+The rendered, live-updated markdown report of one session's whole progress. A view, never the source of truth — the database is.
 _Avoid_: transcript, log file, specification, spec doc
 
 **Session**:
