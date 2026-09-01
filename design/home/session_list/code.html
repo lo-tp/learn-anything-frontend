@@ -1,0 +1,264 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Lumina AI - Learning Sessions</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Google Fonts: Geist & JetBrains Mono -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary": "#c4c7c9",
+                        "on-tertiary-container": "#272a2c",
+                        "on-error": "#690005",
+                        "surface-container": "#152031",
+                        "on-primary-fixed": "#07006c",
+                        "on-surface": "#d8e3fb",
+                        "tertiary-fixed-dim": "#c4c7c9",
+                        "on-primary-fixed-variant": "#2f2ebe",
+                        "outline-variant": "#464554",
+                        "on-surface-variant": "#c7c4d7",
+                        "surface-container-lowest": "#040e1f",
+                        "tertiary-fixed": "#e0e3e5",
+                        "secondary-container": "#3f465c",
+                        "on-primary": "#1000a9",
+                        "surface-container-highest": "#2a3548",
+                        "secondary-fixed": "#dae2fd",
+                        "primary-fixed": "#e1e0ff",
+                        "surface-dim": "#081425",
+                        "primary": "#c0c1ff",
+                        "background": "#081425",
+                        "surface": "#081425",
+                        "outline": "#908fa0",
+                        "on-secondary-fixed": "#131b2e",
+                        "surface-tint": "#c0c1ff",
+                        "inverse-on-surface": "#263143",
+                        "primary-container": "#8083ff",
+                        "tertiary-container": "#8e9193",
+                        "secondary": "#bec6e0",
+                        "error": "#ffb4ab",
+                        "secondary-fixed-dim": "#bec6e0",
+                        "on-secondary-container": "#adb4ce",
+                        "on-tertiary-fixed-variant": "#444749",
+                        "error-container": "#93000a",
+                        "on-secondary": "#283044",
+                        "on-primary-container": "#0d0096",
+                        "primary-fixed-dim": "#c0c1ff",
+                        "on-error-container": "#ffdad6",
+                        "surface-container-high": "#1f2a3c",
+                        "inverse-surface": "#d8e3fb",
+                        "surface-bright": "#2f3a4c",
+                        "on-secondary-fixed-variant": "#3f465c",
+                        "inverse-primary": "#494bd6",
+                        "on-background": "#d8e3fb",
+                        "surface-variant": "#2a3548",
+                        "on-tertiary": "#2d3133",
+                        "on-tertiary-fixed": "#191c1e",
+                        "surface-container-low": "#111c2d"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "editor_max_width": "840px",
+                        "gutter": "1.5rem",
+                        "base": "4px",
+                        "margin-page": "2rem",
+                        "sidebar_width": "320px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Geist"],
+                        "label-sm": ["JetBrains Mono"],
+                        "headline-lg": ["Geist"],
+                        "display": ["Geist"],
+                        "code-md": ["JetBrains Mono"],
+                        "headline-md": ["Geist"],
+                        "body-lg": ["Geist"]
+                    },
+                    "fontSize": {
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                        "headline-lg": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "500"}],
+                        "display": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "code-md": ["14px", {"lineHeight": "22px", "fontWeight": "400"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "500"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1;
+        }
+        
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: theme('colors.background');
+        }
+        ::-webkit-scrollbar-thumb {
+            background: theme('colors.surface-variant');
+            border-radius: theme('borderRadius.full');
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: theme('colors.outline');
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen antialiased selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopAppBar -->
+<header class="fixed bg-surface dark:bg-surface border-b border-outline-variant dark:border-outline-variant docked full-width top-0 z-50 flex justify-between items-center h-16 px-gutter w-full">
+<div class="flex items-center gap-4">
+<!-- Brand Logo -->
+<span class="font-headline-lg text-headline-lg font-semibold text-primary dark:text-primary-fixed-dim">Lumina Editor</span>
+</div>
+<!-- Navigation Links (Desktop only based on rules, hidden on mobile) -->
+<nav class="hidden md:flex items-center gap-6">
+<a class="font-headline-md text-headline-md text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-colors px-3 py-2 rounded-DEFAULT" href="#">Project</a>
+<a class="font-headline-md text-headline-md text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-colors px-3 py-2 rounded-DEFAULT" href="#">History</a>
+<a class="font-headline-md text-headline-md text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-colors px-3 py-2 rounded-DEFAULT" href="#">Export</a>
+</nav>
+<!-- Trailing Actions & Profile -->
+<div class="flex items-center gap-4">
+<button class="text-on-surface hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-colors p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<button class="text-on-surface hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-colors p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined">help</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant">
+<img alt="User avatar" class="w-full h-full object-cover" data-alt="A minimalist abstract user avatar profile picture, utilizing deep oceanic blues and soft glowing accents against a dark navy background. The style is clean, modern, and perfectly suited for a high-end AI developer interface in dark mode." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC2TsATeA1FM3uK5IiOVFPLcSbGXSqyjbajTQG_SyXPSfHx6QtWbFumeOqbg97t-W1TkJlPnB5SKINKRl9njWMoMsjnx7urf-4FoeDLfZnPCTbM8385yebBGT2W3fHAnQDQGtAsx_jdgmQ3Y-Az-WkT4Uj17tDzG1GJ8VPKo5bar6jpZLP_UxNN0prIprYdlAjBWEPEWCsFCgAMi2q2brHxJKVIqJD2lp3xVsHIgrSYQAVdZOBulyze">
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-16 min-h-screen flex flex-col relative">
+<div class="flex-1 w-full max-w-[1200px] mx-auto p-margin-page">
+<!-- Page Header & Global CTA -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+<div>
+<h1 class="font-display text-display text-on-surface mb-2">My Sessions</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl">Resume your deep dives or launch a new contextual inquiry.</p>
+</div>
+<button class="bg-primary hover:bg-primary-fixed text-on-primary-container font-headline-md text-headline-md py-3 px-6 rounded-lg shadow-[0_4px_20px_rgba(192,193,255,0.15)] transition-all transform hover:-translate-y-0.5 flex items-center gap-2 flex-shrink-0" id="btn-start-session">
+<span class="material-symbols-outlined">add_circle</span>
+                    Start New Session
+                </button>
+</div>
+<!-- List of Existing Sessions -->
+<div class="flex flex-col gap-4">
+<!-- Card 1: Focus on Progress -->
+<article class="bg-surface-container border border-outline-variant/50 rounded-xl p-6 flex flex-col md:flex-row md:items-center gap-4 md:gap-6 hover:border-primary/50 hover:bg-surface-container-high transition-all group cursor-pointer relative overflow-hidden"><div class="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full -z-0"></div><div class="flex-shrink-0 w-12 h-12 rounded-lg bg-surface-bright flex items-center justify-center text-primary border border-outline-variant/30 relative z-10"><span class="material-symbols-outlined">code_blocks</span></div><div class="flex-1 relative z-10"><h3 class="font-headline-md text-headline-md text-on-surface mb-1">React Hooks Deep Dive</h3><span class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined" style="font-size: 14px;">schedule</span>2 hrs ago</span></div><div class="relative z-10 flex items-center gap-2 text-primary"><span class="material-symbols-outlined" style="font-size: 18px;">search</span><span class="font-label-sm text-label-sm font-semibold uppercase tracking-wider">Probing</span></div></article>
+<!-- Card 2: Focus on Summary/Tags -->
+<article class="bg-surface-container border border-outline-variant/50 rounded-xl p-6 flex flex-col md:flex-row md:items-center gap-4 md:gap-6 hover:border-secondary/50 hover:bg-surface-container-high transition-all group cursor-pointer relative overflow-hidden"><div class="absolute top-0 right-0 w-32 h-32 bg-secondary/5 rounded-bl-full -z-0"></div><div class="flex-shrink-0 w-12 h-12 rounded-lg bg-surface-bright flex items-center justify-center text-secondary border border-outline-variant/30 relative z-10"><span class="material-symbols-outlined">architecture</span></div><div class="flex-1 relative z-10"><h3 class="font-headline-md text-headline-md text-on-surface mb-1">System Design Patterns</h3><span class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined" style="font-size: 14px;">schedule</span>Yesterday</span></div><div class="relative z-10 flex items-center gap-2 text-secondary"><span class="material-symbols-outlined" style="font-size: 18px;">edit_note</span><span class="font-label-sm text-label-sm font-semibold uppercase tracking-wider">Planning</span></div></article>
+<!-- Card 3: New/Recent Setup -->
+<article class="bg-surface-container border border-outline-variant/50 rounded-xl p-6 flex flex-col md:flex-row md:items-center gap-4 md:gap-6 hover:border-tertiary/50 hover:bg-surface-container-high transition-all group cursor-pointer relative overflow-hidden"><div class="absolute top-0 right-0 w-32 h-32 bg-tertiary/5 rounded-bl-full -z-0"></div><div class="flex-shrink-0 w-12 h-12 rounded-lg bg-surface-bright flex items-center justify-center text-tertiary border border-outline-variant/30 relative z-10"><span class="material-symbols-outlined">terminal</span></div><div class="flex-1 relative z-10"><h3 class="font-headline-md text-headline-md text-on-surface mb-1">Advanced TypeScript</h3><span class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined" style="font-size: 14px;">schedule</span>Oct 24</span></div><div class="relative z-10 flex items-center gap-2 text-tertiary"><span class="material-symbols-outlined" style="font-size: 18px;">check_circle</span><span class="font-label-sm text-label-sm font-semibold uppercase tracking-wider">Completed</span></div></article>
+<!-- Card 4: Paused Session -->
+<article class="bg-surface-container border border-outline-variant/30 rounded-xl p-6 flex flex-col md:flex-row md:items-center gap-4 md:gap-6 hover:border-outline-variant hover:bg-surface-container-high transition-all group cursor-pointer opacity-80 hover:opacity-100"><div class="flex-shrink-0 w-12 h-12 rounded-lg bg-surface-bright flex items-center justify-center text-outline border border-outline-variant/30 relative z-10"><span class="material-symbols-outlined">api</span></div><div class="flex-1 relative z-10"><h3 class="font-headline-md text-headline-md text-on-surface mb-1">GraphQL API Setup</h3><span class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined" style="font-size: 14px;">schedule</span>Oct 15</span></div><div class="relative z-10 flex items-center gap-2 text-on-surface-variant"><span class="material-symbols-outlined" style="font-size: 18px;">pause_circle</span><span class="font-label-sm text-label-sm font-semibold uppercase tracking-wider">Paused</span></div></article>
+</div>
+</div>
+</main>
+<!-- Global Modal Overlay (Hidden by default) -->
+<div class="fixed inset-0 z-[100] hidden flex items-center justify-center" id="new-session-modal">
+<!-- Backdrop Blur -->
+<div class="absolute inset-0 bg-background/80 backdrop-blur-sm transition-opacity" id="modal-backdrop"></div>
+<!-- Modal Content Container -->
+<div class="relative z-10 w-full max-w-lg bg-surface-container border border-outline-variant rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] flex flex-col overflow-hidden transform scale-95 opacity-0 transition-all duration-300" id="modal-panel">
+<!-- Header -->
+<div class="px-6 py-5 border-b border-outline-variant/50 flex justify-between items-center bg-surface-container-low">
+<h2 class="font-headline-lg text-headline-lg text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">rocket_launch</span>
+                    Start a New Learning Journey
+                </h2>
+<button class="text-on-surface-variant hover:text-on-surface hover:bg-surface-bright p-1.5 rounded-full transition-colors flex items-center justify-center" id="btn-close-modal">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Body -->
+<div class="p-6">
+<label class="block font-body-md text-body-md text-on-surface mb-3" for="learning-goal">What are we focusing on today?</label>
+<div class="relative group">
+<textarea class="w-full bg-surface-bright border-b-2 border-outline-variant focus:border-primary text-on-surface font-body-md p-4 rounded-t-lg outline-none transition-colors resize-none placeholder:text-on-surface-variant/50" id="learning-goal" placeholder="Describe your learning goal... (e.g., 'I want to understand Rust memory management and ownership rules.')" rows="4"></textarea>
+<!-- AI Suggestions Chips -->
+<div class="flex flex-wrap gap-2 mt-4">
+<button class="font-label-sm text-label-sm text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 px-3 py-1.5 rounded-DEFAULT transition-colors">Explain concepts</button>
+<button class="font-label-sm text-label-sm text-secondary bg-secondary/10 hover:bg-secondary/20 border border-secondary/20 px-3 py-1.5 rounded-DEFAULT transition-colors">Code review</button>
+<button class="font-label-sm text-label-sm text-tertiary bg-tertiary/10 hover:bg-tertiary/20 border border-tertiary/20 px-3 py-1.5 rounded-DEFAULT transition-colors">Architecture planning</button>
+</div>
+</div>
+</div>
+<!-- Footer -->
+<div class="px-6 py-4 bg-surface-container-low border-t border-outline-variant/50 flex justify-end gap-3">
+<button class="px-4 py-2 font-headline-md text-headline-md text-on-surface-variant hover:text-on-surface hover:bg-surface-bright rounded-lg transition-colors border border-transparent hover:border-outline-variant" id="btn-cancel-modal">
+                    Cancel
+                </button>
+<button class="px-6 py-2 bg-primary hover:bg-primary-fixed text-on-primary-container font-headline-md text-headline-md rounded-lg shadow-sm transition-colors flex items-center gap-2 group">
+                    Start AI Assistant
+                    <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Micro-interactions Script -->
+<script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const btnStartSession = document.getElementById('btn-start-session');
+            const modal = document.getElementById('new-session-modal');
+            const backdrop = document.getElementById('modal-backdrop');
+            const modalPanel = document.getElementById('modal-panel');
+            const btnCloseModal = document.getElementById('btn-close-modal');
+            const btnCancelModal = document.getElementById('btn-cancel-modal');
+
+            const openModal = () => {
+                modal.classList.remove('hidden');
+                // Trigger reflow
+                void modal.offsetWidth;
+                modalPanel.classList.remove('scale-95', 'opacity-0');
+                modalPanel.classList.add('scale-100', 'opacity-100');
+                document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            };
+
+            const closeModal = () => {
+                modalPanel.classList.remove('scale-100', 'opacity-100');
+                modalPanel.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                    document.body.style.overflow = '';
+                }, 300); // Wait for transition
+            };
+
+            btnStartSession.addEventListener('click', openModal);
+            btnCloseModal.addEventListener('click', closeModal);
+            btnCancelModal.addEventListener('click', closeModal);
+            backdrop.addEventListener('click', closeModal);
+            
+            // Escape key to close
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+                    closeModal();
+                }
+            });
+        });
+    </script>
+
+
+</body></html>
