@@ -1,15 +1,10 @@
-import { Frame } from "@/components/frame";
 import { HistoryView } from "@/components/history-view";
 import { listSessions } from "@/lib/dummy-sessions";
 
 /**
- * Home = the learner's History: the server-side fetch of the dummy store,
- * rendered inside the shared frame.
+ * Home = the learner's History: the server-side fetch of the dummy store.
+ * The shared frame is applied by the root layout.
  */
 export default function Home() {
-  return (
-    <Frame>
-      <HistoryView initialSessions={listSessions()} />
-    </Frame>
-  );
+  return <HistoryView initialSessions={listSessions()} />;
 }
