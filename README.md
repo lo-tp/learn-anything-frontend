@@ -45,7 +45,7 @@ npm run dev     # http://localhost:3000 — the design shell (placeholder conten
 
 `npm test` runs the unit tests (Vitest) without starting the app; `npm run check` runs lint + typecheck + tests in one go (also run automatically by the git `pre-push` hook).
 
-`scripts/setup-db.sh <dev|test>` rebuilds one database from scratch: drop + create, apply the schema from `db/schema.ts` via `drizzle-kit push`, and (for `dev`) apply `db/seed.sql`. Re-running it **wipes that database** — dev data is disposable pre-MVP. The script starts the compose db for you if it is not running. `podman compose down` stops the db (`podman compose down -v` also wipes its volume).
+`scripts/setup-db.sh <dev|test>` rebuilds one database from scratch: drop + create, apply the schema from `db/schema.ts` via `drizzle-kit push`, and (for `dev`) apply `db/seed.sql`. Re-running it **wipes that database** — dev data is disposable pre-MVP. It requires the compose Postgres to be running first (`podman compose up -d db` — step 1) and fails fast with a hint otherwise. `podman compose down` stops the db (`podman compose down -v` also wipes its volume).
 
 ## Docs
 

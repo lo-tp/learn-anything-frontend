@@ -10,9 +10,9 @@
 # Re-running WIPES the target database — dev data is disposable pre-MVP.
 #
 # Requires: node_modules installed (drizzle-kit), psql, and the compose
-# Postgres service up on the target's host:port (this script runs
-# `compose up -d db` itself if needed). A running app's pooled connections
-# to the target db block the drop — stop it first.
+# Postgres service ALREADY RUNNING on the target's host:port
+# (`podman compose up -d db`) — this script does not start it. A running
+# app's pooled connections to the target db block the drop — stop it first.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -45,25 +45,10 @@ psql_meta() { # psql against the always-present `postgres` db
   psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d postgres -v ON_ERROR_STOP=1 "$@"
 }
 
-# Ensure the compose Postgres is up and accepting connections.
-if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-  compose() { docker compose "$@"; }
-else
-  compose() { podman compose "$@"; }
-fi
-compose up -d db
-
-ready=0
-for i in $(seq 1 60); do
-  if psql_meta -c 'SELECT 1' >/dev/null 2>&1; then
-    ready=1
-    break
-  fi
-  sleep 1
-done
-if [ "$ready" != 1 ]; then
-  echo "error: Postgres did not become ready on ${DB_HOST}:${DB_PORT}" >&2
-  compose logs db >&2
+# The compose Postgres service must already be running; fail fast if not.
+if ! PGCONNECT_TIMEOUT=3 psql_meta -c 'SELECT 1' >/dev/null 2>&1; then
+  echo "error: Postgres is not reachable at ${DB_HOST}:${DB_PORT}." >&2
+  echo "Start it first: podman compose up -d db" >&2
   exit 1
 fi
 
