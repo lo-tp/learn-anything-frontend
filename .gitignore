@@ -31,3 +31,7 @@ Thumbs.db
 # Editors
 .idea/
 *.swp
+
+# Next.js
+.next/
+next-env.d.ts

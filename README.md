@@ -2,7 +2,7 @@
 
 An AI conversation-driven learning assistant. Describe the knowledge you want to learn, and it walks you to mastery — one quiz question at a time.
 
-> Status: design phase. The behaviour is fully specified in the docs below; the implementation is not yet in the repo.
+> Status: under construction. The app shell (chat sidebar + document pane) runs on Next.js; the learning flow is being built against the spec below.
 
 ## How it works
 
@@ -35,6 +35,14 @@ cp .env.example .env
 # 3. Create/refresh the databases (safe to re-run any time)
 scripts/dev-db.sh     # learn_anything — schema + seed, never drops data
 scripts/test-db.sh    # learn_anything_test — dropped and recreated clean
+```
+
+Run the app:
+
+```bash
+npm install
+npm run dev     # http://localhost:3000 — the design shell (placeholder content)
+npm test        # unit tests (Vitest)
 ```
 
 `scripts/dev-db.sh` applies `db/schema.sql` + `db/seed.sql` idempotently; `scripts/test-db.sh` rebuilds `learn_anything_test` from scratch (schema only, no seed). Both start the compose db for you if it is not running. `podman compose down` stops the db (`podman compose down -v` also wipes its volume).
