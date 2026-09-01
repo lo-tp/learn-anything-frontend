@@ -51,8 +51,8 @@ const force = mass * acceleration; // 6 N
 
 /**
  * The placeholder session view: chat sidebar + document pane. Stands in
- * for the real session page (later tickets on map #11); rendered inside
- * `<Frame>` by `/` and `/demo` until then.
+ * for the real session page (later tickets on map #11). Mounted by `/demo`
+ * until then; the shared frame is applied by the root layout.
  */
 export async function SessionShell() {
   const highlighter = await createHighlighter({
