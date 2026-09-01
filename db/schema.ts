@@ -1,10 +1,10 @@
 /**
  * The canonical database schema (ADR 0005).
  *
- * Applied by `scripts/dev-db.sh` / `scripts/test-db.sh` via
- * `drizzle-kit push --force` against a from-scratch database — the scripts
- * drop and recreate their db on every run, so there is no live diffing and
- * no migration path (dev data is disposable pre-MVP). There are no
+ * Applied by `scripts/setup-db.sh <db-url>` via `drizzle-kit push --force`
+ * against a from-scratch database — the script drops and recreates the db
+ * on every run, so there is no live diffing and no migration path (dev data
+ * is disposable pre-MVP). There are no
  * drizzle-kit migrations in this repo. Shape rationale: docs/schema.md.
  */
 import { sql } from "drizzle-orm";

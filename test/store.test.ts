@@ -2,7 +2,7 @@
  * Integration test for `core/store` — the Postgres access layer.
  *
  * Runs against the dedicated `learn_anything_test` database, recreated
- * from scratch by `scripts/test-db.sh` before the suite starts (schema
+ * from scratch by `scripts/setup-db.sh` before the suite starts (schema
  * only — this test inserts its own fixtures).
  */
 import { execSync } from "node:child_process";
@@ -25,7 +25,7 @@ let store: typeof import("../core/store");
 const fixture = new pg.Client({ connectionString: TEST_DATABASE_URL });
 
 beforeAll(async () => {
-  execSync("bash scripts/test-db.sh", { stdio: "inherit" });
+  execSync(`bash scripts/setup-db.sh ${TEST_DATABASE_URL}`, { stdio: "inherit" });
   // The store resolves DATABASE_URL on first use; point it at the test db.
   process.env.DATABASE_URL = TEST_DATABASE_URL;
   store = await import("../core/store");

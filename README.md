@@ -32,18 +32,20 @@ podman compose up -d
 #    OpenAI-compatible server (e.g. llama.cpp)
 cp .env.example .env
 
-# 3. Create/refresh the databases (safe to re-run any time)
-scripts/dev-db.sh     # learn_anything — schema + seed, never drops data
-scripts/test-db.sh    # learn_anything_test — dropped and recreated clean
-
-# 4. Install dependencies and start the app
+# 3. Install dependencies (needed by the db script: drizzle-kit)
 npm install
+
+# 4. Rebuild the databases (each run WIPES its database — that is the point)
+scripts/setup-db.sh postgresql://learn_anything:learn_anything@localhost:5434/learn_anything --seed
+scripts/setup-db.sh postgresql://learn_anything:learn_anything@localhost:5434/learn_anything_test
+
+# 5. Start the app
 npm run dev     # http://localhost:3000 — the design shell (placeholder content)
 ```
 
 `npm test` runs the unit tests (Vitest) without starting the app; `npm run check` runs lint + typecheck + tests in one go (also run automatically by the git `pre-push` hook).
 
-`scripts/dev-db.sh` rebuilds the dev db from scratch (drop + create + schema from `db/schema.ts` via `drizzle-kit push` + `db/seed.sql`) — re-running it **wipes dev data**; `scripts/test-db.sh` likewise rebuilds `learn_anything_test` (schema only, no seed). Both start the compose db for you if it is not running. `podman compose down` stops the db (`podman compose down -v` also wipes its volume).
+`scripts/setup-db.sh <db-url> [--seed]` rebuilds one database from scratch: drop + create, apply the schema from `db/schema.ts` via `drizzle-kit push`, and apply `db/seed.sql` when `--seed` is given (dev). Re-running it **wipes that database** — dev data is disposable pre-MVP. The script starts the compose db for you if it is not running. `podman compose down` stops the db (`podman compose down -v` also wipes its volume).
 
 ## Docs
 

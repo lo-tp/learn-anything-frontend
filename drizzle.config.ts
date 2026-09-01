@@ -1,8 +1,8 @@
 import { defineConfig } from "drizzle-kit";
 
 /**
- * `db/schema.ts` is the canonical schema (ADR 0005). scripts/*.sh apply it
- * with `drizzle-kit push --force` against the url in DATABASE_URL;
+ * `db/schema.ts` is the canonical schema (ADR 0005). scripts/setup-db.sh
+ * applies it with `drizzle-kit push --force` against its url argument;
  * `npx drizzle-kit pull` remains handy for inspecting a live db's drift.
  * No drizzle-kit migrations are generated in this repo.
  */
