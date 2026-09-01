@@ -1,12 +1,18 @@
 import { Root } from "@/views/root";
-import { listSessions } from "@/lib/dummy-sessions";
+import { getCurrentLearner, listSessions } from "@/lib/dummy-sessions";
 
 /**
- * Home route: runs the server-side seam for the initial History (SSR) and
- * hands it to the home page in `views/root.tsx`, which owns the interactive
- * logic and renders it from pure components. The shared frame is applied by
- * the root layout.
+ * Render per request, not as a build-time snapshot — the History is scoped to
+ * the current learner, resolved at request time (see `getCurrentLearner`).
+ */
+export const dynamic = "force-dynamic";
+
+/**
+ * Home route: resolve the current learner and hand them their History. The
+ * home page in `views/root.tsx` owns the interactive logic and renders it from
+ * pure components. The shared frame is applied by the root layout.
  */
 export default function Home() {
-  return <Root initialSessions={listSessions()} />;
+  const { id } = getCurrentLearner();
+  return <Root initialSessions={listSessions(id)} />;
 }

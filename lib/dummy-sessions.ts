@@ -2,9 +2,10 @@
  * `lib/dummy-sessions` — dummy in-memory session store (server-side only;
  * never import from client components).
  *
- * The single seam the app uses to read a learner's History: `listSessions()`.
- * Swap this module for the real store later — the pages and
- * `app/api/sessions` only ever see `SessionSummary` rows.
+ * The seam the app uses to read a learner's History: resolve the current
+ * learner with `getCurrentLearner()`, then `listSessions(userId)` their rows.
+ * Swap this module for `core/store` later — the pages and `app/api/sessions`
+ * only ever see `SessionSummary` rows.
  */
 
 /**
@@ -37,7 +38,23 @@ export interface SessionSummary {
  */
 const USE_FIXTURES = true;
 
-const store = new Map<string, SessionSummary>();
+/**
+ * The MVP's single learner (see `db/seed.sql` — one static row). Post-MVP the
+ * current-learner resolution becomes a session-cookie -> user lookup; until
+ * then every request resolves to this id. Mirrors `core/store`.
+ */
+export const MVP_LEARNER_ID = "00000000-0000-0000-0000-000000000001";
+
+/**
+ * Resolve the current learner. MVP: always the seeded learner. Mirrors
+ * `core/store.getCurrentLearner()` — the one identity seam the app uses.
+ */
+export function getCurrentLearner(): { id: string } {
+  return { id: MVP_LEARNER_ID };
+}
+
+/** The learners' sessions, keyed by learner id. */
+const store = new Map<string, SessionSummary[]>();
 
 function iso(msBefore: number, now: Date): string {
   return new Date(now.getTime() - msBefore).toISOString();
@@ -72,14 +89,16 @@ function seedFixtures(): void {
       stage: "executing",
     },
   ];
-  for (const session of fixtures) store.set(session.id, session);
+  store.set(MVP_LEARNER_ID, fixtures);
 }
 
 if (USE_FIXTURES) {
   seedFixtures();
 }
 
-/** All sessions, most recently created first. */
-export function listSessions(): SessionSummary[] {
-  return [...store.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+/** The learner's sessions, most recently created first; `[]` if they have none. */
+export function listSessions(userId: string): SessionSummary[] {
+  return [...(store.get(userId) ?? [])].sort((a, b) =>
+    b.createdAt.localeCompare(a.createdAt),
+  );
 }
