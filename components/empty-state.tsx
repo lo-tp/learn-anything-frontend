@@ -1,17 +1,38 @@
+import { Sparkles } from "lucide-react";
+
 /**
- * Placeholder empty state — the real design lands with the empty-state
- * ticket; this keeps the home page (`views/root.tsx`) rendering something when the
- * fixture list is toggled off.
+ * The empty History state, per `design/home/empty_state`: a subtle primary
+ * glow, a double-ring medallion holding a Sparkles icon, the "No sessions
+ * yet" heading, the design's body copy, and — at the bottom — the caller's CTA
+ * (`children`), which is the shared primary button supplied by the page.
  */
-export function EmptyState() {
+export function EmptyState({ children }: { children?: React.ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center py-24 text-center">
-      <p className="font-display text-xl font-medium text-on-surface">
-        No sessions yet
-      </p>
-      <p className="mt-2 text-on-surface-variant">
-        Start your first session to see it here.
-      </p>
+    <div className="relative flex flex-col items-center justify-center overflow-hidden py-24 text-center">
+      {/* Subtle primary glow behind the content */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/5 blur-[120px]"
+      />
+
+      <div className="relative z-10 flex w-full max-w-md flex-col items-center text-center">
+        {/* Double-ring icon medallion */}
+        <div className="relative mb-8 flex h-24 w-24 items-center justify-center">
+          <div className="absolute inset-0 rotate-3 rounded-full border border-outline-variant bg-surface-container-high shadow-[0_4px_20px_rgba(0,0,0,0.4)]" />
+          <div className="absolute inset-0 -rotate-6 rounded-full border border-outline-variant/50 bg-surface-container-highest" />
+          <Sparkles className="relative z-10 size-12 text-primary" strokeWidth={1.5} />
+        </div>
+
+        <h2 className="mb-4 font-display text-3xl font-semibold tracking-tight text-on-surface">
+          No sessions yet
+        </h2>
+        <p className="mx-auto max-w-[360px] text-lg leading-relaxed text-on-surface-variant">
+          Start your first deep dive or launch a contextual inquiry to begin
+          your learning journey.
+        </p>
+
+        {children ? <div className="mt-10">{children}</div> : null}
+      </div>
     </div>
   );
 }
