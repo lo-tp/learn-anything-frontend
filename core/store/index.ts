@@ -7,7 +7,7 @@
  * user's session reject with `StoreError`.
  *
  * Connection: a single lazy `pg` pool from `DATABASE_URL`, queried through
- * Drizzle (`db/schema.ts` mirrors the canonical DDL in `db/schema.sql`).
+ * Drizzle against the canonical schema in `db/schema.ts`.
  *
  * MVP learner resolution: `getCurrentLearner()` returns the seeded row from
  * `db/seed.sql` for every request; it becomes a session-cookie lookup when

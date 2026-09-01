@@ -43,7 +43,7 @@ npm run dev     # http://localhost:3000 — the design shell (placeholder conten
 
 `npm test` runs the unit tests (Vitest) without starting the app; `npm run check` runs lint + typecheck + tests in one go (also run automatically by the git `pre-push` hook).
 
-`scripts/dev-db.sh` applies `db/schema.sql` + `db/seed.sql` idempotently; `scripts/test-db.sh` rebuilds `learn_anything_test` from scratch (schema only, no seed). Both start the compose db for you if it is not running. `podman compose down` stops the db (`podman compose down -v` also wipes its volume).
+`scripts/dev-db.sh` rebuilds the dev db from scratch (drop + create + schema from `db/schema.ts` via `drizzle-kit push` + `db/seed.sql`) — re-running it **wipes dev data**; `scripts/test-db.sh` likewise rebuilds `learn_anything_test` (schema only, no seed). Both start the compose db for you if it is not running. `podman compose down` stops the db (`podman compose down -v` also wipes its volume).
 
 ## Docs
 

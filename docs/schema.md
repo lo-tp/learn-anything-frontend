@@ -1,6 +1,6 @@
 # Schema — Learn Anything
 
-Canonical DDL: [`db/schema.sql`](../db/schema.sql) (run it, then [`db/seed.sql`](../db/seed.sql)). This doc records why each table has the shape it does and which invariants the database enforces versus the stage machine. Terminology per [`CONTEXT.md`](../CONTEXT.md).
+Canonical schema: [`db/schema.ts`](../db/schema.ts) (Drizzle; applied by the db scripts via `drizzle-kit push` per [ADR 0005](adr/0005-canonical-schema-is-drizzle-ts.md), seeded by [`db/seed.sql`](../db/seed.sql)). This doc records why each table has the shape it does and which invariants the database enforces versus the stage machine. Terminology per [`CONTEXT.md`](../CONTEXT.md).
 
 ## Model
 

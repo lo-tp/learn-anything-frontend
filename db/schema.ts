@@ -1,21 +1,22 @@
 /**
- * Drizzle mirror of `db/schema.sql`.
+ * The canonical database schema (ADR 0005).
  *
- * `db/schema.sql` stays the canonical DDL — it is what `scripts/dev-db.sh`
- * and `scripts/test-db.sh` apply. This file exists purely for Drizzle's
- * typed queries; there are no drizzle-kit migrations in this repo.
- *
- * After any change to `db/schema.sql`, re-verify the mirror with
- * `npx drizzle-kit pull` (against a fresh schema-only db) and reconcile.
+ * Applied by `scripts/dev-db.sh` / `scripts/test-db.sh` via
+ * `drizzle-kit push --force` against a from-scratch database — the scripts
+ * drop and recreate their db on every run, so there is no live diffing and
+ * no migration path (dev data is disposable pre-MVP). There are no
+ * drizzle-kit migrations in this repo. Shape rationale: docs/schema.md.
  */
+import { sql } from "drizzle-orm";
 import {
   bigint,
+  check,
   index,
   jsonb,
   pgTable,
   text,
   timestamp,
-  uniqueIndex,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -23,13 +24,13 @@ export const users = pgTable(
   "users",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    email: text("email").notNull().unique(),
+    email: text("email").notNull(),
     name: text("name").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
-  (t) => [uniqueIndex("users_email_key").on(t.email)],
+  (t) => [unique("users_email_key").on(t.email)],
 );
 
 export const sessions = pgTable(
@@ -78,7 +79,13 @@ export const sessionMessages = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("session_messages_session_id_idx").on(t.sessionId)],
+  (t) => [
+    index("session_messages_session_id_idx").on(t.sessionId),
+    check(
+      "session_messages_type_check",
+      sql`${t.type} IN ('intake','probing','planning','review','executing','complete')`,
+    ),
+  ],
 );
 
 export const rawMessages = pgTable(

@@ -1,9 +1,10 @@
 import { defineConfig } from "drizzle-kit";
 
 /**
- * drizzle-kit is used only for schema inspection/mirroring
- * (`npx drizzle-kit pull`). Migrations are NOT generated here —
- * `db/schema.sql` is the canonical DDL, applied by scripts/*.sh.
+ * `db/schema.ts` is the canonical schema (ADR 0005). scripts/*.sh apply it
+ * with `drizzle-kit push --force` against the url in DATABASE_URL;
+ * `npx drizzle-kit pull` remains handy for inspecting a live db's drift.
+ * No drizzle-kit migrations are generated in this repo.
  */
 export default defineConfig({
   dialect: "postgresql",

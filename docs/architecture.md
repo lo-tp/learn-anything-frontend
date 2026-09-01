@@ -138,7 +138,7 @@ One Next.js (TypeScript) frontend in the same monolith: chat sidebar + read-only
 
 ## Deferred (explicitly out of scope for this design)
 
-- Migrations beyond [`db/schema.sql`](../db/schema.sql), API routes
+- Real schema migrations (the dev/test dbs sync straight from [`db/schema.ts`](../db/schema.ts) via `drizzle-kit push`, ADR 0005), extra API routes
 - Real auth, password reset, email
 - AI failure modes (timeouts, provider errors, malformed output) — deferred per user stories; the seam for them is contract validation + a bounded retry at the call site
 - Deleting/abandoning sessions, concurrent writes to one session, duplicate knowledge points
