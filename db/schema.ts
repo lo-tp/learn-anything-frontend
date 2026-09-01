@@ -1,7 +1,7 @@
 /**
  * The canonical database schema (ADR 0005).
  *
- * Applied by `scripts/setup-db.sh <db-url>` via `drizzle-kit push --force`
+ * Applied by `scripts/setup-db.sh <dev|test>` via `drizzle-kit push --force`
  * against a from-scratch database — the script drops and recreates the db
  * on every run, so there is no live diffing and no migration path (dev data
  * is disposable pre-MVP). There are no

@@ -70,7 +70,7 @@ export async function closeStore(): Promise<void> {
 
 /**
  * Current-Learner resolution: in the MVP this is always the seeded row.
- * Throws if the seed is missing (run `scripts/setup-db.sh … --seed`).
+ * Throws if the seed is missing (run `scripts/setup-db.sh dev`).
  */
 export async function getCurrentLearner(): Promise<Pick<User, "id" | "email" | "name">> {
   const [row] = await getDb()
@@ -79,7 +79,7 @@ export async function getCurrentLearner(): Promise<Pick<User, "id" | "email" | "
     .where(eq(users.id, SEEDED_LEARNER_ID));
   if (!row) {
     throw new StoreError(
-      "seeded learner row is missing — run scripts/setup-db.sh … --seed (db/seed.sql)",
+      "seeded learner row is missing — run scripts/setup-db.sh dev (db/seed.sql)",
     );
   }
   return row;

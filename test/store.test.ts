@@ -25,7 +25,7 @@ let store: typeof import("../core/store");
 const fixture = new pg.Client({ connectionString: TEST_DATABASE_URL });
 
 beforeAll(async () => {
-  execSync(`bash scripts/setup-db.sh ${TEST_DATABASE_URL}`, { stdio: "inherit" });
+  execSync("bash scripts/setup-db.sh test", { stdio: "inherit" });
   // The store resolves DATABASE_URL on first use; point it at the test db.
   process.env.DATABASE_URL = TEST_DATABASE_URL;
   store = await import("../core/store");
