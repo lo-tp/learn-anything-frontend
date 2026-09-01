@@ -28,6 +28,44 @@ One Next.js (TypeScript) monolith. One container. One Postgres. No workers, queu
 
 A session moves **intake → probing → planning → review → executing → complete**. Transitions are code. The LLM signals judgments ("is the target specific enough?", "is the boundary established?") as declared fields of its structured output; the code acts on them.
 
+```mermaid
+stateDiagram-v2
+    [*] --> intake : new session
+
+    intake --> intake : text (target) → `narrow`\n[judgment: too vague → rewrite]
+    intake --> probing : text (target) → `accept_target`\n[knowledgePoint recorded]
+
+    probing --> probing : ANSWER:<n> → `question` (probe)\n[probe count < 10, still probing]
+    probing --> planning : ANSWER:<n> → `boundary` + plan v1\n[judgment: boundary established]
+
+    planning --> review : fold only, no LLM call\n[plan v1 on screen, learner takes over]
+
+    review --> planning : free text (add / remove / depth / difficulty)\n→ `plan` (FULL regeneration, v n+1)\n[optional re-scoped knowledgePoint]
+    review --> executing : APPROVE → `question` (step 1)\n[position = 1]
+
+    executing --> executing : ANSWER:<n> → `retest`\n[wrong: whyWrong/whyCorrect + a DIFFERENT question, same step]
+    executing --> executing : ANSWER:<n> → `advance`\n[correct: confirmation + next step's question]
+    executing --> complete : ANSWER:<n> → `complete`\n[correct on LAST step: confirmation + closing summary]
+
+    complete --> [*]
+```
+
+Edge labels are `request → response.type` (payload shapes pinned in `core/contracts`). `planning` and `complete` never occur as row types: plan v1 arrives inside the `probing` row, so the fold goes probing → review in one row — `planning` is the label for "a plan exists, unapproved", never the stage when a request is made; and nothing is input after `complete`.
+
+**What changes, per transition** — the folded state is stage, knowledge point, plan + revision, position, active question, steps passed:
+
+| In stage | Learner sends | `response.type` | State change |
+|---|---|---|---|
+| intake | intake text | `narrow` | none — rewrite requested (unbounded rounds) |
+| intake | intake text | `accept_target` | `knowledgePoint` set → probing |
+| probing | `ANSWER:<n>` | `question` | active question replaced (probe *k*) |
+| probing | `ANSWER:<n>` | `boundary` | **plan v1** appears, revision = 1 → planning/review |
+| review | free text | `plan` | plan **replaced** (revision = ordinal of plan responses), optional `knowledgePoint` re-scope → planning/review |
+| review | `APPROVE` | `question` | position = step 1, active question = step 1's → executing |
+| executing | `ANSWER:<n>` | `retest` | explanation recorded, active question = new question **on the same step** |
+| executing | `ANSWER:<n>` | `advance` | step marked passed, position + 1, active question = next step's |
+| executing | `ANSWER:<n>` | `complete` | last step passed, closing summary appended → complete (terminal) |
+
 Invariants enforced in `core/session`, never trusted to the model:
 
 - Exactly one active question at a time
