@@ -35,15 +35,13 @@ cp .env.example .env
 # 3. Create/refresh the databases (safe to re-run any time)
 scripts/dev-db.sh     # learn_anything — schema + seed, never drops data
 scripts/test-db.sh    # learn_anything_test — dropped and recreated clean
-```
 
-Run the app:
-
-```bash
+# 4. Install dependencies and start the app
 npm install
 npm run dev     # http://localhost:3000 — the design shell (placeholder content)
-npm test        # unit tests (Vitest)
 ```
+
+`npm test` runs the unit tests (Vitest) without starting the app.
 
 `scripts/dev-db.sh` applies `db/schema.sql` + `db/seed.sql` idempotently; `scripts/test-db.sh` rebuilds `learn_anything_test` from scratch (schema only, no seed). Both start the compose db for you if it is not running. `podman compose down` stops the db (`podman compose down -v` also wipes its volume).
 
