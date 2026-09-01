@@ -61,8 +61,9 @@ describe("questionSchema", () => {
     ).toBe(false);
   });
 
-  it("rejects an out-of-range correctIndex (cross-field rule)", () => {
+  it("rejects an out-of-range correctIndex (field max 3 + cross-field rule)", () => {
     expect(questionSchema.safeParse({ ...mc2, correctIndex: 2 }).success).toBe(false);
+    expect(questionSchema.safeParse({ ...mc4, correctIndex: 4 }).success).toBe(false);
     expect(questionSchema.safeParse({ ...mc2, correctIndex: -1 }).success).toBe(false);
     expect(questionSchema.safeParse({ ...mc2, correctIndex: 1 }).success).toBe(true);
   });

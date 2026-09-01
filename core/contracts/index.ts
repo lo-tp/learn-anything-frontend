@@ -42,7 +42,7 @@ const mcQuestionSchema = z.object({
   kind: z.literal("mc"),
   text,
   options: z.array(z.object({ text })).min(2).max(4),
-  correctIndex: z.number().int().min(0),
+  correctIndex: z.number().int().min(0).max(3),
 });
 
 /** True/false question: a statement plus the correct verdict. */
