@@ -20,6 +20,25 @@ An AI conversation-driven learning assistant. Describe the knowledge you want to
 - **Pick up on any device** — all state lives in a server-side database; resuming continues exactly where you left off.
 - **Learn several things at once** — sessions for different knowledge points run independently.
 
+## Development quickstart
+
+Prereqs: podman (with the `compose` plugin — the Docker daemon stays off) and a local `psql` client.
+
+```bash
+# 1. Start the dev Postgres (single service; the app itself is never containerized)
+podman compose up -d
+
+# 2. Create the env file and point the LLM_* vars at your local
+#    OpenAI-compatible server (e.g. llama.cpp)
+cp .env.example .env
+
+# 3. Create/refresh the databases (safe to re-run any time)
+scripts/dev-db.sh     # learn_anything — schema + seed, never drops data
+scripts/test-db.sh    # learn_anything_test — dropped and recreated clean
+```
+
+`scripts/dev-db.sh` applies `db/schema.sql` + `db/seed.sql` idempotently; `scripts/test-db.sh` rebuilds `learn_anything_test` from scratch (schema only, no seed). Both start the compose db for you if it is not running. `podman compose down` stops the db (`podman compose down -v` also wipes its volume).
+
 ## Docs
 
 - [User stories](docs/user-stories.md) — what the app does, story by story, with acceptance criteria

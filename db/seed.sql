@@ -5,5 +5,5 @@
 -- Run after db/schema.sql (the tables live there).
 
 INSERT INTO users (id, email, name)
-VALUES ('00000000-0000-0000-000000000001', 'learner@example.com', 'Test Learner')
+VALUES ('00000000-0000-0000-0000-000000000001', 'learner@example.com', 'Test Learner')
 ON CONFLICT (email) DO NOTHING;

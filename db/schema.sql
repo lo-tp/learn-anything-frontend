@@ -8,21 +8,21 @@
 -- position, and progress are folded out of it, never stored as columns (ADR 0004).
 -- raw_messages is a rebuildable UI projection — never a second truth.
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email      TEXT NOT NULL UNIQUE,
   name       TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE sessions (
+CREATE TABLE IF NOT EXISTS sessions (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id         UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
   knowledge_point TEXT,               -- short AI-recorded summary; home label; updated on re-scope
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE session_messages (
+CREATE TABLE IF NOT EXISTS session_messages (
   id BIGSERIAL PRIMARY KEY,           -- id order = truth order
   session_id   UUID NOT NULL REFERENCES sessions (id) ON DELETE CASCADE,
   -- The stage the session was in when this request was made — a filter/sectioning
@@ -38,11 +38,11 @@ CREATE TABLE session_messages (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE raw_messages (
+CREATE TABLE IF NOT EXISTS raw_messages (
   session_id UUID PRIMARY KEY REFERENCES sessions (id) ON DELETE CASCADE,
   messages   JSONB NOT NULL,          -- @ai-sdk UIMessage[] — a view-layer type (ADR 0004)
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX sessions_user_id_idx ON sessions (user_id);
-CREATE INDEX session_messages_session_id_idx ON session_messages (session_id);
+CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions (user_id);
+CREATE INDEX IF NOT EXISTS session_messages_session_id_idx ON session_messages (session_id);
