@@ -7,17 +7,14 @@ import { SessionCard } from "@/components/session-card";
 import type { SessionSummary } from "@/lib/dummy-sessions";
 
 /**
- * The learner's History (home): header with the CTA, then the session
- * cards (or the empty state). Owns the list state — the initial value is
- * the server-side fetch result; after the new-session dialog (#26)
- * succeeds it re-fetches and swaps the list in place.
+ * The home page: the learner's History. Owns the list state (seeded from the
+ * server-rendered `initialSessions`) and the re-fetch against
+ * `GET /api/sessions`, and renders the page directly from the pure leaf
+ * components in `components/*`. `#26` swaps the re-fetch for the new-session
+ * dialog; until then "Start New Session" just re-syncs the list.
  */
-export function HistoryView({
-  initialSessions,
-}: {
-  initialSessions: SessionSummary[];
-}) {
-  const [sessions, setSessions] = useState(initialSessions);
+export function Root({ initialSessions }: { initialSessions: SessionSummary[] }) {
+  const [sessions, setSessions] = useState<SessionSummary[]>(initialSessions);
 
   /** Re-fetch the History from the dummy store and swap the list in place. */
   const refresh = useCallback(async () => {

@@ -1,6 +1,6 @@
 /**
  * Placeholder empty state — the real design lands with the empty-state
- * ticket; this keeps `<HistoryView />` rendering something when the
+ * ticket; this keeps the home page (`views/root.tsx`) rendering something when the
  * fixture list is toggled off.
  */
 export function EmptyState() {
