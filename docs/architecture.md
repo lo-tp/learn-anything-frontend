@@ -116,7 +116,7 @@ Because calls never happen without learner input, a turn that crosses a stage bo
 
 ## Frontend
 
-One Next.js (TypeScript) frontend in the same monolith: chat sidebar + read-only progress-markdown pane, per the design in [`design/code.html`](../design/code.html). The document pane is state-shaped: it renders from the server-folded state summary in the turn response — never from `raw_messages`.
+One Next.js (TypeScript) frontend in the same monolith: chat sidebar + read-only progress-markdown pane, per the design in [`design/session/design.html`](../design/session/design.html). The document pane is state-shaped: it renders from the server-folded state summary in the turn response — never from `raw_messages`.
 
 - **CSS:** Tailwind v4; the design's token palette is ported into the theme; `@tailwindcss/typography` for the document pane, with the `react-markdown` `components` mapping owning the domain blocks (plan checklist, per-question outcomes).
 - **Components:** shadcn/ui (Radix-based, in-repo). No runtime component frameworks.

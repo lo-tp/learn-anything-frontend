@@ -6,7 +6,7 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  /* Design tokens — palette ported from design/code.html */
+  /* Design tokens — palette ported from design/session/design.html */
   --color-background: var(--background);
   --color-on-background: var(--on-background);
   --color-surface: var(--surface);
@@ -105,7 +105,7 @@
 }
 
 :root {
-  /* The design (design/code.html) is dark; light mode is not part of the spec. */
+  /* The design (design/session/design.html) is dark; light mode is not part of the spec. */
   --background: #081425;
   --on-background: #d8e3fb;
   --surface: #081425;
