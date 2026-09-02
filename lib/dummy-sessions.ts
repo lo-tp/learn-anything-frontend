@@ -96,6 +96,48 @@ if (USE_FIXTURES) {
   seedFixtures();
 }
 
+/** Intake paragraphs trimmed below this many chars are rejected as "narrow". */
+export const MIN_INTAKE_LENGTH = 20;
+
+/** Intake paragraphs above this many chars are rejected outright (400). */
+export const MAX_INTAKE_LENGTH = 2000;
+
+/** A session's `knowledgePoint` label keeps only the first ~this many chars. */
+export const KNOWLEDGE_POINT_MAX = 60;
+
+export type StartSessionResult =
+  | { verdict: "narrow"; feedback: string }
+  | { verdict: "accept_target"; sessionId: string; knowledgePoint: string };
+
+const NARROW_FEEDBACK =
+  "That's a little thin — tell us a bit more about what you want to master, and we'll start probing your boundary.";
+
+/**
+ * The dummy intake rule: a paragraph shorter than `MIN_INTAKE_LENGTH` (after
+ * trimming) comes back `narrow` with canned feedback and records nothing;
+ * otherwise a session is appended to the learner's store at stage `probing`
+ * and the accepted target comes back. Mirrors what `core/session` intake
+ * will do for real.
+ */
+export function startSession(
+  userId: string,
+  paragraph: string,
+): StartSessionResult {
+  const text = paragraph.trim();
+  if (text.length < MIN_INTAKE_LENGTH) {
+    return { verdict: "narrow", feedback: NARROW_FEEDBACK };
+  }
+  const knowledgePoint = text.slice(0, KNOWLEDGE_POINT_MAX);
+  const summary: SessionSummary = {
+    id: crypto.randomUUID(),
+    knowledgePoint,
+    createdAt: new Date().toISOString(),
+    stage: "probing",
+  };
+  store.set(userId, [summary, ...(store.get(userId) ?? [])]);
+  return { verdict: "accept_target", sessionId: summary.id, knowledgePoint };
+}
+
 /** The learner's sessions, most recently created first; `[]` if they have none. */
 export function listSessions(userId: string): SessionSummary[] {
   return [...(store.get(userId) ?? [])].sort((a, b) =>

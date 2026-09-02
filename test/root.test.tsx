@@ -1,12 +1,25 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { Root } from "../views/root";
 import type { SessionSummary } from "../lib/dummy-sessions";
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
 });
+
+function json(body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+}
 
 function session(overrides: Partial<SessionSummary> = {}): SessionSummary {
   return {
@@ -33,5 +46,71 @@ describe("Root (home History)", () => {
     expect(screen.getByText("My Sessions")).toBeTruthy();
     expect(screen.getByText("React Hooks Deep Dive")).toBeTruthy();
     expect(screen.queryByText("No sessions yet")).toBeNull();
+  });
+
+  it("opens the new-session dialog from the 'Start New Session' CTA", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(json([]))));
+    render(<Root initialSessions={[session()]} />);
+    fireEvent.click(
+      screen.getByRole("button", { name: /Start New Session/ }),
+    );
+    expect(
+      await screen.findByText("Start a New Learning Journey"),
+    ).toBeTruthy();
+  });
+
+  it("opens the new-session dialog from the empty-state CTA", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(json([]))));
+    render(<Root initialSessions={[]} />);
+    fireEvent.click(
+      screen.getByRole("button", { name: /Start New Session/ }),
+    );
+    expect(
+      await screen.findByText("Start a New Learning Journey"),
+    ).toBeTruthy();
+  });
+
+  it("refetches the History when the dialog accepts a new session", async () => {
+    const fresh: SessionSummary = {
+      id: "s-newton",
+      knowledgePoint: "Newton's second law of motion",
+      createdAt: "2025-10-25T11:00:00.000Z",
+      stage: "probing",
+    };
+    const fetchMock = vi.fn((input: string, init?: RequestInit) => {
+      void input;
+      if (init?.method === "POST") {
+        return Promise.resolve(
+          json({
+            verdict: "accept_target",
+            sessionId: fresh.id,
+            knowledgePoint: fresh.knowledgePoint,
+          }),
+        );
+      }
+      // The re-fetch after accept returns the new session on top.
+      return Promise.resolve(json([fresh, session()]) );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<Root initialSessions={[session()]} />);
+    fireEvent.click(
+      screen.getByRole("button", { name: /Start New Session/ }),
+    );
+    const textarea = await screen.findByLabelText(
+      "What are we focusing on today?",
+    );
+    fireEvent.change(textarea, {
+      target: {
+        value:
+          "I want to master Newton's second law of motion and how force, mass, and acceleration fit together.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Start Session/ }));
+
+    // The accepted session appears at the top — only possible through the
+    // re-fetch, since it was not in initialSessions.
+    expect(await screen.findByText("Newton's second law of motion")).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledTimes(2); // the POST + the re-fetch
   });
 });

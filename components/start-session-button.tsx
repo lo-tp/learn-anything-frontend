@@ -2,8 +2,9 @@ import { Plus } from "lucide-react";
 
 /**
  * The primary "Start New Session" CTA, shared by the History header and the
- * empty state so the button has a single source of truth. `#26` wires it to
- * the new-session dialog; until then the page passes a re-fetch handler.
+ * empty state so the button has a single source of truth. The page wires it
+ * to open the new-session dialog (#26) and to refetch the History after an
+ * accepted intake.
  */
 export function StartSessionButton({ onClick }: { onClick: () => void }) {
   return (

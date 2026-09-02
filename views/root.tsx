@@ -2,23 +2,26 @@
 
 import { useCallback, useState } from "react";
 import { EmptyState } from "@/components/empty-state";
+import { NewSessionDialog } from "@/components/new-session-dialog";
 import { SessionCard } from "@/components/session-card";
 import { StartSessionButton } from "@/components/start-session-button";
 import type { SessionSummary } from "@/lib/dummy-sessions";
 
 /**
  * The home page: the learner's History. Owns the list state (seeded from the
- * server-rendered `initialSessions`) and the re-fetch against
- * `GET /api/sessions`, and renders the page directly from the pure leaf
- * components in `components/*`. `#26` swaps the re-fetch for the new-session
- * dialog; until then "Start New Session" just re-syncs the list.
+ * server-rendered `initialSessions`), the re-fetch against
+ * `GET /api/sessions` (run after the new-session dialog accepts an intake),
+ * and the dialog's open state, and renders the page directly from the pure
+ * leaf components in `components/*`.
  *
  * With sessions: the "My Sessions" header (title + CTA) above the cards.
  * When empty: the header is hidden and the empty state carries the CTA at its
- * base, so there is one primary button in either view.
+ * base, so there is one primary button in either view. Either CTA opens the
+ * new-session dialog (#26).
  */
 export function Root({ initialSessions }: { initialSessions: SessionSummary[] }) {
   const [sessions, setSessions] = useState<SessionSummary[]>(initialSessions);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   /** Re-fetch the History from the dummy store and swap the list in place. */
   const refresh = useCallback(async () => {
@@ -31,7 +34,7 @@ export function Root({ initialSessions }: { initialSessions: SessionSummary[] })
       <div className="mx-auto w-full max-w-[1200px] p-8 md:p-margin-page">
         {sessions.length === 0 ? (
           <EmptyState>
-            <StartSessionButton onClick={refresh} />
+            <StartSessionButton onClick={() => setDialogOpen(true)} />
           </EmptyState>
         ) : (
           <>
@@ -44,8 +47,7 @@ export function Root({ initialSessions }: { initialSessions: SessionSummary[] })
                   Resume your deep dives or launch a new contextual inquiry.
                 </p>
               </div>
-              {/* #26 wires this to the new-session dialog; until then it just re-syncs. */}
-              <StartSessionButton onClick={refresh} />
+              <StartSessionButton onClick={() => setDialogOpen(true)} />
             </div>
 
             <div className="flex flex-col gap-4">
@@ -55,6 +57,11 @@ export function Root({ initialSessions }: { initialSessions: SessionSummary[] })
             </div>
           </>
         )}
+        <NewSessionDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onAccept={refresh}
+        />
       </div>
     </main>
   );
