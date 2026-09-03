@@ -41,7 +41,7 @@ An optional interactive React component the LLM authors in raw TSX to make a Lea
 _Avoid_: widget, illustration, artifact
 
 **Sandbox**:
-The opaque-origin, script-only iframe in which a Demo executes. It shares nothing with the host page: no cookies, storage, or parent DOM. Data flows parent → iframe only (selecting the active part); the sole iframe → parent messages are plumbing — resize (auto-height) and error — never demo data.
+The opaque-origin, script-only iframe in which a Demo executes. It shares nothing with the host page: no cookies, storage, or parent DOM. A fixed trusted **harness** (our code, built at deploy) boots inside the sandbox and loads the untrusted Demo. Data flows parent → iframe only (selecting the active part); the sole iframe → parent messages are plumbing — resize (auto-height) and error — never demo data.
 _Avoid_: iframe, cage, container
 
 **Question**:
