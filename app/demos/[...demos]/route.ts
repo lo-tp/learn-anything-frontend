@@ -10,9 +10,14 @@
  * | `/demos/{slug}`              | the demo page HTML — **403 unless `Sec-Fetch-Dest: iframe`**, 404 on unknown slug |
  * | `/demos/{slug}/bundle.js`    | the row's `demo_js` — **no fetch-dest gate**: in a plain tab the JS source is inert text |
  *
- * Every response carries `Cache-Control: public, max-age=31536000, immutable` —
- * honest because the slug is 128-bit random (unguessable), the row is
- * append-only, and the bundle is written once per row.
+ * Every response carries `Cache-Control: public, max-age=31536000, immutable`
+ * — honest because the slug is 128-bit random (unguessable), the row is
+ * append-only, and the bundle is written once per row. Every response also
+ * carries `Access-Control-Allow-Origin: *`: the opaque-origin sandbox loads
+ * its module scripts (harness, vendor, bundle) in **CORS mode**, so without
+ * the header the module graph fails to load outright (empirical —
+ * findings.md, #33/#34 verification). `*` is right: these assets are
+ * public-safe by design and carry no credentials.
  *
  * The demo page cannot be a Next.js-managed document (ADR 0007 delivery
  * note): the import map must precede every module script, and App Router
@@ -29,6 +34,9 @@ export const dynamic = "force-dynamic";
 /** Honest-immutability for every artifact below (see header). */
 const IMMUTABLE = "public, max-age=31536000, immutable";
 const JS = "text/javascript; charset=utf-8";
+
+/** Shared by every response below — CORS for the opaque-origin sandbox. */
+const CORSA = { "Access-Control-Allow-Origin": "*" };
 
 /** Vendor modules we ship — the fixed set from scripts/build-demos.mjs. */
 const VENDOR_MODULES = [
@@ -52,7 +60,11 @@ function serveArtifact(file: string): Response {
   try {
     const bytes = readFileSync(path.join(process.cwd(), ARTIFACTS[file]));
     return new Response(bytes, {
-      headers: { "Content-Type": JS, "Cache-Control": IMMUTABLE },
+      headers: {
+        "Content-Type": JS,
+        "Cache-Control": IMMUTABLE,
+        ...CORSA,
+      },
     });
   } catch {
     return new Response("artifact not built — run npm run build:demos", {
@@ -121,7 +133,7 @@ export async function GET(
     const demo = await getDemoBySlug(slug);
     if (!demo) return notFound();
     return new Response(demo.js, {
-      headers: { "Content-Type": JS, "Cache-Control": IMMUTABLE },
+      headers: { "Content-Type": JS, "Cache-Control": IMMUTABLE, ...CORSA },
     });
   }
 
@@ -138,7 +150,11 @@ export async function GET(
     if (!demo) return notFound();
     const origin = new URL(request.url).origin;
     return new Response(demoPage(origin, slug, demo.parts), {
-      headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": IMMUTABLE },
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": IMMUTABLE,
+        ...CORSA,
+      },
     });
   }
 
