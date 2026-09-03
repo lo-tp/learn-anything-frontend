@@ -1,5 +1,3 @@
-import { useState, useCallback, useEffect } from 'react';
-
 // ---------- 幻灯片数据 ----------
 const slides = [
   {
@@ -125,26 +123,12 @@ const slides = [
 ];
 
 // ---------- 主组件 ----------
-const Presentation = () => {
-  const [current, setCurrent] = useState(0);
+// Controlled from OUTSIDE the iframe: the host posts DEMO_SET_PART, the
+// harness re-renders this component with a new `part` — slide = part.
+// Pure function of `part`: no internal slide state, no in-deck controls.
+const Presentation = ({ part }: { part: number }) => {
   const total = slides.length;
-
-  const goTo = useCallback((index) => {
-    if (index >= 0 && index < total) setCurrent(index);
-  }, [total]);
-
-  const goPrev = () => goTo(current - 1);
-  const goNext = () => goTo(current + 1);
-
-  // 键盘左右键支持
-  useEffect(() => {
-    const handleKey = (e) => {
-      if (e.key === 'ArrowLeft') goPrev();
-      else if (e.key === 'ArrowRight') goNext();
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [current, goPrev, goNext]);
+  const current = Math.min(Math.max(part, 0), total - 1);
 
   // ----- 内联样式对象（全部） -----
   const containerStyle = {
@@ -225,68 +209,6 @@ const Presentation = () => {
     color: '#d0daff',
   };
 
-  // 导航栏样式
-  const controlsStyle = {
-    position: 'absolute',
-    bottom: '30px',
-    left: 0,
-    right: 0,
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: '18px',
-    zIndex: 10,
-    pointerEvents: 'none', // 让点击穿透，但内部按钮可点击
-  };
-
-  const dotsStyle = {
-    display: 'flex',
-    gap: '12px',
-    pointerEvents: 'auto',
-  };
-
-  const dotStyle = (active) => ({
-    width: '12px',
-    height: '12px',
-    borderRadius: '50%',
-    background: active ? '#f6d365' : 'rgba(255,255,255,0.2)',
-    border: 'none',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    padding: 0,
-    boxShadow: active ? '0 0 20px rgba(246,211,101,0.5)' : 'none',
-    transform: active ? 'scale(1.2)' : 'scale(1)',
-  });
-
-  const arrowStyle = (disabled) => ({
-    background: 'rgba(255,255,255,0.08)',
-    border: '1px solid rgba(255,255,255,0.15)',
-    color: '#fff',
-    fontSize: '1.8rem',
-    width: '50px',
-    height: '50px',
-    borderRadius: '50%',
-    cursor: disabled ? 'default' : 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backdropFilter: 'blur(4px)',
-    transition: 'all 0.2s ease',
-    pointerEvents: 'auto',
-    opacity: disabled ? 0.25 : 1,
-  });
-
-  // 悬停状态（箭头）
-  const [hoverPrev, setHoverPrev] = useState(false);
-  const [hoverNext, setHoverNext] = useState(false);
-
-  const arrowHoverStyle = (disabled, hover) => ({
-    ...arrowStyle(disabled),
-    background: hover && !disabled ? 'rgba(246,211,101,0.25)' : arrowStyle(disabled).background,
-    borderColor: hover && !disabled ? '#f6d365' : arrowStyle(disabled).borderColor,
-    transform: hover && !disabled ? 'scale(1.05)' : 'scale(1)',
-  });
-
   return (
     <div style={containerStyle}>
       <div style={{ width: '100%', height: '100%', overflow: 'hidden', position: 'relative' }}>
@@ -305,38 +227,6 @@ const Presentation = () => {
           })}
         </div>
 
-        {/* 导航控件 */}
-        <div style={controlsStyle}>
-          <button
-            style={arrowHoverStyle(current === 0, hoverPrev)}
-            onClick={goPrev}
-            disabled={current === 0}
-            onMouseEnter={() => setHoverPrev(true)}
-            onMouseLeave={() => setHoverPrev(false)}
-          >
-            ◀
-          </button>
-
-          <div style={dotsStyle}>
-            {slides.map((_, i) => (
-              <button
-                key={i}
-                style={dotStyle(i === current)}
-                onClick={() => goTo(i)}
-              />
-            ))}
-          </div>
-
-          <button
-            style={arrowHoverStyle(current === total - 1, hoverNext)}
-            onClick={goNext}
-            disabled={current === total - 1}
-            onMouseEnter={() => setHoverNext(true)}
-            onMouseLeave={() => setHoverNext(false)}
-          >
-            ▶
-          </button>
-        </div>
       </div>
     </div>
   );

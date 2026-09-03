@@ -13,7 +13,10 @@
  * While the `demo_js` schema columns are pending (#32/#37), the exact slug
  * `sample` is the hand-inserted demo: `core/demos/sample.tsx` is compiled
  * **per request** (same esbuild transform the write pipeline will run) and
- * served `no-store` — its source is editable, so immutability would be a lie.
+ * served `no-store` — its source is editable, so immutability would be a
+ * lie. Its page declares `parts: SAMPLE_PARTS` (one per slide), so the
+ * harness clamps `DEMO_SET_PART` across the whole deck instead of the
+ * stub's random 1–3.
  *
  * Every response carries `Cache-Control: public, max-age=31536000, immutable`
  * — honest because the slug is 128-bit random (unguessable), the row is
@@ -43,6 +46,9 @@ const JS = "text/javascript; charset=utf-8";
 
 /** Shared by every response below — CORS for the opaque-origin sandbox. */
 const CORSA = { "Access-Control-Allow-Origin": "*" };
+
+/** Slide count of the hand-inserted sample deck (one part per slide). */
+const SAMPLE_PARTS = 5;
 
 /** Vendor modules we ship — the fixed set from scripts/build-demos.mjs. */
 const VENDOR_MODULES = [
@@ -183,6 +189,17 @@ export async function GET(
     // LLM code in app origin — cookies, session, full XSS.
     if (request.headers.get("sec-fetch-dest") !== "iframe") {
       return new Response("forbidden", { status: 403 });
+    }
+    // Hand-inserted demo (#37): the on-disk row declares one part per slide.
+    if (slug === "sample") {
+      const origin = new URL(request.url).origin;
+      return new Response(demoPage(origin, slug, SAMPLE_PARTS), {
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": IMMUTABLE,
+          ...CORSA,
+        },
+      });
     }
     const demo = await getDemoBySlug(slug);
     if (!demo) return notFound();
