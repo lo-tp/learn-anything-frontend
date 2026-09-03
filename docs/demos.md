@@ -120,13 +120,13 @@ function App() {
 
   useEffect(() => {
     new ResizeObserver(() =>
-      parent.postMessage({ type: "SANDBOX_RESIZE", height: document.body.scrollHeight }, "null")
+      parent.postMessage({ type: "SANDBOX_RESIZE", height: document.body.scrollHeight }, "*")
     ).observe(document.body);
   }, []);
 
   return (
     <Boundary onError={(err) =>
-      parent.postMessage({ type: "SANDBOX_ERROR", message: String(err?.message ?? err) }, "null")
+      parent.postMessage({ type: "SANDBOX_ERROR", message: String(err?.message ?? err) }, "*")
     }>
       <Suspense fallback={<div style={{ padding: 16, opacity: 0.6 }}>Loading…</div>}>
         <Demo part={part} />
@@ -187,7 +187,8 @@ state: { height, error, activePart }
 - Listens for `message` with `event.origin === "null"`; validates `event.data` shape on receipt.
   - `SANDBOX_RESIZE` → `setHeight(clamp(h, MIN, MAX))` — an untrusted number feeds CSS, so it is clamped.
   - `SANDBOX_ERROR` → banner (v1; full UX in #30). Non-blocking by construction.
-- **Stepper** rendered from `demoParts` (0..n−1); on change: `iframeRef.current.contentWindow.postMessage({ type: "DEMO_SET_PART", part }, "null")`.
+- **Stepper** rendered from `demoParts` (0..n−1); on change: `iframeRef.current.contentWindow.postMessage({ type: "DEMO_SET_PART", part }, "*")`.
+- targetOrigin is `"*"` in **both** directions, never `"null"`: Chromium rejects `"null"` as a *target* origin (`Invalid target origin`), and the sandbox→parent direction can't name the app origin from an opaque origin anyway. Delivery safety is field validation/clamping at the receiver (above), not origin targeting — the same policy on both sides.
 - The host's knowledge of the demo comes **only** from the validated contract (`demo_parts`) — never from sandbox output (ADR 0003 invariant).
 
 ## Protocol (full v1 surface — see ADR 0007)
