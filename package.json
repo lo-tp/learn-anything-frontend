@@ -12,6 +12,7 @@
     "check": "npm run lint && npm run typecheck && npm run test",
     "prepare": "husky",
     "build:demos": "node scripts/build-demos.mjs",
+    "pretest": "npm run build:demos",
     "predev": "npm run build:demos",
     "prebuild": "npm run build:demos"
   },

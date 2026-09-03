@@ -43,6 +43,15 @@ describe("deploy-built artifacts", () => {
     },
   );
 
+  it("serves the hand-inserted sample bundle from disk (#37)", async () => {
+    const res = await get("/demos/sample/bundle.js");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/javascript");
+    expect(res.headers.get("cache-control")).toBe(IMMUTABLE);
+    const bytes = readFileSync(path.join(process.cwd(), "out/demos/sample/bundle.js"));
+    expect(await res.text()).toBe(bytes.toString("utf8"));
+  });
+
   it("404s a vendor module we don't ship", async () => {
     const res = await get("/demos/vendor/preact.js");
     expect(res.status).toBe(404);

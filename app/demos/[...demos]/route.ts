@@ -48,6 +48,10 @@ const VENDOR_MODULES = [
 /** The deploy-built artifacts live in `out/demos/` (gitignored). */
 const ARTIFACTS: Record<string, string> = {
   "harness.js": path.join("out", "demos", "harness.js"),
+  // Hand-inserted demo (#37): the on-disk stand-in for a `demo_js` row
+  // while the schema columns are pending. Slug `sample`, built by
+  // scripts/build-demos.mjs; served from disk, not the store.
+  "sample/bundle.js": path.join("out", "demos", "sample", "bundle.js"),
   ...Object.fromEntries(
     VENDOR_MODULES.map((name) => [
       `vendor/${name}`,
@@ -120,6 +124,11 @@ export async function GET(
     (VENDOR_MODULES as readonly string[]).includes(second)
   ) {
     return serveArtifact(`vendor/${second}`);
+  }
+
+  // Hand-inserted demo (#37) — exact slug, served from disk.
+  if (first === "sample" && second === "bundle.js") {
+    return serveArtifact("sample/bundle.js");
   }
 
   // Everything else is a slug: `{slug}/bundle.js` or the demo page itself.
