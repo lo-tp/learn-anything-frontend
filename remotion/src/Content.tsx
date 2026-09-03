@@ -63,7 +63,6 @@ const Content: React.FC<{count: number}> = ({count}) => {
           compositionHeight={1080}
           style={{width: 1920, height: 1080}}
           acknowledgeRemotionLicense
-          muted
           autoPlay
         />
       </div>
