@@ -10,6 +10,11 @@
  * | `/demos/{slug}`              | the demo page HTML — **403 unless `Sec-Fetch-Dest: iframe`**, 404 on unknown slug |
  * | `/demos/{slug}/bundle.js`    | the row's `demo_js` — **no fetch-dest gate**: in a plain tab the JS source is inert text |
  *
+ * While the `demo_js` schema columns are pending (#32/#37), the exact slug
+ * `sample` is the hand-inserted demo: `core/demos/sample.tsx` is compiled
+ * **per request** (same esbuild transform the write pipeline will run) and
+ * served `no-store` — its source is editable, so immutability would be a lie.
+ *
  * Every response carries `Cache-Control: public, max-age=31536000, immutable`
  * — honest because the slug is 128-bit random (unguessable), the row is
  * append-only, and the bundle is written once per row. Every response also
@@ -26,6 +31,7 @@
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { transform } from "esbuild";
 import { getDemoBySlug } from "@/core/store";
 
 /** The demo page is rendered per request — it carries request-specific bytes. */
@@ -48,10 +54,6 @@ const VENDOR_MODULES = [
 /** The deploy-built artifacts live in `out/demos/` (gitignored). */
 const ARTIFACTS: Record<string, string> = {
   "harness.js": path.join("out", "demos", "harness.js"),
-  // Hand-inserted demo (#37): the on-disk stand-in for a `demo_js` row
-  // while the schema columns are pending. Slug `sample`, built by
-  // scripts/build-demos.mjs; served from disk, not the store.
-  "sample/bundle.js": path.join("out", "demos", "sample", "bundle.js"),
   ...Object.fromEntries(
     VENDOR_MODULES.map((name) => [
       `vendor/${name}`,
@@ -126,9 +128,36 @@ export async function GET(
     return serveArtifact(`vendor/${second}`);
   }
 
-  // Hand-inserted demo (#37) — exact slug, served from disk.
+  // Hand-inserted demo (#37) — exact slug. The db row doesn't exist yet, so
+  // the source file IS the row: read `core/demos/sample.tsx` and run it
+  // through the same write-time transform every LLM-authored demo will go
+  // through (esbuild, TSX, jsx automatic, react left bare for the import
+  // map). Per request, `no-store` — the source is editable in dev.
   if (first === "sample" && second === "bundle.js") {
-    return serveArtifact("sample/bundle.js");
+    try {
+      const src = readFileSync(
+        path.join(process.cwd(), "core/demos/sample.tsx"),
+        "utf8",
+      );
+      const { code } = await transform(src, {
+        loader: "tsx",
+        format: "esm",
+        target: "es2020",
+        jsx: "automatic",
+        minify: true,
+        define: { "process.env.NODE_ENV": '"production"' },
+        sourcefile: "sample.tsx",
+      });
+      return new Response(code, {
+        headers: { "Content-Type": JS, "Cache-Control": "no-store", ...CORSA },
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return new Response(`sample demo failed to compile: ${msg}`, {
+        status: 500,
+        headers: { ...CORSA },
+      });
+    }
   }
 
   // Everything else is a slug: `{slug}/bundle.js` or the demo page itself.

@@ -43,13 +43,19 @@ describe("deploy-built artifacts", () => {
     },
   );
 
-  it("serves the hand-inserted sample bundle from disk (#37)", async () => {
+  it("compiles the hand-inserted sample demo per request (#37)", async () => {
     const res = await get("/demos/sample/bundle.js");
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/javascript");
-    expect(res.headers.get("cache-control")).toBe(IMMUTABLE);
-    const bytes = readFileSync(path.join(process.cwd(), "out/demos/sample/bundle.js"));
-    expect(await res.text()).toBe(bytes.toString("utf8"));
+    // The source is editable, so the response must not be immutable-cached.
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(res.headers.get("access-control-allow-origin")).toBe("*");
+    const body = await res.text();
+    // TS annotations and JSX are gone — the browser receives plain ESM,
+    // `react` left bare for the import map.
+    expect(body).not.toContain("{ part: number }");
+    expect(body).not.toContain("<section");
+    expect(body).toContain("react");
   });
 
   it("404s a vendor module we don't ship", async () => {

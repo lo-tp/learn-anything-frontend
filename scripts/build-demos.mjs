@@ -8,9 +8,6 @@
  *   vendor/react-jsx-runtime.js ESM facade, `react` external
  *   vendor/react-dom-client.js ESM facade, `react` external, `scheduler` bundled in
  *   harness.js                 from `core/demos/harness.tsx`, all react specifiers external
- *   sample/bundle.js           from `core/demos/sample.tsx` — a hand-inserted demo
- *                              (the on-disk stand-in for a `demo_js` row while the
- *                              schema columns are pending, #37)
  *
  * The demo page's import map routes bare `react` / `react/jsx-runtime` /
  * `react-dom/client` to these files and the browser's module cache makes
@@ -133,16 +130,10 @@ await build({
   outfile: path.join(root, "out/demos/harness.js"),
 });
 
-// 5. sample/bundle.js — the hand-inserted demo, compiled exactly like the
-//    per-turn pipeline will compile LLM TSX: ESM, react external, and the
-//    import map routes its `react` to the one vendored instance.
-await build({
-  ...shared,
-  jsx: "automatic",
-  external: ["react", "react/jsx-runtime", "react-dom/client"],
-  entryPoints: [path.join(root, "core/demos/sample.tsx")],
-  outfile: path.join(root, "out/demos/sample/bundle.js"),
-});
+// The hand-inserted demo (#37) is deliberately NOT built here:
+// `app/demos/[...demos]/route.ts` compiles `core/demos/sample.tsx` per
+// request (no-store), mirroring the per-turn write pipeline without a
+// rebuild step.
 
 console.log("out/demos/:");
 for (const f of [
@@ -150,7 +141,6 @@ for (const f of [
   "vendor/react-jsx-runtime.js",
   "vendor/react-dom-client.js",
   "harness.js",
-  "sample/bundle.js",
 ]) {
   console.log(`  ${f}  ${statSync(path.join(root, "out/demos", f)).size} B`);
 }
