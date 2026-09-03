@@ -16,6 +16,8 @@
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 
 const SLUG = "sample";
+// Must match SAMPLE_PARTS in the route (one part per slide of the deck).
+const SLIDES = 5;
 // Roomy canvas: the sample is a slide deck (up to 1000×700), so the
 // sandbox never shrinks below presentation size; SANDBOX_RESIZE can only
 // grow it further, up to MAX_HEIGHT.
@@ -49,15 +51,14 @@ export default function DemoSandboxPage() {
     return () => removeEventListener("message", onMessage);
   }, []);
 
-  // ?auto=1 — step through the parts so headless checks can watch the log.
+  // ?auto=1 — step through every slide so headless checks can watch the log.
   useEffect(() => {
     if (!window.location.search.includes("auto=1")) return;
-    const t1 = setTimeout(() => goPart(1), 2500);
-    const t2 = setTimeout(() => goPart(0), 5000);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
+    const timers = Array.from(
+      { length: SLIDES - 1 },
+      (_, i) => setTimeout(() => goPart(i + 1), 2500 * (i + 1)),
+    );
+    return () => timers.forEach(clearTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -65,21 +66,33 @@ export default function DemoSandboxPage() {
   // origin is unknowable to the sandbox; delivery safety is field checks at
   // the receiver, per ADR 0007).
   function goPart(p: number) {
-    setPart(p);
-    frameRef.current?.contentWindow?.postMessage({ type: "DEMO_SET_PART", part: p }, "*");
-    say(`→ DEMO_SET_PART {part: ${p}}`);
+    const clamped = Math.min(Math.max(p, 0), SLIDES - 1);
+    setPart(clamped);
+    frameRef.current?.contentWindow?.postMessage({ type: "DEMO_SET_PART", part: clamped }, "*");
+    say(`→ DEMO_SET_PART {part: ${clamped}}`);
   }
 
-  const btn: CSSProperties = {
-    padding: "6px 14px",
-    fontSize: 14,
+  const arrow: CSSProperties = {
+    width: 36,
+    height: 36,
+    fontSize: 16,
     cursor: "pointer",
     border: "1px solid #888",
-    borderRadius: 6,
-    background: part === 0 ? "#2563eb" : "#fff",
-    color: part === 0 ? "#fff" : "inherit",
+    borderRadius: "50%",
+    background: "#fff",
   };
-  const btn2: React.CSSProperties = { ...btn, background: part === 1 ? "#2563eb" : "#fff", color: part === 1 ? "#fff" : "inherit" };
+  const arrowDisabled: CSSProperties = { ...arrow, opacity: 0.3, cursor: "default" };
+  const dot = (active: boolean): CSSProperties => ({
+    width: 12,
+    height: 12,
+    padding: 0,
+    cursor: "pointer",
+    border: "none",
+    borderRadius: "50%",
+    background: active ? "#2563eb" : "#bbb",
+    transform: active ? "scale(1.25)" : "scale(1)",
+    transition: "all 0.2s ease",
+  });
 
   return (
     <main style={{ maxWidth: 1200, margin: "24px auto", fontFamily: "system-ui, sans-serif" }}>
@@ -88,10 +101,35 @@ export default function DemoSandboxPage() {
         LLM-shaped demo TSX → esbuild → <code>/demos/sample/bundle.js</code> →
         <code> &lt;iframe sandbox=&quot;allow-scripts&quot;&gt; </code> (opaque origin).
       </p>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
-        <button style={btn} onClick={() => goPart(0)}>Part 1 — counter</button>
-        <button style={btn2} onClick={() => goPart(1)}>Part 2 — how it works</button>
-        <span style={{ fontSize: 13, opacity: 0.6 }}>height: {height}px</span>
+      {/* Slide controller — OUTSIDE the iframe: part = slide, posted as DEMO_SET_PART */}
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12 }}>
+        <button
+          style={part === 0 ? arrowDisabled : arrow}
+          onClick={() => goPart(part - 1)}
+          disabled={part === 0}
+          aria-label="previous slide"
+        >
+          ◀
+        </button>
+        {Array.from({ length: SLIDES }, (_, i) => (
+          <button
+            key={i}
+            style={dot(i === part)}
+            onClick={() => goPart(i)}
+            aria-label={`slide ${i + 1}`}
+          />
+        ))}
+        <button
+          style={part === SLIDES - 1 ? arrowDisabled : arrow}
+          onClick={() => goPart(part + 1)}
+          disabled={part === SLIDES - 1}
+          aria-label="next slide"
+        >
+          ▶
+        </button>
+        <span style={{ fontSize: 13, opacity: 0.6 }}>
+          slide {part + 1}/{SLIDES} · height: {height}px
+        </span>
       </div>
       {error && (
         <div
