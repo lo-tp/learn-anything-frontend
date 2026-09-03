@@ -36,6 +36,14 @@ _Avoid_: version, iteration
 One incrementally small concept a learner must understand on the way to mastery (e.g. "what F is", before "F=ma").
 _Avoid_: lesson, unit, chapter
 
+**Demo**:
+An optional interactive React component the LLM authors in raw TSX to make a LearningStep tangible. Consists of an ordered list of parts; the host selects which part is active. Stored as TSX in the turn log (source of truth) with its compiled JS as derived data; rendered only inside the sandbox. Never an input to the stage machine.
+_Avoid_: widget, illustration, artifact
+
+**Sandbox**:
+The opaque-origin, script-only iframe in which a Demo executes. It shares nothing with the host page: no cookies, storage, or parent DOM. Data flows parent → iframe only (selecting the active part); the sole iframe → parent messages are plumbing — resize (auto-height) and error — never demo data.
+_Avoid_: iframe, cage, container
+
 **Question**:
 A multiple-choice (2–4 options) or true/false item generated at execution time, testing the current LearningStep.
 _Avoid_: MCQ, item
