@@ -1,0 +1,82 @@
+/* /demos/reset.css — sandbox reset + theme defaults.
+ *
+ * Linked by the /demos/{slug} page (docs/demos.md, page rule 4; ADR 0007).
+ * The sandbox has no CSS runtime: an unstyled demo renders against these
+ * app defaults, and a styled demo overrides via inline styles or a <style>
+ * tag in bundle.js. Palette tokens are ported from app/globals.css (:root;
+ * the app theme is dark-only).
+ */
+
+:root {
+  --background: #081425;
+  --surface: #152031;
+  --on-surface: #d8e3fb;
+  --on-surface-variant: #c7c4d7;
+  --primary: #c0c1ff;
+  --primary-container: #8083ff;
+  --on-primary: #1000a9;
+  --outline-variant: #464554;
+  --error: #ffb4ab;
+
+  /* App fonts (Geist / JetBrains Mono, via next/font in-app) with system fallbacks. */
+  --font-sans: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--background);
+  color: var(--on-surface);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+}
+
+/* No browser default margins on flow content; demos opt into spacing. */
+h1, h2, h3, h4,
+p, pre, blockquote, figure,
+ul, ol, dl, table {
+  margin: 0;
+}
+
+h1, h2, h3, h4 {
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+/* Form controls inherit the demo's typography instead of the UA default. */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--primary);
+}
+
+code,
+pre,
+kbd,
+samp {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+pre {
+  overflow-x: auto;
+}
