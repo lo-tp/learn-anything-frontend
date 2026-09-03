@@ -16,12 +16,15 @@
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 
 const SLUG = "sample";
-const MIN_HEIGHT = 60;
+// Roomy canvas: the sample is a slide deck (up to 1000×700), so the
+// sandbox never shrinks below presentation size; SANDBOX_RESIZE can only
+// grow it further, up to MAX_HEIGHT.
+const MIN_HEIGHT = 720;
 const MAX_HEIGHT = 1200;
 
 export default function DemoSandboxPage() {
   const frameRef = useRef<HTMLIFrameElement>(null);
-  const [height, setHeight] = useState(160);
+  const [height, setHeight] = useState(720);
   const [error, setError] = useState<string | null>(null);
   const [part, setPart] = useState(0);
   const [log, setLog] = useState<string[]>([]);
@@ -79,7 +82,7 @@ export default function DemoSandboxPage() {
   const btn2: React.CSSProperties = { ...btn, background: part === 1 ? "#2563eb" : "#fff", color: part === 1 ? "#fff" : "inherit" };
 
   return (
-    <main style={{ maxWidth: 760, margin: "24px auto", fontFamily: "system-ui, sans-serif" }}>
+    <main style={{ maxWidth: 1200, margin: "24px auto", fontFamily: "system-ui, sans-serif" }}>
       <h1 style={{ fontSize: 20 }}>Demo sandbox — sample</h1>
       <p style={{ fontSize: 14, opacity: 0.7 }}>
         LLM-shaped demo TSX → esbuild → <code>/demos/sample/bundle.js</code> →
