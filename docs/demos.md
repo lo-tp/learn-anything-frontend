@@ -1,5 +1,7 @@
 # Demos — design
 
+> **Implementation home moved (2026):** the demos code (routes, harness/sample, `scripts/build-demos.mjs`) now lives in the standalone [`learn-anything-sandbox`](https://github.com/lo-tp/learn-anything-sandbox) repo; re-integration tracked under map [#11](https://github.com/lo-tp/learn-anything/issues/11) / [#37](https://github.com/lo-tp/learn-anything/issues/37). Inline code paths in this doc (e.g. `lib/demos/compile.ts`, `core/demos/harness.tsx`, `components/DynamicSandboxRenderer.tsx`) are design targets, not current files.
+
 Status: design settled (discussion closed in [#29](https://github.com/lo-tp/learn-anything/issues/29)); implementation tracked off map [#11](https://github.com/lo-tp/learn-anything/issues/11). Decision record: [ADR 0007](adr/0007-demos-in-opaque-origin-sandbox.md). Terminology per [`CONTEXT.md`](../CONTEXT.md).
 
 A **Demo** is raw TSX the LLM authors, compiled at write time, executed in an opaque-origin sandbox iframe. The sandbox document boots a fixed, trusted **harness** (our JSX + Suspense app, built once at deploy); the harness dynamically imports the per-demo bundle and renders it. This document is the implementation design: artifacts, compilation, harness, the demo page, the host renderer, and the schema/contract deltas.

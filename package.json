@@ -10,11 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "check": "npm run lint && npm run typecheck && npm run test",
-    "prepare": "husky",
-    "build:demos": "node scripts/build-demos.mjs",
-    "pretest": "npm run build:demos",
-    "predev": "npm run build:demos",
-    "prebuild": "npm run build:demos"
+    "prepare": "husky"
   },
   "dependencies": {
     "@tailwindcss/typography": "^0.5.20",
