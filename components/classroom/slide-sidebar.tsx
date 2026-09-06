@@ -135,7 +135,15 @@ export function SlideSidebar() {
                     {slide.title}
                   </span>
                 </div>
-                <Thumbnail type={slide.type} />
+                {i >= SLIDES.length - 2 ? (
+                  <iframe
+                    src={`${process.env.NEXT_PUBLIC_SANDBOX_ORIGIN}/sandbox/sample`}
+                    sandbox="allow-scripts allow-same-origin"
+                    className="h-20 w-full rounded-lg border border-outline-variant/50 bg-background"
+                  />
+                ) : (
+                  <Thumbnail type={slide.type} />
+                )}
               </li>
             );
           })}
