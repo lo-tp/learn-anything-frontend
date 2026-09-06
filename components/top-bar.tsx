@@ -7,7 +7,7 @@ import { CircleHelp, Settings } from "lucide-react";
  */
 export function TopBar() {
   return (
-    <header className="z-50 flex h-16 w-full shrink-0 items-center justify-between border-b border-outline-variant bg-surface px-gutter">
+    <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between border-b border-outline-variant bg-surface px-gutter">
       <span className="font-display text-lg font-semibold text-primary">
         Learn Anything
       </span>
