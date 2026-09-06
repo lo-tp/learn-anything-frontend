@@ -136,11 +136,13 @@ export function SlideSidebar() {
                   </span>
                 </div>
                 {i >= SLIDES.length - 2 ? (
-                  <iframe
-                    src={`${process.env.NEXT_PUBLIC_SANDBOX_ORIGIN}/sandbox/sample`}
-                    sandbox="allow-scripts allow-same-origin"
-                    className="h-20 w-full rounded-lg border border-outline-variant/50 bg-background"
-                  />
+                  <div className="relative h-40 w-full overflow-hidden rounded-lg border border-outline-variant/50">
+                    <iframe
+                      src={`${process.env.NEXT_PUBLIC_SANDBOX_ORIGIN}/sandbox/sample`}
+                      sandbox="allow-scripts allow-same-origin"
+                      className="absolute top-0 left-0 h-[720px] w-[1280px] origin-top-left scale-[0.22]"
+                    />
+                  </div>
                 ) : (
                   <Thumbnail type={slide.type} />
                 )}
