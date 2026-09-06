@@ -1,5 +1,6 @@
 import { ControlBar } from "@/components/classroom/control-bar";
 import { SlideSidebar } from "@/components/classroom/slide-sidebar";
+import { SandboxFrame } from "@/components/sandbox/sandbox-frame";
 
 /** The scene title shown in the main column's top bar. */
 const CURRENT_SCENE = "Momentum & Energy in Collisions";
@@ -27,13 +28,9 @@ export function ClassroomView() {
           <span className="text-sm font-medium text-on-surface">{CURRENT_SCENE}</span>
         </header>
 
-        {/* Dominant content area — slide canvas */}
-        <main className="flex flex-1 items-center justify-center overflow-y-auto p-6">
-          <div className="flex aspect-video w-full max-w-5xl items-center justify-center rounded-xl border border-outline-variant bg-surface-container">
-            <span className="text-sm text-on-surface-variant">
-              Slide canvas
-            </span>
-          </div>
+        {/* Dominant content area — the sandbox */}
+        <main className="min-h-0 flex-1 p-6">
+          <SandboxFrame />
         </main>
 
         {/* Control bar (bottom-right) */}
