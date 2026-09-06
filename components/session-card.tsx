@@ -58,8 +58,7 @@ export const STAGE_BADGES: Record<
 
 /**
  * One History card: stage icon tile, title, relative time, stage badge.
- * Links to the placeholder session page (`/demo`) until the real session
- * route lands.
+ * Links to the classroom page.
  */
 export function SessionCard({ session }: { session: SessionSummary }) {
   const badge = STAGE_BADGES[session.stage];
@@ -67,7 +66,7 @@ export function SessionCard({ session }: { session: SessionSummary }) {
 
   return (
     <a
-      href="/demo"
+      href="/classroom"
       className={cn(
         "group relative flex flex-col gap-4 overflow-hidden rounded-xl border border-outline-variant/50 bg-surface-container p-6 transition-all hover:bg-surface-container-high md:flex-row md:items-center md:gap-6",
         badge.hover,
