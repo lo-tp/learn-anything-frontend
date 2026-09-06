@@ -1,56 +1,29 @@
-/** A single slide in the classroom deck. */
-export interface Slide {
-  id: string;
-  title: string;
-}
+import { SlideSidebar } from "@/components/classroom/slide-sidebar";
+
+/** The scene title shown in the main column's top bar. */
+const CURRENT_SCENE = "Momentum & Energy in Collisions";
 
 /**
  * The classroom view — presentational **server** component (no client state).
  *
  * Layout: full-height flex row.
- *  - Left: slide-navigation sidebar
+ *  - Left: static slide sidebar (map #41) — 7 outline cards, first highlighted
  *  - Right: main column — static top bar, dominant content area, control bar
  *
  * The shared frame / top app bar come from the root layout; they are NOT
  * re-added here. All leaves are placeholders for now.
  */
-export function ClassroomView({ slides }: { slides: Slide[] }) {
+export function ClassroomView() {
   return (
     <div className="flex h-full overflow-hidden">
-      {/* Sidebar — slide navigation (left) */}
-      <aside className="w-80 shrink-0 border-r border-outline-variant bg-surface">
-        <div className="flex h-full flex-col">
-          {/* sidebar header */}
-          <div className="flex h-16 shrink-0 items-center border-b border-outline-variant px-4">
-            <span className="text-sm font-semibold text-on-surface">
-              Slides
-            </span>
-          </div>
-          {/* slide list */}
-          <div className="flex-1 overflow-y-auto p-3">
-            <ul className="flex flex-col gap-2">
-              {slides.map((slide, i) => (
-                <li
-                  key={slide.id}
-                  className="rounded-lg border border-outline-variant bg-surface-container p-3"
-                >
-                  <span className="text-xs font-medium text-on-surface-variant">
-                    {i + 1}. {slide.title}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </aside>
+      {/* Sidebar — static slide navigation (left) */}
+      <SlideSidebar />
 
       {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Static top bar (breadcrumb / scene info) */}
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-outline-variant bg-surface px-6">
-          <span className="text-sm font-medium text-on-surface">
-            {slides[0]?.title ?? ""}
-          </span>
+          <span className="text-sm font-medium text-on-surface">{CURRENT_SCENE}</span>
         </header>
 
         {/* Dominant content area — slide canvas */}
