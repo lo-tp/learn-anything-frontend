@@ -29,10 +29,10 @@ function session(overrides: Partial<SessionSummary> = {}): SessionSummary {
 }
 
 describe("SessionCard", () => {
-  it("links to the placeholder session page", () => {
+  it("links to the classroom page", () => {
     render(<SessionCard session={session()} />);
     const card = screen.getByRole("link", { name: /React Hooks Deep Dive/ });
-    expect(card.getAttribute("href")).toBe("/demo");
+    expect(card.getAttribute("href")).toBe("/classroom");
   });
 
   it("shows the knowledge point as the title", () => {
