@@ -2,9 +2,9 @@
 
 > **Implementation home moved (2026):** the demos code (routes, harness/sample, `scripts/build-demos.mjs`) now lives in the standalone [`learn-anything-sandbox`](https://github.com/lo-tp/learn-anything-sandbox) repo; re-integration tracked under map [#11](https://github.com/lo-tp/learn-anything/issues/11) / [#37](https://github.com/lo-tp/learn-anything/issues/37). Inline code paths in this doc (e.g. `lib/demos/compile.ts`, `core/demos/harness.tsx`, `components/DynamicSandboxRenderer.tsx`) are design targets, not current files.
 
-Status: design settled (discussion closed in [#29](https://github.com/lo-tp/learn-anything/issues/29)); implementation tracked off map [#11](https://github.com/lo-tp/learn-anything/issues/11). Decision record: [ADR 0007](adr/0007-demos-in-opaque-origin-sandbox.md). Terminology per [`CONTEXT.md`](../CONTEXT.md).
+Status: design settled (discussion closed in [#29](https://github.com/lo-tp/learn-anything/issues/29)); implementation tracked off map [#11](https://github.com/lo-tp/learn-anything/issues/11). Decision record: [ADR 0007](adr/0007-demos-in-cross-origin-sandbox.md). Terminology per [`CONTEXT.md`](../CONTEXT.md).
 
-A **Demo** is raw TSX the LLM authors, compiled at write time, executed in an opaque-origin sandbox iframe. The sandbox document boots a fixed, trusted **harness** (our JSX + Suspense app, built once at deploy); the harness dynamically imports the per-demo bundle and renders it. This document is the implementation design: artifacts, compilation, harness, the demo page, the host renderer, and the schema/contract deltas.
+A **Demo** is raw TSX the LLM authors, compiled at write time, executed in a sandbox iframe served by the demo server under its own origin (e.g. `http://localhost:3001` in dev) — cross-origin with the app, which is what keeps it from the host DOM. The sandbox document boots a fixed, trusted **harness** (our JSX + Suspense app, built once at deploy); the harness dynamically imports the per-demo bundle and renders it. This document is the implementation design: artifacts, compilation, harness, the demo page, the host renderer, and the schema/contract deltas.
 
 ## Pipeline
 
@@ -29,7 +29,8 @@ LLM response {…, demo_tsx, demo_parts}
 RENDER
 ──────
 authenticated API read → { demoSlug, demoParts }        ← no JS bytes over the API
-host renders  <iframe sandbox="allow-scripts" src="/demos/{slug}">
+host renders  <iframe sandbox="allow-scripts allow-same-origin"
+                   src="http://localhost:3001/demos/{slug}">   ← demo server = the sandbox origin; ≠ app origin
   page: import map → harness.js → React.lazy(import("/demos/{slug}/bundle.js"))
   React 19 (vendor, ~200 KB) cached once per device, ever; bundle.js ≈ KBs, per demo
 ```
@@ -90,7 +91,7 @@ The harness is the only program in the sandbox that is **not** LLM-generated. It
 import React, { lazy, Suspense, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 
-const { slug, parts } = window.DEMO; // injected by the page: {slug: string, parts: number}
+const { slug, parts, appOrigin } = window.DEMO; // injected by the page: {slug: string, parts: number, appOrigin: string}
 const Demo = lazy(() => import(`/demos/${slug}/bundle.js`)); // non-static → stays a native import()
 
 class Boundary extends React.Component<
@@ -122,13 +123,13 @@ function App() {
 
   useEffect(() => {
     new ResizeObserver(() =>
-      parent.postMessage({ type: "SANDBOX_RESIZE", height: document.body.scrollHeight }, "*")
+      parent.postMessage({ type: "SANDBOX_RESIZE", height: document.body.scrollHeight }, appOrigin)
     ).observe(document.body);
   }, []);
 
   return (
     <Boundary onError={(err) =>
-      parent.postMessage({ type: "SANDBOX_ERROR", message: String(err?.message ?? err) }, "*")
+      parent.postMessage({ type: "SANDBOX_ERROR", message: String(err?.message ?? err) }, appOrigin)
     }>
       <Suspense fallback={<div style={{ padding: 16, opacity: 0.6 }}>Loading…</div>}>
         <Demo part={part} />
@@ -165,13 +166,13 @@ A route that returns one HTML document we own byte-for-byte (it cannot be a Next
 <link rel="stylesheet" href="{APP_ORIGIN}/demos/reset.css">   <!-- app-served reset + CSS custom properties -->
 <body>
   <div id="root"></div>
-  <script>window.DEMO = { slug: "{slug}", parts: {parts} };</script>
+  <script>window.DEMO = { slug: "{slug}", parts: {parts}, appOrigin: "{APP_ORIGIN}" };</script>
   <script type="module" src="/demos/harness.js"></script>
 ```
 
 Rules, in order of importance:
 
-1. **`Sec-Fetch-Dest` gate — 403 unless `iframe`.** A browser navigating an iframe sends `Sec-Fetch-Dest: iframe`; a top-level tab sends `document`. Without the gate, opening the URL in a tab executes LLM code in **app origin** (cookies, session — full XSS). The sandbox attribute on the embedding iframe is the security boundary; the gate keeps the page from becoming an unsandboxed entry point. (A direct tab on `bundle.js` alone is inert — the browser renders JS source as text — so only the HTML page needs the gate.)
+1. **`Sec-Fetch-Dest` gate — 403 unless `iframe`.** A browser navigating an iframe sends `Sec-Fetch-Dest: iframe`; a top-level tab sends `document`. With the opaque-origin sandbox dropped (ADR 0007 amendment), the sandbox attribute is no longer the security boundary — the **cross-origin split** (demo server ≠ app) is, and the gate keeps the page from becoming a top-level entry point that executes LLM code outside the sandbox embedding. (A direct tab on `bundle.js` alone is inert — the browser renders JS source as text — so only the HTML page needs the gate.)
 2. **Cache-immutable**: `Cache-Control: public, max-age=31536000, immutable`. Honest because the slug is unguessable (128-bit random, *never* the sequential row id), the row is append-only, and the bundle is written once per row.
 3. **Exactly one untrusted thing.** `bundle.js` is the page's only untrusted content; everything else (import map, reset CSS, harness URL) is ours.
 4. **Styling.** The LLM styles via inline styles or a `<style>` tag; the palette is the app-served reset + custom properties (ADR 0007: no CSS runtime).
@@ -181,16 +182,16 @@ Rules, in order of importance:
 
 ```
 props: { demoSlug: string; demoParts: number }
-<iframe sandbox="allow-scripts" src={`/demos/${demoSlug}`}>   ← sandbox attribute is NON-OPTIONAL
+<iframe sandbox="allow-scripts allow-same-origin" src={`http://localhost:3001/demos/${demoSlug}`}>   ← demo server origin (3001), ≠ app origin
 state: { height, error, activePart }
 ```
 
-- `sandbox="allow-scripts"` (no `allow-same-origin` → opaque origin `"null"`) is what makes loading the demo page safe; embedding the URL without it is the XSS the whole design exists to prevent. The sandbox blocks *state*, not resource loads — that's why it can load our same-origin harness/vendor/bundle URLs.
-- Listens for `message` with `event.origin === "null"`; validates `event.data` shape on receipt.
+- `allow-same-origin` keeps the frame on the demo server's real origin (`http://localhost:3001`) instead of opaque `"null"` — the origin is now nameable. The XSS boundary is the **cross-origin split** (app ≠ demo server) plus the `Sec-Fetch-Dest` gate, not the sandbox attribute; the frame still cannot reach the host's DOM, cookies, or storage.
+- Listens for `message` with `event.origin` equal to the sandbox origin (`http://localhost:3001`); validates `event.data` shape on receipt.
   - `SANDBOX_RESIZE` → `setHeight(clamp(h, MIN, MAX))` — an untrusted number feeds CSS, so it is clamped.
   - `SANDBOX_ERROR` → banner (v1; full UX in #30). Non-blocking by construction.
 - **Stepper** rendered from `demoParts` (0..n−1); on change: `iframeRef.current.contentWindow.postMessage({ type: "DEMO_SET_PART", part }, "*")`.
-- targetOrigin is `"*"` in **both** directions, never `"null"`: Chromium rejects `"null"` as a *target* origin (`Invalid target origin`), and the sandbox→parent direction can't name the app origin from an opaque origin anyway. Delivery safety is field validation/clamping at the receiver (above), not origin targeting — the same policy on both sides.
+- targetOrigin is **precise** in both directions: the host posts to the sandbox origin (3001); the harness posts to `window.DEMO.appOrigin` (injected by the page — we own the page byte-for-byte). Field validation/clamping at the receiver (above) remains as the second layer: origin targeting alone doesn't stop a compromised demo server from posting garbage.
 - The host's knowledge of the demo comes **only** from the validated contract (`demo_parts`) — never from sandbox output (ADR 0003 invariant).
 
 ## Protocol (full v1 surface — see ADR 0007)
