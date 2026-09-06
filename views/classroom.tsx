@@ -1,3 +1,4 @@
+import { ControlBar } from "@/components/classroom/control-bar";
 import { SlideSidebar } from "@/components/classroom/slide-sidebar";
 
 /** The scene title shown in the main column's top bar. */
@@ -37,7 +38,7 @@ export function ClassroomView() {
 
         {/* Control bar (bottom-right) */}
         <footer className="flex h-16 shrink-0 items-center justify-end border-t border-outline-variant bg-surface px-6">
-          <span className="text-xs text-on-surface-variant">Controls</span>
+          <ControlBar index={1} total={7} />
         </footer>
       </div>
     </div>
