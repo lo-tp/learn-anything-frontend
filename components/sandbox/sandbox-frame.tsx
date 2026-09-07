@@ -6,7 +6,7 @@
  * no state, no handlers; the browser loads the `src` on its own.
  */
 export function SandboxFrame({
-  src = `${process.env.NEXT_PUBLIC_SANDBOX_ORIGIN}/sandbox/sample`,
+  src = `${process.env.NEXT_PUBLIC_SANDBOX_ORIGIN}/sandbox/sample_1`,
 }: {
   src?: string;
 }) {

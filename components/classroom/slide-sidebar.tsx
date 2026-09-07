@@ -95,10 +95,14 @@ function Thumbnail({ type }: { type: SlideType }) {
  * Left slide sidebar for `/classroom` (map #41).
  *
  * Purely presentational and static — no props, no state, no event handlers.
- * It always renders the same 7 outline cards, the first highlighted, with a
- * simple per-type shape standing in for each slide's thumbnail.
+ * It always renders the same 7 outline cards, the first highlighted. The
+ * first two cards use the per-type CSS `Thumbnail`; the last five load
+ * `sample_1`…`sample_5` from the sandbox origin.
  */
+const SAMPLE_COUNT = 5;
+
 export function SlideSidebar() {
+  const sampleStart = SLIDES.length - SAMPLE_COUNT;
   return (
     <aside className="flex h-full w-80 shrink-0 select-none flex-col border-r border-outline-variant bg-surface">
       <div className="flex-1 overflow-y-auto p-3">
@@ -135,10 +139,10 @@ export function SlideSidebar() {
                     {slide.title}
                   </span>
                 </div>
-                {i >= SLIDES.length - 2 ? (
+                {i >= sampleStart ? (
                   <div className="relative h-40 w-full overflow-hidden rounded-lg border border-outline-variant/50">
                     <iframe
-                      src={`${process.env.NEXT_PUBLIC_SANDBOX_ORIGIN}/sandbox/sample`}
+                      src={`${process.env.NEXT_PUBLIC_SANDBOX_ORIGIN}/sandbox/sample_${i - sampleStart + 1}`}
                       sandbox="allow-scripts allow-same-origin"
                       className="absolute top-0 left-0 h-[720px] w-[1280px] origin-top-left scale-[0.22]"
                     />
