@@ -53,7 +53,12 @@ export function ClassroomView() {
 
         {/* Control bar (bottom-right) */}
         <footer className="flex h-16 shrink-0 items-center justify-end border-t border-outline-variant bg-surface px-6">
-          <ControlBar index={activeIndex + 1} total={SAMPLES.length} />
+          <ControlBar
+            index={activeIndex + 1}
+            total={SAMPLES.length}
+            onPrev={() => setActiveIndex((i) => Math.max(0, i - 1))}
+            onNext={() => setActiveIndex((i) => Math.min(SAMPLES.length - 1, i + 1))}
+          />
         </footer>
       </div>
     </div>
