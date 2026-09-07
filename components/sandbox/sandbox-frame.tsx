@@ -15,7 +15,7 @@ export function SandboxFrame({
       src={src}
       title="Sandbox"
       sandbox="allow-scripts allow-same-origin"
-      className="h-full w-full rounded-xl border border-outline-variant bg-background"
+      className="h-full w-full rounded-xl bg-background"
     />
   );
 }
