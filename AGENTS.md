@@ -10,7 +10,7 @@ The five canonical triage roles, one label per name: `needs-triage`, `needs-info
 
 ### Domain docs
 
-Single-context: `CONTEXT.md` at the repo root, ADRs under `docs/adr/`. See `docs/agents/domain.md`.
+Architecture and domain language live in `ArchitectureRevamp.md` at the repo root (the prior `CONTEXT.md` glossary and `docs/adr/` set were removed in favor of it). See `docs/agents/domain.md`.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
