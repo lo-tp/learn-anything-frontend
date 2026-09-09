@@ -55,7 +55,7 @@ describe("Root (home History)", () => {
       screen.getByRole("button", { name: /Start New Session/ }),
     );
     expect(
-      await screen.findByText("Start a New Learning Journey"),
+      await screen.findByRole("heading", { name: "Start New Session" }),
     ).toBeTruthy();
   });
 
@@ -66,7 +66,7 @@ describe("Root (home History)", () => {
       screen.getByRole("button", { name: /Start New Session/ }),
     );
     expect(
-      await screen.findByText("Start a New Learning Journey"),
+      await screen.findByRole("heading", { name: "Start New Session" }),
     ).toBeTruthy();
   });
 
@@ -98,7 +98,7 @@ describe("Root (home History)", () => {
       screen.getByRole("button", { name: /Start New Session/ }),
     );
     const textarea = await screen.findByLabelText(
-      "What are we focusing on today?",
+      "What would you like to explore or learn?",
     );
     fireEvent.change(textarea, {
       target: {
@@ -106,7 +106,7 @@ describe("Root (home History)", () => {
           "I want to master Newton's second law of motion and how force, mass, and acceleration fit together.",
       },
     });
-    fireEvent.click(screen.getByRole("button", { name: /Start Session/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
     // The accepted session appears at the top — only possible through the
     // re-fetch, since it was not in initialSessions.

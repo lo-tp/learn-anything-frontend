@@ -16,8 +16,8 @@ import {
 } from "@testing-library/react";
 import { NewSessionDialog } from "../components/new-session-dialog";
 
-const TITLE = "Start a New Learning Journey";
-const LABEL = "What are we focusing on today?";
+const TITLE = "Start New Session";
+const LABEL = "What would you like to explore or learn?";
 const SHORT = "Too short.";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -55,23 +55,28 @@ describe("NewSessionDialog", () => {
   it("shows the intake form from the design", async () => {
     await openDialog();
     expect(screen.getByRole("heading", { name: TITLE })).toBeTruthy();
+    // The Recent Messages preview from the newest design.
+    expect(screen.getByText("Recent Messages")).toBeTruthy();
+    expect(screen.getByText("3 messages")).toBeTruthy();
     expect(
-      screen.getByPlaceholderText(/Describe your learning goal/),
+      screen.getByPlaceholderText(/Continue the discussion/),
     ).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: /Start Session/ }),
+      screen.getByRole("button", { name: /Send/ }),
     ).toBeTruthy();
     expect(
       screen.getByRole("button", { name: /Cancel/ }),
     ).toBeTruthy();
+    // A single close button (the header's), not the Dialog's built-in one.
+    expect(screen.getAllByRole("button", { name: "Close" })).toHaveLength(1);
   });
 
   it("shows a pending state and disables the buttons while the request is in flight", async () => {
     stubFetch(() => new Promise(() => {}));
     await openDialog("I want to understand Rust ownership and borrowing rules in depth.");
-    fireEvent.click(screen.getByRole("button", { name: /Start Session/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
-    const pending = await screen.findByRole("button", { name: /Starting/ });
+    const pending = await screen.findByRole("button", { name: /Sending/ });
     expect((pending as HTMLButtonElement).disabled).toBe(true);
     expect(
       (screen.getByRole("button", { name: /Cancel/ }) as HTMLButtonElement)
@@ -86,7 +91,7 @@ describe("NewSessionDialog", () => {
       ),
     );
     await openDialog(SHORT);
-    fireEvent.click(screen.getByRole("button", { name: /Start Session/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
     await screen.findByText("A bit more, please.");
     // The modal stays open with the learner's text preserved.
@@ -118,7 +123,7 @@ describe("NewSessionDialog", () => {
     render(<Harness />);
     const textarea = await screen.findByLabelText(LABEL);
     fireEvent.change(textarea, { target: { value: SHORT } });
-    fireEvent.click(screen.getByRole("button", { name: /Start Session/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
     await screen.findByText("A bit more, please.");
 
     fireEvent.click(screen.getByRole("button", { name: /Cancel/ }));
@@ -159,7 +164,7 @@ describe("NewSessionDialog", () => {
     fireEvent.change(textarea, {
       target: { value: "I want to master Newton's second law of motion and I know velocity but mix up force and momentum." },
     });
-    fireEvent.click(screen.getByRole("button", { name: /Start Session/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
     await vi.waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
     // Depending on the (never-completing in jsdom) exit animation the panel
@@ -177,7 +182,7 @@ describe("NewSessionDialog", () => {
     await openDialog(
       "I want to master Newton's second law of motion and I know velocity but mix up force and momentum.",
     );
-    fireEvent.click(screen.getByRole("button", { name: /Start Session/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
     const error = await screen.findByText(/went wrong|try again/i);
     expect(error).toBeTruthy();
