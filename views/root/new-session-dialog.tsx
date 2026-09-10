@@ -24,27 +24,6 @@ export type RecentMessage = {
   text: string;
 };
 
-/**
- * The conversation the design mockup shows over the intake box (see
- * `design/home/new_session/code.html`). The parent can override `recentMessages`
- * once real per-session history exists; until then the dialog renders this
- * fixture so it matches the design out of the box.
- */
-export const DEFAULT_RECENT_MESSAGES: RecentMessage[] = [
-  {
-    role: "you",
-    text: "Can we start a deep dive into distributed consensus protocols like Raft?",
-  },
-  {
-    role: "ai",
-    text: "Certainly! Raft breaks consensus down into leader election, log replication, and safety. What specific aspect would you like to explore first?",
-  },
-  {
-    role: "you",
-    text: "Let's focus on how leader election handles split votes during network partitions.",
-  },
-];
-
 type Status = "idle" | "pending" | "narrow" | "error";
 
 /**
@@ -61,15 +40,15 @@ export function NewSessionDialog({
   open,
   onOpenChange,
   onAccept,
-  recentMessages = DEFAULT_RECENT_MESSAGES,
+  recentMessages = [],
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Called after an accepted intake — the parent should refetch the History. */
   onAccept: () => void;
   /**
-   * The conversation previewed above the intake box. Defaults to the design
-   * fixture; pass `[]` to hide the section.
+   * The conversation previewed above the intake box. Defaults to empty,
+   * which hides the section.
    */
   recentMessages?: RecentMessage[];
 }) {
