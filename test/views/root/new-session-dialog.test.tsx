@@ -111,7 +111,7 @@ describe("NewSessionDialog", () => {
     ).toBe(true);
   });
 
-  it("keeps the dialog open and shows the clarifying questions when the goal is too thin", async () => {
+  it("keeps the dialog open and shows the clarifying questions in recent messages", async () => {
     mockCreateSession.mockResolvedValue({
       session_id: "s-1",
       phase: "clarifying",
@@ -120,8 +120,10 @@ describe("NewSessionDialog", () => {
     await openDialog(SHORT);
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
-    // The question is echoed in the inline message and in the new AI bubble.
-    await screen.findAllByText("A bit more, please.");
+    // The question shows only in the Recent Messages preview — never as an
+    // inline error below the textarea.
+    await screen.findByText("A bit more, please.");
+    expect(screen.queryByText("A bit more, please.", { selector: "p" })).toBeNull();
     // The modal stays open with the learner's text preserved.
     expect(screen.getByRole("heading", { name: TITLE })).toBeTruthy();
     expect((screen.getByLabelText(LABEL) as HTMLTextAreaElement).value).toBe(SHORT);
@@ -141,8 +143,25 @@ describe("NewSessionDialog", () => {
     // The learner's input shows as a "you" bubble (div — the textarea value
     // would also match the plain text, so scope to div elements).
     expect(screen.getByText(SHORT, { selector: "div" })).toBeTruthy();
-    // The AI's questions show as a bubble (also echoed in the inline message).
-    expect(screen.getAllByText("A bit more, please.")).toHaveLength(2);
+    // The AI's question shows as a single-line "ai" bubble.
+    expect(screen.getByText("A bit more, please.", { selector: "div" })).toBeTruthy();
+  });
+
+  it("renders multiple clarifying questions as a list", async () => {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: ["What is the scope?", "What is the target audience?"],
+    });
+    await openDialog(SHORT);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    // More than one question renders as a list inside the AI bubble.
+    const items = await screen.findAllByRole("listitem");
+    expect(items.map((el) => el.textContent)).toEqual([
+      "What is the scope?",
+      "What is the target audience?",
+    ]);
   });
 
   it("resets the form when the dialog is closed and reopened", async () => {
@@ -170,7 +189,7 @@ describe("NewSessionDialog", () => {
     const textarea = await screen.findByLabelText(LABEL);
     fireEvent.change(textarea, { target: { value: SHORT } });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
-    await screen.findAllByText("A bit more, please.");
+    await screen.findByText("A bit more, please.");
 
     fireEvent.click(screen.getByRole("button", { name: /Cancel/ }));
     await vi.waitFor(() => {

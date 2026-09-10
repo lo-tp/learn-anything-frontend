@@ -18,24 +18,28 @@ import {
 import { cn } from "@/lib/utils";
 import { ApiError, createSession } from "@/lib/api-client";
 
-/** One line of the conversation shown above the intake box. */
+/** One turn of the conversation shown above the intake box. */
 export type RecentMessage = {
   role: "you" | "ai";
-  text: string;
+  /**
+   * The turn's body. A single string renders as one line; an array with more
+   * than one entry renders as a list (e.g. the AI's clarifying questions).
+   */
+  text: string | string[];
 };
 
-type Status = "idle" | "pending" | "narrow" | "error";
+type Status = "idle" | "pending" | "error";
 
 /**
  * The new-session popup over the History (#26), per
  * `design/home/new_session/code.html`: a header, a read-only "Recent
  * Messages" preview, an intake textarea that starts a session through the
  * typed backend client (`createSession`, `POST /sessions`), and a Send
- * footer. Idle → pending ("Sending…", disabled) → either clarifying questions
- * (error color, below the textarea, modal stays open, and both turns are
- * appended to the Recent Messages preview), an error, or accept — which
- * resets the form, closes the dialog, and calls `onAccept` so the parent
- * refetches the History.
+ * footer. Idle → pending ("Sending…", disabled) → either a clarifying round
+ * (modal stays open and both turns are appended to the Recent Messages
+ * preview — the questions render as a list when there is more than one), an
+ * error, or accept — which resets the form, closes the dialog, and calls
+ * `onAccept` so the parent refetches the History.
  */
 export function NewSessionDialog({
   open,
@@ -61,6 +65,23 @@ export function NewSessionDialog({
   const [messages, setMessages] = useState<RecentMessage[]>(recentMessages);
 
   const pending = status === "pending";
+
+  /**
+   * The bubble body: a single line, or a list when there is more than one
+   * (the AI's clarifying questions).
+   */
+  function renderBody(text: string | string[]) {
+    const lines = Array.isArray(text) ? text : [text];
+    return lines.length > 1 ? (
+      <ul className="ml-4 list-disc space-y-1">
+        {lines.map((line, i) => (
+          <li key={i}>{line}</li>
+        ))}
+      </ul>
+    ) : (
+      <>{lines[0]}</>
+    );
+  }
 
   /** Close the dialog, always leaving it pristine for the next opening. */
   function close() {
@@ -91,15 +112,15 @@ export function NewSessionDialog({
       // probing, or a later lifecycle stage (planning, reviewing, generating,
       // executing, complete) — so accept and hand off to the parent.
       if (result.phase === "clarifying") {
-        // The backend wants to probe further: show its questions and keep
-        // the modal open (the learner's text stays in the box).
-        const questions =
-          result.clarifying_questions?.length
-            ? result.clarifying_questions.join(" ")
-            : "That's a bit thin — add a little more detail.";
-        setStatus("narrow");
-        setMessage(questions);
-        // Record both turns in the Recent Messages preview.
+        // The backend wants to probe further: keep the modal open and record
+        // both turns in the Recent Messages preview (the questions live there
+        // only — not as an inline error — and render as a list when there is
+        // more than one).
+        const questions = result.clarifying_questions?.length
+          ? result.clarifying_questions
+          : ["That's a bit thin — add a little more detail."];
+        // Back to idle so the Send/Cancel buttons re-enable for the next turn.
+        setStatus("idle");
         setMessages((prev) => [
           ...prev,
           { role: "you", text: paragraph },
@@ -173,7 +194,7 @@ export function NewSessionDialog({
                           You
                         </span>
                         <div className="max-w-[85%] rounded-xl rounded-tr-sm border border-outline-variant/30 bg-secondary-container px-3.5 py-2 text-sm text-on-surface">
-                          {entry.text}
+                          {renderBody(entry.text)}
                         </div>
                       </div>
                     ) : (
@@ -183,7 +204,7 @@ export function NewSessionDialog({
                           Lumina AI
                         </span>
                         <div className="max-w-[85%] rounded-xl rounded-tl-sm border border-outline-variant/40 bg-surface-bright px-3.5 py-2.5 text-sm text-on-surface">
-                          {entry.text}
+                          {renderBody(entry.text)}
                         </div>
                       </div>
                     ),
@@ -210,7 +231,7 @@ export function NewSessionDialog({
                   className="w-full resize-none rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-base text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/50 focus:border-primary disabled:opacity-60"
                 />
               </div>
-              {(status === "narrow" || status === "error") && (
+              {status === "error" && (
                 <p className="mt-2 text-sm text-error" aria-live="polite">
                   {message}
                 </p>
