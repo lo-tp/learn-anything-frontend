@@ -47,6 +47,21 @@ npm run dev     # http://localhost:3000 — the design shell (placeholder conten
 
 `scripts/setup-db.sh <dev|test>` rebuilds one database from scratch: drop + create, apply the schema from `db/schema.ts` via `drizzle-kit push`, and (for `dev`) apply `db/seed.sql`. Re-running it **wipes that database** — dev data is disposable pre-MVP. It requires the compose Postgres to be running first (`podman compose up -d db` — step 1) and fails fast with a hint otherwise. `podman compose down` stops the db (`podman compose down -v` also wipes its volume).
 
+## Backend integration
+
+The frontend talks to the backend's session API directly through a typed client — `lib/api-client.ts` (built on `openapi-fetch`) — instead of a Next.js proxy. New-session creation in the dialog goes through it; the Home History still reads from the dummy `/api/sessions` store until that migrates too.
+
+**Endpoint origin.** The client's `baseUrl` is exactly `process.env.BACKEND_URL` from `.env` — there is deliberately no fallback. When the variable is unset, requests are issued as relative paths (`/sessions` → same origin as the app), so the backend must be served there.
+
+**Schema regeneration.** `types/api.d.ts` is generated from the backend's OpenAPI spec and is the single source of truth for every request/response type:
+
+```bash
+npm run generate:types
+# = openapi-typescript http://localhost:8001/openapi.json -o types/api.d.ts
+```
+
+Run it whenever the backend spec changes (it needs the backend running at that URL), and never edit `types/api.d.ts` by hand — the next run overwrites it. After a regeneration, the client's types (paths, params, bodies, responses) follow automatically.
+
 ## Docs
 
 - [Architecture revamp](ArchitectureRevamp.md) — the three-service restructure (FE/BFF + Sandbox + LangGraph LLM): topology, contracts, state ownership, demo flow, deployment, and the decisions that supersede the prior design.

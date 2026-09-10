@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { ApiError, createSession } from "@/lib/api-client";
 
 /** One line of the conversation shown above the intake box. */
 export type RecentMessage = {
@@ -49,9 +50,10 @@ type Status = "idle" | "pending" | "narrow" | "error";
 /**
  * The new-session popup over the History (#26), per
  * `design/home/new_session/code.html`: a header, a read-only "Recent
- * Messages" preview, an intake textarea that POSTs to `/api/sessions`, and a
- * Send footer. Idle → pending ("Sending…", disabled) → either narrow feedback
- * (error color, below the textarea, modal stays open), a transport error, or
+ * Messages" preview, an intake textarea that starts a session through the
+ * typed backend client (`createSession`, `POST /sessions`), and a Send
+ * footer. Idle → pending ("Sending…", disabled) → either clarifying questions
+ * (error color, below the textarea, modal stays open), an error, or
  * accept — which resets the form, closes the dialog, and calls `onAccept` so
  * the parent refetches the History.
  */
@@ -99,31 +101,29 @@ export function NewSessionDialog({
     setStatus("pending");
     setMessage(null);
     try {
-      const res = await fetch("/api/sessions", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ paragraph }),
-      });
-      const body = await res.json().catch(() => null);
-      if (res.ok) {
-        if (body?.verdict === "narrow") {
-          setStatus("narrow");
-          setMessage(body.feedback ?? "That's a bit thin — add a little more detail.");
-        } else {
-          onAccept();
-          close();
-          return;
-        }
-      } else if (res.status === 400) {
-        setStatus("error");
-        setMessage(body?.error ?? "That paragraph doesn't work — try again.");
+      const result = await createSession(paragraph);
+      if (result.phase === "clarifying") {
+        // The backend wants to probe further: show its questions and keep
+        // the modal open (the learner's text stays in the box).
+        setStatus("narrow");
+        setMessage(
+          result.clarifying_questions?.length
+            ? result.clarifying_questions.join(" ")
+            : "That's a bit thin — add a little more detail.",
+        );
       } else {
-        setStatus("error");
-        setMessage("Something went wrong starting your session. Please try again.");
+        // The goal is narrowed (phase "probing") — accept and hand off.
+        onAccept();
+        close();
+        return;
       }
-    } catch {
+    } catch (err) {
       setStatus("error");
-      setMessage("Something went wrong reaching the server. Please try again.");
+      setMessage(
+        err instanceof ApiError
+          ? err.message
+          : "Something went wrong starting your session. Please try again.",
+      );
     }
   }
 

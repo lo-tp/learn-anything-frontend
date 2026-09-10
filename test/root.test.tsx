@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
   fireEvent,
@@ -7,7 +7,22 @@ import {
   screen,
 } from "@testing-library/react";
 import { Root } from "../views/root";
+import { createSession } from "../lib/api-client";
 import type { SessionSummary } from "../lib/dummy-sessions";
+
+// The new-session dialog creates sessions through the typed backend client;
+// stub that module (openapi-fetch binds `fetch` at client-creation time, so
+// stubbing the global fetch after import never intercepts it).
+vi.mock("../lib/api-client", () => ({
+  createSession: vi.fn(),
+  ApiError: class ApiError extends Error {},
+}));
+
+const mockCreateSession = vi.mocked(createSession);
+
+beforeEach(() => {
+  mockCreateSession.mockReset();
+});
 
 afterEach(() => {
   cleanup();
@@ -77,20 +92,14 @@ describe("Root (home History)", () => {
       createdAt: "2025-10-25T11:00:00.000Z",
       stage: "probing",
     };
-    const fetchMock = vi.fn((input: string, init?: RequestInit) => {
-      void input;
-      if (init?.method === "POST") {
-        return Promise.resolve(
-          json({
-            verdict: "accept_target",
-            sessionId: fresh.id,
-            knowledgePoint: fresh.knowledgePoint,
-          }),
-        );
-      }
-      // The re-fetch after accept returns the new session on top.
-      return Promise.resolve(json([fresh, session()]) );
+    // The dialog creates the session through the typed backend client.
+    mockCreateSession.mockResolvedValue({
+      session_id: fresh.id,
+      phase: "probing",
+      narrowed_goal: fresh.knowledgePoint,
     });
+    // The re-fetch after accept returns the new session on top.
+    const fetchMock = vi.fn(() => Promise.resolve(json([fresh, session()])));
     vi.stubGlobal("fetch", fetchMock);
 
     render(<Root initialSessions={[session()]} />);
@@ -111,6 +120,6 @@ describe("Root (home History)", () => {
     // The accepted session appears at the top — only possible through the
     // re-fetch, since it was not in initialSessions.
     expect(await screen.findByText("Newton's second law of motion")).toBeTruthy();
-    expect(fetchMock).toHaveBeenCalledTimes(2); // the POST + the re-fetch
+    expect(fetchMock).toHaveBeenCalledTimes(1); // the re-fetch (createSession goes through the stubbed client)
   });
 });

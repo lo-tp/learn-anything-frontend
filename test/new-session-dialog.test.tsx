@@ -2,11 +2,11 @@
 import { useState } from "react";
 import {
   afterEach,
+  beforeEach,
   describe,
   expect,
   it,
   vi,
-  type Mock,
 } from "vitest";
 import {
   cleanup,
@@ -15,23 +15,22 @@ import {
   screen,
 } from "@testing-library/react";
 import { NewSessionDialog } from "../views/root/new-session-dialog";
+import { ApiError, createSession } from "../lib/api-client";
+
+// The dialog calls the typed backend client. Stub the module rather than the
+// global fetch: openapi-fetch binds `fetch` when the client is created, so a
+// `vi.stubGlobal("fetch", ...)` after the module import never intercepts its
+// requests.
+vi.mock("../lib/api-client", () => ({
+  createSession: vi.fn(),
+  ApiError: class ApiError extends Error {},
+}));
+
+const mockCreateSession = vi.mocked(createSession);
 
 const TITLE = "Start New Session";
 const LABEL = "What would you like to explore or learn?";
 const SHORT = "Too short.";
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-}
-
-function stubFetch(impl: () => unknown) {
-  const fetchMock = vi.fn(impl) as Mock;
-  vi.stubGlobal("fetch", fetchMock);
-  return fetchMock;
-}
 
 /** Render the dialog open and focus its textarea with `value`. */
 async function openDialog(
@@ -46,9 +45,12 @@ async function openDialog(
   return view;
 }
 
+beforeEach(() => {
+  mockCreateSession.mockReset();
+});
+
 afterEach(() => {
   cleanup();
-  vi.unstubAllGlobals();
 });
 
 describe("NewSessionDialog", () => {
@@ -72,7 +74,7 @@ describe("NewSessionDialog", () => {
   });
 
   it("shows a pending state and disables the buttons while the request is in flight", async () => {
-    stubFetch(() => new Promise(() => {}));
+    mockCreateSession.mockReturnValue(new Promise(() => {}));
     await openDialog("I want to understand Rust ownership and borrowing rules in depth.");
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
@@ -84,12 +86,12 @@ describe("NewSessionDialog", () => {
     ).toBe(true);
   });
 
-  it("keeps the dialog open and shows narrow feedback when the intake is too thin", async () => {
-    stubFetch(() =>
-      Promise.resolve(
-        jsonResponse({ verdict: "narrow", feedback: "A bit more, please." }),
-      ),
-    );
+  it("keeps the dialog open and shows the clarifying questions when the goal is too thin", async () => {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: ["A bit more, please."],
+    });
     await openDialog(SHORT);
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
@@ -100,11 +102,11 @@ describe("NewSessionDialog", () => {
   });
 
   it("resets the form when the dialog is closed and reopened", async () => {
-    stubFetch(() =>
-      Promise.resolve(
-        jsonResponse({ verdict: "narrow", feedback: "A bit more, please." }),
-      ),
-    );
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: ["A bit more, please."],
+    });
     function Harness() {
       const [open, setOpen] = useState(true);
       return (
@@ -141,15 +143,11 @@ describe("NewSessionDialog", () => {
   });
 
   it("notifies the parent and closes on an accepted intake", async () => {
-    stubFetch(() =>
-      Promise.resolve(
-        jsonResponse({
-          verdict: "accept_target",
-          sessionId: "s-1",
-          knowledgePoint: "Newton's second law of motion",
-        }),
-      ),
-    );
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "probing",
+      narrowed_goal: "Newton's second law of motion",
+    });
     // Stateful harness: the dialog's onOpenChange(false) must be able to flip
     // `open` for the close to be observable.
     function Harness({ onAccept }: { onAccept: () => void }) {
@@ -178,7 +176,7 @@ describe("NewSessionDialog", () => {
   });
 
   it("shows a transport error and stays open when the request fails", async () => {
-    stubFetch(() => Promise.reject(new Error("network down")));
+    mockCreateSession.mockRejectedValue(new Error("network down"));
     await openDialog(
       "I want to master Newton's second law of motion and I know velocity but mix up force and momentum.",
     );
@@ -186,6 +184,18 @@ describe("NewSessionDialog", () => {
 
     const error = await screen.findByText(/went wrong|try again/i);
     expect(error).toBeTruthy();
+    expect(screen.getByRole("heading", { name: TITLE })).toBeTruthy();
+  });
+
+  it("shows the backend's validation message on an ApiError", async () => {
+    mockCreateSession.mockRejectedValue(
+      new ApiError("Goal must not be empty.", 422),
+    );
+    await openDialog(SHORT);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    await screen.findByText("Goal must not be empty.");
+    // The modal stays open for another attempt.
     expect(screen.getByRole("heading", { name: TITLE })).toBeTruthy();
   });
 });

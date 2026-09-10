@@ -8,12 +8,12 @@ import type { components, paths } from "@/types/api";
  * OpenAPI spec via `npm run generate:types` (run it after the spec changes —
  * never hand-edit the generated file).
  *
- * Note: this talks to the *backend* (default http://localhost:8001), not the
+ * Note: this talks to the *backend* (`BACKEND_URL` in .env), not the
  * Next.js `/api/sessions` dummy-store route — the two have different shapes
  * (e.g. backend takes `{ goal }`, the dummy route takes `{ paragraph }`).
  */
 export const api = createClient<paths>({
-  baseUrl: process.env.BACKEND_URL
+  baseUrl: process.env.BACKEND_URL,
 });
 
 /** Named schema types, lifted out of the generated `components.schemas`. */
@@ -23,14 +23,26 @@ export type ClarifyResult = components["schemas"]["ClarifyResult"];
 export type SessionState = components["schemas"]["SessionState"];
 export type Phase = components["schemas"]["Phase"];
 
+/** Thrown when the backend answers with a declared error (e.g. 422). */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status?: number,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 /** 422 validation errors from the backend, flattened to messages. */
 function describeError(
   error: unknown,
   status?: number,
-): Error {
+): ApiError {
   const detail = (error as { detail?: { msg: string }[] } | undefined)?.detail;
-  return new Error(
+  return new ApiError(
     detail?.map((d) => d.msg).join(" ") ?? `Request failed (${status ?? "unknown"})`,
+    status,
   );
 }
 
