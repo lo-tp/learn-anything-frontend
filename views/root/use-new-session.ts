@@ -40,15 +40,20 @@ type Status = "idle" | "pending" | "error";
  * open with the text preserved and an inline message.
  *
  * `messagesPanelRef` is exposed so the component can pin its Recent
- * Messages panel to the bottom whenever a new turn lands. Closing always
- * resets the state so the dialog is pristine on the next opening, and a
- * close mid-request is ignored (a submit is still in flight).
+ * Messages panel to the bottom whenever a new turn lands, and
+ * `attachTextarea` so the component can attach the intake textarea — which
+ * is focused whenever it is visible and enabled. Closing always resets the
+ * state so the dialog is pristine on the next opening, and a close
+ * mid-request is ignored (a submit is still in flight).
  */
 export function useNewSession({
+  open,
   onAccept,
   onOpenChange,
   recentMessages = [],
 }: {
+  /** Whether the dialog is open. */
+  open: boolean;
   /** Called after an accepted intake — the parent should refetch the History. */
   onAccept: () => void;
   /** Propagates the dialog's open/closed state to the parent. */
@@ -72,11 +77,32 @@ export function useNewSession({
 
   // The scrollable Recent Messages panel — pinned to the bottom as turns land.
   const messagesPanelRef = useRef<HTMLDivElement | null>(null);
+  // The intake textarea, focused whenever it is visible and enabled. The
+  // ref callback also tracks whether it is mounted: Radix mounts the dialog
+  // content a commit after `open` flips, so the mount-time effect would
+  // otherwise run against a null ref and never re-run.
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [textareaMounted, setTextareaMounted] = useState(false);
+
+  function attachTextarea(element: HTMLTextAreaElement | null) {
+    textareaRef.current = element;
+    setTextareaMounted(element !== null);
+  }
 
   useEffect(() => {
     const panel = messagesPanelRef.current;
     if (panel) panel.scrollTop = panel.scrollHeight;
   }, [messages.length]);
+
+  // Focus the textarea once it is enabled: on open (Radix would otherwise
+  // auto-focus the header's close button), and again whenever a pending
+  // submit settles (clarifying round or error) so the next answer can be
+  // typed immediately. Skipped in the confirm step, where it is hidden.
+  useEffect(() => {
+    if (open && textareaMounted && !pending && !confirming) {
+      textareaRef.current?.focus({ preventScroll: true });
+    }
+  }, [open, textareaMounted, pending, confirming]);
 
   /**
    * Break a learner's answer into its trimmed lines so a multi-line answer
@@ -187,6 +213,7 @@ export function useNewSession({
     pending,
     confirming,
     messagesPanelRef,
+    attachTextarea,
     submit,
     close,
     confirm,

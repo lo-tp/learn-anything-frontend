@@ -386,6 +386,28 @@ describe("NewSessionDialog", () => {
     await vi.waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
   });
 
+  it("focuses the textarea when the dialog opens", async () => {
+    await openDialog();
+    // Radix would otherwise auto-focus the header's close button.
+    expect(document.activeElement).toBe(screen.getByLabelText(LABEL));
+  });
+
+  it("refocuses the textarea once a pending submit settles", async () => {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: ["A bit more, please."],
+    });
+    await openDialog(SHORT);
+    // Move focus away (as clicking Send would), then submit.
+    fireEvent.focus(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    await screen.findByText("A bit more, please.");
+    // The textarea is enabled again for the next turn, so focus returns to it.
+    expect(document.activeElement).toBe(screen.getByLabelText(LABEL));
+  });
+
   it("submits the intake on a bare Enter key", async () => {
     mockCreateSession.mockResolvedValue({
       session_id: "s-1",

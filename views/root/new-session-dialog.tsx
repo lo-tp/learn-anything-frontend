@@ -60,11 +60,12 @@ export function NewSessionDialog({
     pending,
     confirming,
     messagesPanelRef,
+    attachTextarea,
     submit,
     close,
     confirm,
     handleOpenChange,
-  } = useNewSession({ onAccept, onOpenChange, recentMessages });
+  } = useNewSession({ open, onAccept, onOpenChange, recentMessages });
 
   /**
    * The bubble body: a single line, or a list when there is more than one
@@ -106,6 +107,9 @@ export function NewSessionDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         showCloseButton={false}
+        // Opt out of Radix's open auto-focus (it targets the close button);
+        // useNewSession owns focus and puts it in the textarea when enabled.
+        onOpenAutoFocus={(event) => event.preventDefault()}
         className="w-full max-w-2xl max-h-[90vh] flex-col gap-0 overflow-hidden border-outline-variant bg-surface-container p-0 text-on-surface sm:max-w-2xl"
       >
         <form onSubmit={handleSubmit} className="flex w-full flex-col">
@@ -200,6 +204,7 @@ export function NewSessionDialog({
                 <div className="relative">
                   <textarea
                     id="learning-goal"
+                    ref={attachTextarea}
                     rows={3}
                     value={paragraph}
                     onChange={(e) => setParagraph(e.target.value)}
