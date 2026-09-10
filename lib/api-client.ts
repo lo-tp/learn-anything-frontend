@@ -8,12 +8,18 @@ import type { components, paths } from "@/types/api";
  * OpenAPI spec via `npm run generate:types` (run it after the spec changes —
  * never hand-edit the generated file).
  *
- * Note: this talks to the *backend* (`BACKEND_URL` in .env), not the
- * Next.js `/api/sessions` dummy-store route — the two have different shapes
- * (e.g. backend takes `{ goal }`, the dummy route takes `{ paragraph }`).
+ * Note: this talks to the *backend* (`NEXT_PUBLIC_BACKEND_URL` in .env), not
+ * the Next.js `/api/sessions` dummy-store route — the two have different
+ * shapes (e.g. backend takes `{ goal }`, the dummy route takes `{ paragraph }`).
+ *
+ * The client runs in the browser, so the origin must be a `NEXT_PUBLIC_`-prefixed
+ * var: Next.js only inlines those into the client bundle. An unprefixed
+ * `process.env.BACKEND_URL` is `undefined` at runtime here, and openapi-fetch
+ * would fall back to a relative URL (the current page origin) instead of the
+ * backend.
  */
 export const api = createClient<paths>({
-  baseUrl: process.env.BACKEND_URL,
+  baseUrl: process.env.NEXT_PUBLIC_BACKEND_URL,
 });
 
 /** Named schema types, lifted out of the generated `components.schemas`. */
