@@ -120,10 +120,29 @@ describe("NewSessionDialog", () => {
     await openDialog(SHORT);
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
-    await screen.findByText("A bit more, please.");
+    // The question is echoed in the inline message and in the new AI bubble.
+    await screen.findAllByText("A bit more, please.");
     // The modal stays open with the learner's text preserved.
     expect(screen.getByRole("heading", { name: TITLE })).toBeTruthy();
     expect((screen.getByLabelText(LABEL) as HTMLTextAreaElement).value).toBe(SHORT);
+  });
+
+  it("records the learner's input and the clarifying questions as recent messages", async () => {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: ["A bit more, please."],
+    });
+    await openDialog(SHORT);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    // The clarifying round appends both turns to the Recent Messages preview.
+    await screen.findByText("2 messages");
+    // The learner's input shows as a "you" bubble (div — the textarea value
+    // would also match the plain text, so scope to div elements).
+    expect(screen.getByText(SHORT, { selector: "div" })).toBeTruthy();
+    // The AI's questions show as a bubble (also echoed in the inline message).
+    expect(screen.getAllByText("A bit more, please.")).toHaveLength(2);
   });
 
   it("resets the form when the dialog is closed and reopened", async () => {
@@ -151,7 +170,7 @@ describe("NewSessionDialog", () => {
     const textarea = await screen.findByLabelText(LABEL);
     fireEvent.change(textarea, { target: { value: SHORT } });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
-    await screen.findByText("A bit more, please.");
+    await screen.findAllByText("A bit more, please.");
 
     fireEvent.click(screen.getByRole("button", { name: /Cancel/ }));
     await vi.waitFor(() => {

@@ -32,9 +32,10 @@ type Status = "idle" | "pending" | "narrow" | "error";
  * Messages" preview, an intake textarea that starts a session through the
  * typed backend client (`createSession`, `POST /sessions`), and a Send
  * footer. Idle → pending ("Sending…", disabled) → either clarifying questions
- * (error color, below the textarea, modal stays open), an error, or
- * accept — which resets the form, closes the dialog, and calls `onAccept` so
- * the parent refetches the History.
+ * (error color, below the textarea, modal stays open, and both turns are
+ * appended to the Recent Messages preview), an error, or accept — which
+ * resets the form, closes the dialog, and calls `onAccept` so the parent
+ * refetches the History.
  */
 export function NewSessionDialog({
   open,
@@ -47,14 +48,17 @@ export function NewSessionDialog({
   /** Called after an accepted intake — the parent should refetch the History. */
   onAccept: () => void;
   /**
-   * The conversation previewed above the intake box. Defaults to empty,
-   * which hides the section.
+   * The initial conversation previewed above the intake box. Defaults to
+   * empty, which hides the section; each clarifying round appends the
+   * learner's input and the AI's questions to it.
    */
   recentMessages?: RecentMessage[];
 }) {
   const [paragraph, setParagraph] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState<string | null>(null);
+  // Seeded from the prop; grows as the intake conversation unfolds.
+  const [messages, setMessages] = useState<RecentMessage[]>(recentMessages);
 
   const pending = status === "pending";
 
@@ -63,6 +67,7 @@ export function NewSessionDialog({
     setParagraph("");
     setStatus("idle");
     setMessage(null);
+    setMessages(recentMessages);
     onOpenChange(false);
   }
 
@@ -84,12 +89,18 @@ export function NewSessionDialog({
       if (result.phase === "clarifying") {
         // The backend wants to probe further: show its questions and keep
         // the modal open (the learner's text stays in the box).
-        setStatus("narrow");
-        setMessage(
+        const questions =
           result.clarifying_questions?.length
             ? result.clarifying_questions.join(" ")
-            : "That's a bit thin — add a little more detail.",
-        );
+            : "That's a bit thin — add a little more detail.";
+        setStatus("narrow");
+        setMessage(questions);
+        // Record both turns in the Recent Messages preview.
+        setMessages((prev) => [
+          ...prev,
+          { role: "you", text: paragraph },
+          { role: "ai", text: questions },
+        ]);
       } else {
         // The goal is narrowed (phase "probing") — accept and hand off.
         onAccept();
@@ -136,7 +147,7 @@ export function NewSessionDialog({
 
           {/* Body — Recent Messages preview + the intake textarea. */}
           <div className="flex flex-col gap-5 p-6">
-            {recentMessages.length > 0 && (
+            {messages.length > 0 && (
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 font-mono text-xs font-medium uppercase tracking-wider text-on-surface-variant">
@@ -144,13 +155,13 @@ export function NewSessionDialog({
                     Recent Messages
                   </span>
                   <span className="font-mono text-xs text-on-surface-variant/70">
-                    {recentMessages.length}{" "}
-                    {recentMessages.length === 1 ? "message" : "messages"}
+                    {messages.length}{" "}
+                    {messages.length === 1 ? "message" : "messages"}
                   </span>
                 </div>
 
                 <div className="flex max-h-56 flex-col gap-3 overflow-y-auto rounded-xl border border-outline-variant/30 bg-surface-container-lowest/50 p-3 pr-2">
-                  {recentMessages.map((entry, index) =>
+                  {messages.map((entry, index) =>
                     entry.role === "you" ? (
                       <div key={index} className="flex flex-col items-end gap-1">
                         <span className="font-mono text-xs font-medium text-secondary">
