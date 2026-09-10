@@ -27,7 +27,9 @@ export type { RecentMessage };
  * The new-session popup over the History (#26), per
  * `design/home/new_session/code.html`: a header, a read-only "Recent
  * Messages" preview, an intake textarea, and a footer that adapts to the
- * Clarify loop.
+ * Clarify loop and the probe loop (probe questions render as numbered
+ * option lists inside the message bubbles; the learner answers by typing
+ * the option's number).
  *
  * All state and business logic lives in `useNewSession`
  * (`./use-new-session.ts`); this component is purely presentational — it
@@ -58,6 +60,8 @@ export function NewSessionDialog({
     message,
     messages,
     pending,
+    probing,
+    probeQuestion,
     confirming,
     messagesPanelRef,
     attachTextarea,
@@ -185,6 +189,21 @@ export function NewSessionDialog({
                           ) : (
                             renderBody(entry.text)
                           )}
+                          {entry.options && (
+                            <ul className="mt-2.5 space-y-1.5">
+                              {entry.options.map((option, i) => (
+                                <li key={i} className="flex items-start gap-2">
+                                  <span
+                                    aria-hidden
+                                    className="mt-0.5 font-mono text-xs font-semibold text-primary"
+                                  >
+                                    {i + 1}
+                                  </span>
+                                  <span>{option}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </div>
                       </div>
                     ),
@@ -199,7 +218,9 @@ export function NewSessionDialog({
                   htmlFor="learning-goal"
                   className="mb-2 block text-base font-medium text-on-surface"
                 >
-                  What would you like to explore or learn?
+                  {probing
+                    ? "Which option is right?"
+                    : "What would you like to explore or learn?"}
                 </label>
                 <div className="relative">
                   <textarea
@@ -210,7 +231,11 @@ export function NewSessionDialog({
                     onChange={(e) => setParagraph(e.target.value)}
                     onKeyDown={handleKeyDown}
                     disabled={pending}
-                    placeholder="Continue the discussion or describe the next query..."
+                    placeholder={
+                      probing && probeQuestion
+                        ? `Type the option number (1–${probeQuestion.options.length})`
+                        : "Continue the discussion or describe the next query..."
+                    }
                     className="w-full resize-none rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-base text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/50 focus:border-primary disabled:opacity-60"
                   />
                 </div>

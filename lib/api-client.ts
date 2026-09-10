@@ -28,6 +28,8 @@ export type ClarifyIn = components["schemas"]["ClarifyIn"];
 export type ClarifyResult = components["schemas"]["ClarifyResult"];
 export type SessionState = components["schemas"]["SessionState"];
 export type Phase = components["schemas"]["Phase"];
+export type ProbeOut = components["schemas"]["ProbeOut"];
+export type ProbeQuestionOut = components["schemas"]["ProbeQuestionOut"];
 
 /** Thrown when the backend answers with a declared error (e.g. 422). */
 export class ApiError extends Error {
@@ -79,6 +81,37 @@ export async function getSession(sessionId: string): Promise<SessionState> {
   const { data, error, response } = await api.GET("/sessions/{session_id}", {
     params: { path: { session_id: sessionId } },
   });
+  if (!data) throw describeError(error, response?.status);
+  return data;
+}
+
+/** `POST /sessions/{session_id}/probe` — start the probe: fetch the first question. */
+export async function startProbe(sessionId: string): Promise<ProbeOut> {
+  const { data, error, response } = await api.POST(
+    "/sessions/{session_id}/probe",
+    { params: { path: { session_id: sessionId } }, body: {} },
+  );
+  if (!data) throw describeError(error, response?.status);
+  return data;
+}
+
+/**
+ * `POST /sessions/{session_id}/probe` — submit the answer to the active
+ * probe question. `selectedIndex` is 0-based, matching the backend's
+ * `correct_index` convention (the UI shows 1-based option numbers).
+ */
+export async function answerProbe(
+  sessionId: string,
+  questionId: string,
+  selectedIndex: number,
+): Promise<ProbeOut> {
+  const { data, error, response } = await api.POST(
+    "/sessions/{session_id}/probe",
+    {
+      params: { path: { session_id: sessionId } },
+      body: { question_id: questionId, selected_index: selectedIndex },
+    },
+  );
   if (!data) throw describeError(error, response?.status);
   return data;
 }

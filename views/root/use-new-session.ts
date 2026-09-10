@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ApiError,
+  answerProbe,
   clarifySession,
   createSession,
+  startProbe,
   type Phase,
+  type ProbeQuestionOut,
 } from "@/lib/api-client";
 
 /** One turn of the conversation shown above the intake box. */
@@ -16,8 +19,14 @@ export type RecentMessage = {
    */
   text: string | string[];
   /**
-   * Marks the AI's narrowed-goal turn so the confirm step can highlight it
-   * against the other bubbles.
+   * Probe-question options rendered as a numbered list under the bubble
+   * body (the active question the learner must answer by typing its
+   * option's number).
+   */
+  options?: string[];
+  /**
+   * Marks the AI's narrowed-goal and probe-completion turns so they stand
+   * out against the other bubbles.
    */
   highlighted?: boolean;
 };
@@ -31,13 +40,22 @@ type Status = "idle" | "pending" | "error";
  * returned `session_id`; while the backend stays in `clarifying`, each
  * further submit calls `clarifySession(session_id, answer)` and both turns
  * are appended to the Recent Messages preview (the questions render as a
- * list when there is more than one) with the textarea cleared. When the
- * phase advances past `clarifying` (e.g. `probing`, or a later lifecycle
- * stage), the dialog enters a confirm step: the learner's answer — and the
- * AI's narrowed goal, when present — are recorded, the textarea is hidden,
- * and the footer offers a single **Confirm** button that calls `onAccept`
- * (so the parent refetches the History) and closes. Errors keep the modal
- * open with the text preserved and an inline message.
+ * list when there is more than one) with the textarea cleared.
+ *
+ * When the phase advances to `probing`, the dialog runs the probe loop
+ * against the combined `POST /sessions/{id}/probe` endpoint: the first
+ * question is fetched automatically (`startProbe`); the learner answers by
+ * typing the 1-based number of an option, which is client-validated and
+ * sent as a 0-based `selected_index` (`answerProbe`). Every turn appends the
+ * learner's pick, the verdict + explanation, and either the next question
+ * or — once the backend returns the `boundary_map` (phase `planning`) — a
+ * completion message.
+ *
+ * Only once probing is done — or when the backend skips straight to a later
+ * lifecycle phase — does the dialog enter a confirm step: the textarea is
+ * hidden and the footer offers a single **Confirm** button that calls
+ * `onAccept` (so the parent refetches the History) and closes. Errors keep
+ * the modal open with the text preserved and an inline message.
  *
  * `messagesPanelRef` is exposed so the component can pin its Recent
  * Messages panel to the bottom whenever a new turn lands, and
@@ -70,10 +88,20 @@ export function useNewSession({
   const [sessionId, setSessionId] = useState<string | null>(null);
   // The backend phase after the latest result; null until then.
   const [phase, setPhase] = useState<Phase | null>(null);
+  // The active probe question; null outside probing (or mid re-fetch).
+  const [probeQuestion, setProbeQuestion] = useState<ProbeQuestionOut | null>(
+    null,
+  );
+  // How many probe questions have been served so far.
+  const [probeCount, setProbeCount] = useState(0);
 
   const pending = status === "pending";
-  // A non-clarifying phase means intake is done — show the confirm step.
-  const confirming = phase !== null && phase !== "clarifying";
+  // The probe loop is live: one question is owed an answer.
+  const probing = phase === "probing";
+  // A non-clarifying, non-probing phase means intake is done — show the
+  // confirm step (probe completion lands here with phase "planning").
+  const confirming =
+    phase !== null && phase !== "clarifying" && phase !== "probing";
 
   // The scrollable Recent Messages panel — pinned to the bottom as turns land.
   const messagesPanelRef = useRef<HTMLDivElement | null>(null);
@@ -96,8 +124,9 @@ export function useNewSession({
 
   // Focus the textarea once it is enabled: on open (Radix would otherwise
   // auto-focus the header's close button), and again whenever a pending
-  // submit settles (clarifying round or error) so the next answer can be
-  // typed immediately. Skipped in the confirm step, where it is hidden.
+  // submit settles (clarifying round, probe turn, or error) so the next
+  // answer can be typed immediately. Skipped in the confirm step, where it
+  // is hidden.
   useEffect(() => {
     if (open && textareaMounted && !pending && !confirming) {
       textareaRef.current?.focus({ preventScroll: true });
@@ -117,6 +146,83 @@ export function useNewSession({
     return lines.length > 1 ? lines : lines[0] ?? text;
   }
 
+  /**
+   * The learner's typed option number (1-based, matching the numbers shown
+   * in the question bubble), or null when the text is not a valid index.
+   */
+  function parseOptionIndex(text: string, count: number): number | null {
+    const trimmed = text.trim();
+    const index = Number(trimmed);
+    if (
+      trimmed.length === 0 ||
+      !Number.isInteger(index) ||
+      index < 1 ||
+      index > count
+    ) {
+      return null;
+    }
+    return index;
+  }
+
+  /**
+   * Record a freshly served probe question: append its bubble (text +
+   * numbered options), track the count, and clear the textarea for the next
+   * answer.
+   */
+  function recordProbeQuestion(question: ProbeQuestionOut) {
+    setStatus("idle");
+    setPhase("probing");
+    setProbeQuestion(question);
+    setProbeCount((count) => count + 1);
+    setParagraph("");
+    setMessages((prev) => [
+      ...prev,
+      { role: "ai", text: question.text, options: question.options },
+    ]);
+  }
+
+  /**
+   * Record the outcome of an answered probe question: the learner's pick,
+   * the verdict + explanation, then either the next question or — when the
+   * backend has established the boundary (no next question) — the
+   * highlighted completion message.
+   */
+  function recordProbeResult(
+    selected: number,
+    result: { phase: Phase; question?: ProbeQuestionOut | null },
+  ) {
+    const answered = probeQuestion;
+    if (!answered) return;
+    const isCorrect = selected - 1 === answered.correct_index;
+    const feedback = isCorrect
+      ? `Correct — option ${selected} (${answered.options[selected - 1]}). ${answered.explanation}`
+      : `Not quite — the correct answer is option ${answered.correct_index + 1} (${answered.options[answered.correct_index]}). ${answered.explanation}`;
+    const additions: RecentMessage[] = [
+      { role: "you", text: answered.options[selected - 1] },
+      { role: "ai", text: feedback },
+    ];
+    if (result.question) {
+      additions.push({
+        role: "ai",
+        text: result.question.text,
+        options: result.question.options,
+      });
+      setProbeQuestion(result.question);
+      setProbeCount((count) => count + 1);
+    } else {
+      additions.push({
+        role: "ai",
+        text: `Boundary established after ${probeCount} question${probeCount === 1 ? "" : "s"}. Your learning plan is ready.`,
+        highlighted: true,
+      });
+      setProbeQuestion(null);
+    }
+    setStatus("idle");
+    setPhase(result.phase);
+    setParagraph("");
+    setMessages((prev) => [...prev, ...additions]);
+  }
+
   /** Close the dialog, always leaving it pristine for the next opening. */
   function close() {
     setParagraph("");
@@ -125,6 +231,8 @@ export function useNewSession({
     setMessages(recentMessages);
     setSessionId(null);
     setPhase(null);
+    setProbeQuestion(null);
+    setProbeCount(0);
     onOpenChange(false);
   }
 
@@ -153,6 +261,45 @@ export function useNewSession({
     setStatus("pending");
     setMessage(null);
     try {
+      // The probe loop: retry a failed first fetch, or answer the active
+      // question with the typed option number.
+      if (phase === "probing") {
+        if (sessionId === null) {
+          setStatus("error");
+          setMessage(
+            "Something went wrong starting your session. Please try again.",
+          );
+          return;
+        }
+        if (probeQuestion === null) {
+          // First fetch (or its retry) — no question is owed an answer yet.
+          const result = await startProbe(sessionId);
+          if (!result.question) {
+            setStatus("error");
+            setMessage("No question was received — please try again.");
+            return;
+          }
+          recordProbeQuestion(result.question);
+          return;
+        }
+        const index = parseOptionIndex(
+          paragraph,
+          probeQuestion.options.length,
+        );
+        if (index === null) {
+          // Client-side validation: the text must name one of the shown
+          // options (1-based). No request goes out.
+          setStatus("error");
+          setMessage(
+            `Enter the number of your answer (1–${probeQuestion.options.length}).`,
+          );
+          return;
+        }
+        const result = await answerProbe(sessionId, probeQuestion.id, index - 1);
+        recordProbeResult(index, result);
+        return;
+      }
+
       // The first submit creates the session; later submits while the backend
       // is still clarifying resume the Clarify loop against that session.
       const result = sessionId
@@ -176,6 +323,29 @@ export function useNewSession({
           { role: "you", text: splitAnswer(paragraph) },
           { role: "ai", text: questions },
         ]);
+      } else if (result.phase === "probing") {
+        // The goal is narrowed — start the probe loop: record the turn (plus
+        // the narrowed goal, when present) and fetch the first question.
+        const additions: RecentMessage[] = [
+          { role: "you", text: splitAnswer(paragraph) },
+        ];
+        if (result.narrowed_goal) {
+          additions.push({
+            role: "ai",
+            text: `Your narrowed goal is: ${result.narrowed_goal}`,
+            highlighted: true,
+          });
+        }
+        setMessages((prev) => [...prev, ...additions]);
+        setParagraph("");
+        setPhase("probing");
+        const probe = await startProbe(result.session_id);
+        if (!probe.question) {
+          setStatus("error");
+          setMessage("No question was received — please try again.");
+          return;
+        }
+        recordProbeQuestion(probe.question);
       } else {
         // The goal is narrowed (or the session is already progressing) —
         // enter the confirm step: record the turn (plus the narrowed goal,
@@ -211,6 +381,8 @@ export function useNewSession({
     message,
     messages,
     pending,
+    probing,
+    probeQuestion,
     confirming,
     messagesPanelRef,
     attachTextarea,

@@ -15,6 +15,9 @@ import type { SessionSummary } from "@/lib/dummy-sessions";
 // stubbing the global fetch after import never intercepts it).
 vi.mock("@/lib/api-client", () => ({
   createSession: vi.fn(),
+  clarifySession: vi.fn(),
+  startProbe: vi.fn(),
+  answerProbe: vi.fn(),
   ApiError: class ApiError extends Error {},
 }));
 
@@ -92,10 +95,11 @@ describe("Root (home History)", () => {
       createdAt: "2025-10-25T11:00:00.000Z",
       stage: "probing",
     };
-    // The dialog creates the session through the typed backend client.
+    // The dialog creates the session through the typed backend client. A
+    // non-probing advanced phase skips the probe loop and confirms directly.
     mockCreateSession.mockResolvedValue({
       session_id: fresh.id,
-      phase: "probing",
+      phase: "planning",
       narrowed_goal: fresh.knowledgePoint,
     });
     // The re-fetch after accept returns the new session on top.

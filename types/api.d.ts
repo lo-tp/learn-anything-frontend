@@ -64,6 +64,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sessions/{session_id}/probe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Probe Session
+         * @description Start the probe or submit the next answer (combined endpoint).
+         */
+        post: operations["probe_session_sessions__session_id__probe_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -101,6 +121,41 @@ export interface components {
          * @enum {string}
          */
         Phase: "clarifying" | "probing" | "planning" | "reviewing" | "generating" | "executing" | "complete";
+        /** ProbeIn */
+        ProbeIn: {
+            /** Question Id */
+            question_id?: string | null;
+            /** Selected Index */
+            selected_index?: number | null;
+        };
+        /** ProbeOut */
+        ProbeOut: {
+            phase: components["schemas"]["Phase"];
+            question?: components["schemas"]["ProbeQuestionOut"] | null;
+            /** Boundary Map */
+            boundary_map?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            } | null;
+        };
+        /** ProbeQuestionOut */
+        ProbeQuestionOut: {
+            /** Id */
+            id: string;
+            /** Text */
+            text: string;
+            /** Options */
+            options: string[];
+            /** Correct Index */
+            correct_index: number;
+            /** Explanation */
+            explanation: string;
+            /** Strand */
+            strand: string;
+            /** Difficulty */
+            difficulty: number;
+        };
         /** Progress */
         Progress: {
             /** Current Step Id */
@@ -231,6 +286,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    probe_session_sessions__session_id__probe_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProbeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProbeOut"];
                 };
             };
             /** @description Validation Error */
