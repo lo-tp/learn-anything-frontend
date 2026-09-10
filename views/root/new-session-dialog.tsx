@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  Check,
   History,
   MessageSquareText,
   Send,
@@ -16,7 +17,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { ApiError, createSession } from "@/lib/api-client";
+import {
+  ApiError,
+  clarifySession,
+  createSession,
+  type Phase,
+} from "@/lib/api-client";
 
 /** One turn of the conversation shown above the intake box. */
 export type RecentMessage = {
@@ -33,13 +39,20 @@ type Status = "idle" | "pending" | "error";
 /**
  * The new-session popup over the History (#26), per
  * `design/home/new_session/code.html`: a header, a read-only "Recent
- * Messages" preview, an intake textarea that starts a session through the
- * typed backend client (`createSession`, `POST /sessions`), and a Send
- * footer. Idle → pending ("Sending…", disabled) → either a clarifying round
- * (modal stays open and both turns are appended to the Recent Messages
- * preview — the questions render as a list when there is more than one), an
- * error, or accept — which resets the form, closes the dialog, and calls
- * `onAccept` so the parent refetches the History.
+ * Messages" preview, an intake textarea, and a footer that adapts to the
+ * Clarify loop.
+ *
+ * The first submit calls `createSession` (`POST /sessions`) and stores the
+ * returned `session_id`; while the backend stays in `clarifying`, each
+ * further submit calls `clarifySession(session_id, answer)` and both turns
+ * are appended to the Recent Messages preview (the questions render as a
+ * list when there is more than one) with the textarea cleared. When the
+ * phase advances past `clarifying` (e.g. `probing`, or a later lifecycle
+ * stage), the dialog enters a confirm step: the learner's answer — and the
+ * AI's narrowed goal, when present — are recorded, the textarea is hidden,
+ * and the footer offers a single **Confirm** button that calls `onAccept`
+ * (so the parent refetches the History) and closes. Errors keep the modal
+ * open with the text preserved and an inline message.
  */
 export function NewSessionDialog({
   open,
@@ -63,8 +76,14 @@ export function NewSessionDialog({
   const [message, setMessage] = useState<string | null>(null);
   // Seeded from the prop; grows as the intake conversation unfolds.
   const [messages, setMessages] = useState<RecentMessage[]>(recentMessages);
+  // The session id from the first result; null until the session is created.
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  // The backend phase after the latest result; null until then.
+  const [phase, setPhase] = useState<Phase | null>(null);
 
   const pending = status === "pending";
+  // A non-clarifying phase means intake is done — show the confirm step.
+  const confirming = phase !== null && phase !== "clarifying";
 
   /**
    * The bubble body: a single line, or a list when there is more than one
@@ -89,7 +108,15 @@ export function NewSessionDialog({
     setStatus("idle");
     setMessage(null);
     setMessages(recentMessages);
+    setSessionId(null);
+    setPhase(null);
     onOpenChange(false);
+  }
+
+  /** The confirm step's single button: hand off, then close. */
+  function handleConfirm() {
+    onAccept();
+    close();
   }
 
   function handleOpenChange(next: boolean) {
@@ -103,25 +130,28 @@ export function NewSessionDialog({
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (pending) return;
+    if (pending || confirming) return;
     setStatus("pending");
     setMessage(null);
     try {
-      const result = await createSession(paragraph);
-      // Only the clarifying stage keeps the modal open to gather more detail.
-      // Every other phase means the session has already advanced past intake —
-      // probing, or a later lifecycle stage (planning, reviewing, generating,
-      // executing, complete) — so accept and hand off to the parent.
+      // The first submit creates the session; later submits while the backend
+      // is still clarifying resume the Clarify loop against that session.
+      const result = sessionId
+        ? await clarifySession(sessionId, paragraph)
+        : await createSession(paragraph);
+      setSessionId(result.session_id);
       if (result.phase === "clarifying") {
-        // The backend wants to probe further: keep the modal open and record
+        // The backend wants to probe further: keep the modal open, record
         // both turns in the Recent Messages preview (the questions live there
         // only — not as an inline error — and render as a list when there is
-        // more than one).
+        // more than one), and clear the textarea (the answer is in history).
         const questions = result.clarifying_questions?.length
           ? result.clarifying_questions
           : ["That's a bit thin — add a little more detail."];
         // Back to idle so the Send/Cancel buttons re-enable for the next turn.
         setStatus("idle");
+        setPhase("clarifying");
+        setParagraph("");
         setMessages((prev) => [
           ...prev,
           { role: "you", text: paragraph },
@@ -129,10 +159,18 @@ export function NewSessionDialog({
         ]);
       } else {
         // The goal is narrowed (or the session is already progressing) —
-        // accept and hand off.
-        onAccept();
-        close();
-        return;
+        // enter the confirm step: record the turn (plus the narrowed goal,
+        // when present), hide the textarea, and wait for the Confirm click.
+        const additions: RecentMessage[] = [{ role: "you", text: paragraph }];
+        if (result.narrowed_goal) {
+          additions.push({
+            role: "ai",
+            text: `Your narrowed goal is: ${result.narrowed_goal}`,
+          });
+        }
+        setStatus("idle");
+        setPhase(result.phase);
+        setMessages((prev) => [...prev, ...additions]);
       }
     } catch (err) {
       setStatus("error");
@@ -215,53 +253,70 @@ export function NewSessionDialog({
               </div>
             )}
 
-            <div>
-              <label
-                htmlFor="learning-goal"
-                className="mb-2 block text-base font-medium text-on-surface"
-              >
-                What would you like to explore or learn?
-              </label>
-              <div className="relative">
-                <textarea
-                  id="learning-goal"
-                  rows={3}
-                  value={paragraph}
-                  onChange={(e) => setParagraph(e.target.value)}
-                  disabled={pending}
-                  placeholder="Continue the discussion or describe the next query..."
-                  className="w-full resize-none rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-base text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/50 focus:border-primary disabled:opacity-60"
-                />
+            {!confirming && (
+              <div>
+                <label
+                  htmlFor="learning-goal"
+                  className="mb-2 block text-base font-medium text-on-surface"
+                >
+                  What would you like to explore or learn?
+                </label>
+                <div className="relative">
+                  <textarea
+                    id="learning-goal"
+                    rows={3}
+                    value={paragraph}
+                    onChange={(e) => setParagraph(e.target.value)}
+                    disabled={pending}
+                    placeholder="Continue the discussion or describe the next query..."
+                    className="w-full resize-none rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-base text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/50 focus:border-primary disabled:opacity-60"
+                  />
+                </div>
+                {status === "error" && (
+                  <p className="mt-2 text-sm text-error" aria-live="polite">
+                    {message}
+                  </p>
+                )}
               </div>
-              {status === "error" && (
-                <p className="mt-2 text-sm text-error" aria-live="polite">
-                  {message}
-                </p>
-              )}
-            </div>
+            )}
           </div>
 
-          {/* Footer — Cancel + Send. */}
+          {/* Footer — Cancel + Send, or a single Confirm in the confirm step. */}
           <div className="flex justify-end gap-3 border-t border-outline-variant/50 bg-surface-container-low px-6 py-4">
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={pending}
-              onClick={close}
-              className="h-auto border border-transparent px-4 py-2 text-on-surface-variant hover:border-outline-variant hover:bg-surface-bright hover:text-on-surface"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={pending}
-              className={cn(
-                "gap-2 px-6 py-2.5 text-on-primary-container hover:bg-primary-fixed hover:text-on-primary-container",
-              )}
-            >
-              <Send className={cn("transition-transform", !pending && "group-hover:translate-x-0.5")} aria-hidden />
-              {pending ? "Sending…" : "Send"}
-            </Button>
+            {confirming ? (
+              <Button
+                type="button"
+                onClick={handleConfirm}
+                className={cn(
+                  "gap-2 px-6 py-2.5 text-on-primary-container hover:bg-primary-fixed hover:text-on-primary-container",
+                )}
+              >
+                <Check className="size-4" aria-hidden />
+                Confirm
+              </Button>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={pending}
+                  onClick={close}
+                  className="h-auto border border-transparent px-4 py-2 text-on-surface-variant hover:border-outline-variant hover:bg-surface-bright hover:text-on-surface"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={pending}
+                  className={cn(
+                    "gap-2 px-6 py-2.5 text-on-primary-container hover:bg-primary-fixed hover:text-on-primary-container",
+                  )}
+                >
+                  <Send className={cn("transition-transform", !pending && "group-hover:translate-x-0.5")} aria-hidden />
+                  {pending ? "Sending…" : "Send"}
+                </Button>
+              </>
+            )}
           </div>
         </form>
       </DialogContent>

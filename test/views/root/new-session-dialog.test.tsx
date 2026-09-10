@@ -15,7 +15,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { NewSessionDialog } from "@/views/root/new-session-dialog";
-import { ApiError, createSession } from "@/lib/api-client";
+import { ApiError, clarifySession, createSession } from "@/lib/api-client";
 
 // The dialog calls the typed backend client. Stub the module rather than the
 // global fetch: openapi-fetch binds `fetch` when the client is created, so a
@@ -23,10 +23,12 @@ import { ApiError, createSession } from "@/lib/api-client";
 // requests.
 vi.mock("@/lib/api-client", () => ({
   createSession: vi.fn(),
+  clarifySession: vi.fn(),
   ApiError: class ApiError extends Error {},
 }));
 
 const mockCreateSession = vi.mocked(createSession);
+const mockClarifySession = vi.mocked(clarifySession);
 
 const TITLE = "Start New Session";
 const LABEL = "What would you like to explore or learn?";
@@ -47,6 +49,7 @@ async function openDialog(
 
 beforeEach(() => {
   mockCreateSession.mockReset();
+  mockClarifySession.mockReset();
 });
 
 afterEach(() => {
@@ -116,7 +119,66 @@ describe("NewSessionDialog", () => {
     ).toBe(true);
   });
 
-  it("clears the textarea on a successful accept", async () => {
+  it("resumes the clarify loop with clarifySession, not createSession", async () => {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: ["A bit more, please."],
+    });
+    mockClarifySession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "probing",
+      narrowed_goal: "Newton's second law of motion",
+    });
+    const ANSWER = "Focus on how F=ma applies to collisions.";
+    await openDialog("I want to learn Newton's laws of motion.");
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    // The clarifying round records both turns and clears the textarea.
+    await screen.findByText("A bit more, please.");
+    fireEvent.change(screen.getByLabelText(LABEL), {
+      target: { value: ANSWER },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    // The session was created once; the follow-up went to clarifySession.
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    expect(mockClarifySession).toHaveBeenCalledWith("s-1", ANSWER);
+    // The history grows: you goal → ai questions → you answer → ai goal.
+    await screen.findByText("4 messages");
+    expect(
+      screen.getByText(
+        "Your narrowed goal is: Newton's second law of motion",
+        { selector: "div" },
+      ),
+    ).toBeTruthy();
+  });
+
+  it("shows the confirm step with the narrowed goal when the phase advances", async () => {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "probing",
+      narrowed_goal: "Newton's second law of motion",
+    });
+    await openDialog("I want to master Newton's second law of motion.");
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    // The narrowed goal renders in an AI bubble.
+    expect(
+      await screen.findByText(
+        "Your narrowed goal is: Newton's second law of motion",
+        { selector: "div" },
+      ),
+    ).toBeTruthy();
+    // The intake (label + textarea) is hidden.
+    expect(screen.queryByLabelText(LABEL)).toBeNull();
+    // Only the Confirm button remains — no Send, no Cancel.
+    expect(screen.getByRole("button", { name: /Confirm/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Send/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Cancel/ })).toBeNull();
+  });
+
+  it("clears the textarea and hands off once when Confirm is clicked", async () => {
     mockCreateSession.mockResolvedValue({
       session_id: "s-1",
       phase: "probing",
@@ -125,6 +187,9 @@ describe("NewSessionDialog", () => {
     const onAccept = vi.fn();
     await openDialog("I want to master Newton's second law of motion.", onAccept);
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    const confirm = await screen.findByRole("button", { name: /Confirm/ });
+    fireEvent.click(confirm);
 
     await vi.waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
     // A successful hand-off resets the intake box.
@@ -148,9 +213,10 @@ describe("NewSessionDialog", () => {
     // inline error below the textarea.
     await screen.findByText("A bit more, please.");
     expect(screen.queryByText("A bit more, please.", { selector: "p" })).toBeNull();
-    // The modal stays open with the learner's text preserved.
+    // The modal stays open; the answer moved into the history, so the
+    // textarea is cleared (unlike the error path, which preserves it).
     expect(screen.getByRole("heading", { name: TITLE })).toBeTruthy();
-    expect((screen.getByLabelText(LABEL) as HTMLTextAreaElement).value).toBe(SHORT);
+    expect((screen.getByLabelText(LABEL) as HTMLTextAreaElement).value).toBe("");
   });
 
   it("records the learner's input and the clarifying questions as recent messages", async () => {
@@ -229,7 +295,7 @@ describe("NewSessionDialog", () => {
     expect(screen.queryByText("A bit more, please.")).toBeNull();
   });
 
-  it("notifies the parent and closes on an accepted intake", async () => {
+  it("notifies the parent and closes when Confirm is clicked", async () => {
     mockCreateSession.mockResolvedValue({
       session_id: "s-1",
       phase: "probing",
@@ -251,6 +317,10 @@ describe("NewSessionDialog", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
+    // The confirm step replaces Send/Cancel; only Confirm hands off.
+    const confirm = await screen.findByRole("button", { name: /Confirm/ });
+    fireEvent.click(confirm);
+
     await vi.waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
     // Depending on the (never-completing in jsdom) exit animation the panel
     // is either unmounted or left mounted in its closed state.
@@ -262,11 +332,10 @@ describe("NewSessionDialog", () => {
     void view;
   });
 
-  it("hands off for any progressed phase, not just probing", async () => {
+  it("enters the confirm step for later phases, without a goal message when narrowed_goal is absent", async () => {
     mockCreateSession.mockResolvedValue({
       session_id: "s-1",
       phase: "planning",
-      narrowed_goal: "Newton's second law of motion",
     });
     function Harness({ onAccept }: { onAccept: () => void }) {
       const [open, setOpen] = useState(true);
@@ -282,7 +351,15 @@ describe("NewSessionDialog", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
-    // A later lifecycle stage is not "clarifying", so the dialog accepts.
+    // A later lifecycle stage is not "clarifying": the confirm step appears
+    // (no narrowed-goal message, since the result carries none).
+    const confirm = await screen.findByRole("button", { name: /Confirm/ });
+    expect(screen.queryByText("Your narrowed goal is:")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Send/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Cancel/ })).toBeNull();
+
+    // Clicking Confirm hands off.
+    fireEvent.click(confirm);
     await vi.waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
   });
 
@@ -306,7 +383,8 @@ describe("NewSessionDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
     await screen.findByText("Goal must not be empty.");
-    // The modal stays open for another attempt.
+    // The modal stays open for another attempt, with the text preserved.
     expect(screen.getByRole("heading", { name: TITLE })).toBeTruthy();
+    expect((screen.getByLabelText(LABEL) as HTMLTextAreaElement).value).toBe(SHORT);
   });
 });
