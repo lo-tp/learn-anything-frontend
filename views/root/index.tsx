@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { EmptyState } from "@/components/empty-state";
-import { NewSessionDialog } from "@/components/new-session-dialog";
+import { NewSessionDialog } from "./new-session-dialog";
 import { SessionCard } from "@/components/session-card";
 import { StartSessionButton } from "@/components/start-session-button";
 import type { SessionSummary } from "@/lib/dummy-sessions";

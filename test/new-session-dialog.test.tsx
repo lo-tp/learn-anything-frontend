@@ -14,7 +14,7 @@ import {
   render,
   screen,
 } from "@testing-library/react";
-import { NewSessionDialog } from "../components/new-session-dialog";
+import { NewSessionDialog } from "../views/root/new-session-dialog";
 
 const TITLE = "Start New Session";
 const LABEL = "What would you like to explore or learn?";

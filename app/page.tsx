@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Home route: resolve the current learner and hand them their History. The
- * home page in `views/root.tsx` owns the interactive logic and renders it from
+ * home page in `views/root/index.tsx` owns the interactive logic and renders it from
  * pure components. The shared frame is applied by the root layout.
  */
 export default function Home() {
