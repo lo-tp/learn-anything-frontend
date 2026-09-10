@@ -86,6 +86,10 @@ export function NewSessionDialog({
     setMessage(null);
     try {
       const result = await createSession(paragraph);
+      // Only the clarifying stage keeps the modal open to gather more detail.
+      // Every other phase means the session has already advanced past intake —
+      // probing, or a later lifecycle stage (planning, reviewing, generating,
+      // executing, complete) — so accept and hand off to the parent.
       if (result.phase === "clarifying") {
         // The backend wants to probe further: show its questions and keep
         // the modal open (the learner's text stays in the box).
@@ -102,7 +106,8 @@ export function NewSessionDialog({
           { role: "ai", text: questions },
         ]);
       } else {
-        // The goal is narrowed (phase "probing") — accept and hand off.
+        // The goal is narrowed (or the session is already progressing) —
+        // accept and hand off.
         onAccept();
         close();
         return;

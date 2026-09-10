@@ -219,6 +219,30 @@ describe("NewSessionDialog", () => {
     void view;
   });
 
+  it("hands off for any progressed phase, not just probing", async () => {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "planning",
+      narrowed_goal: "Newton's second law of motion",
+    });
+    function Harness({ onAccept }: { onAccept: () => void }) {
+      const [open, setOpen] = useState(true);
+      return (
+        <NewSessionDialog open={open} onOpenChange={setOpen} onAccept={onAccept} />
+      );
+    }
+    const onAccept = vi.fn();
+    render(<Harness onAccept={onAccept} />);
+    const textarea = await screen.findByLabelText(LABEL);
+    fireEvent.change(textarea, {
+      target: { value: "I want to master Newton's second law of motion and I know velocity but mix up force and momentum." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    // A later lifecycle stage is not "clarifying", so the dialog accepts.
+    await vi.waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
+  });
+
   it("shows a transport error and stays open when the request fails", async () => {
     mockCreateSession.mockRejectedValue(new Error("network down"));
     await openDialog(
