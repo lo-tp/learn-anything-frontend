@@ -117,6 +117,11 @@ describe("Root (home History)", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
+    // The phase advanced past clarifying: the confirm step replaces Send,
+    // and only Confirm hands off (triggering the re-fetch).
+    const confirm = await screen.findByRole("button", { name: /Confirm/ });
+    fireEvent.click(confirm);
+
     // The accepted session appears at the top — only possible through the
     // re-fetch, since it was not in initialSessions.
     expect(await screen.findByText("Newton's second law of motion")).toBeTruthy();
