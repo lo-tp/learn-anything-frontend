@@ -45,7 +45,7 @@ type Status = "idle" | "pending" | "error";
  * When the phase advances to `probing`, the dialog runs the probe loop
  * against the combined `POST /sessions/{id}/probe` endpoint: the first
  * question is fetched automatically (`startProbe`); the learner answers by
- * typing the 1-based number of an option, which is client-validated and
+ * typing the option's letter (A, B, C, …), which is client-validated and
  * sent as a 0-based `selected_index` (`answerProbe`). Every turn appends the
  * learner's pick, the verdict + explanation, and either the next question
  * or — once the backend returns the `boundary_map` (phase `planning`) — a
@@ -146,16 +146,21 @@ export function useNewSession({
     return lines.length > 1 ? lines : lines[0] ?? text;
   }
 
+  /** The letter shown for a 1-based option index: A, B, C, … */
+  function optionLetter(index: number): string {
+    return String.fromCharCode("A".charCodeAt(0) + index - 1);
+  }
+
   /**
-   * The learner's typed option number (1-based, matching the numbers shown
-   * in the question bubble), or null when the text is not a valid index.
+   * The 1-based option index for the learner's typed letter (A, B, C, …,
+   * matching the letters shown in the question bubble), or null when the
+   * text is not a single letter within range.
    */
   function parseOptionIndex(text: string, count: number): number | null {
-    const trimmed = text.trim();
-    const index = Number(trimmed);
+    const trimmed = text.trim().toUpperCase();
+    const index = trimmed.charCodeAt(0) - "A".charCodeAt(0) + 1;
     if (
-      trimmed.length === 0 ||
-      !Number.isInteger(index) ||
+      trimmed.length !== 1 ||
       index < 1 ||
       index > count
     ) {
@@ -195,8 +200,8 @@ export function useNewSession({
     if (!answered) return;
     const isCorrect = selected - 1 === answered.correct_index;
     const feedback = isCorrect
-      ? `Correct — option ${selected} (${answered.options[selected - 1]}). ${answered.explanation}`
-      : `Not quite — the correct answer is option ${answered.correct_index + 1} (${answered.options[answered.correct_index]}). ${answered.explanation}`;
+      ? `Correct — option ${optionLetter(selected)} (${answered.options[selected - 1]}). ${answered.explanation}`
+      : `Not quite — the correct answer is option ${optionLetter(answered.correct_index + 1)} (${answered.options[answered.correct_index]}). ${answered.explanation}`;
     const additions: RecentMessage[] = [
       { role: "you", text: answered.options[selected - 1] },
       { role: "ai", text: feedback },
@@ -288,10 +293,10 @@ export function useNewSession({
         );
         if (index === null) {
           // Client-side validation: the text must name one of the shown
-          // options (1-based). No request goes out.
+          // options (A, B, C, …). No request goes out.
           setStatus("error");
           setMessage(
-            `Enter the number of your answer (1–${probeQuestion.options.length}).`,
+            `Enter the letter of your answer (A–${optionLetter(probeQuestion.options.length)}).`,
           );
           return;
         }

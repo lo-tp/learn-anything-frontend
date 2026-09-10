@@ -562,7 +562,7 @@ describe("NewSessionDialog probe loop", () => {
     // The intake adapts to index entry.
     expect(screen.getByText(PROBE_LABEL)).toBeTruthy();
     expect(
-      screen.getByPlaceholderText("Type the option number (1–4)"),
+      screen.getByPlaceholderText("Type the option letter (A–D)"),
     ).toBeTruthy();
     // The footer keeps Send/Cancel — no Confirm until the boundary is set.
     expect(screen.getByRole("button", { name: /Send/ })).toBeTruthy();
@@ -574,11 +574,11 @@ describe("NewSessionDialog probe loop", () => {
     await reachFirstQuestion();
     mockAnswerProbe.mockResolvedValue({ phase: "probing", question: Q2 });
     fireEvent.change(screen.getByLabelText(PROBE_LABEL), {
-      target: { value: "2" },
+      target: { value: "B" },
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
-    // 1-based "2" goes to the wire as 0-based index 1.
+    // "B" goes to the wire as 0-based index 1.
     expect(mockAnswerProbe).toHaveBeenCalledWith("s-1", "q1", 1);
     // The pick renders as a "you" bubble with the selected option's text.
     expect(
@@ -586,7 +586,7 @@ describe("NewSessionDialog probe loop", () => {
     ).toBeTruthy();
     // The verdict names the picked option and carries the explanation.
     await screen.findByText(
-      "Correct — option 2 (5 m/s²). a = F/m = 10/2 = 5 m/s².",
+      "Correct — option B (5 m/s²). a = F/m = 10/2 = 5 m/s².",
     );
     // The next question renders with its own numbered options.
     await screen.findByText(Q2.text);
@@ -600,12 +600,12 @@ describe("NewSessionDialog probe loop", () => {
     await reachFirstQuestion();
     mockAnswerProbe.mockResolvedValue({ phase: "probing", question: Q2 });
     fireEvent.change(screen.getByLabelText(PROBE_LABEL), {
-      target: { value: "1" },
+      target: { value: "A" },
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
     await screen.findByText(
-      "Not quite — the correct answer is option 2 (5 m/s²). a = F/m = 10/2 = 5 m/s².",
+      "Not quite — the correct answer is option B (5 m/s²). a = F/m = 10/2 = 5 m/s².",
     );
     // The (wrong) pick is recorded in a "you" bubble.
     expect(
@@ -622,7 +622,7 @@ describe("NewSessionDialog probe loop", () => {
       boundary_map: { f_ma_relation: { floor: "scalar F = ma", ceiling: null } },
     });
     fireEvent.change(screen.getByLabelText(PROBE_LABEL), {
-      target: { value: "2" },
+      target: { value: "B" },
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
@@ -654,14 +654,14 @@ describe("NewSessionDialog probe loop", () => {
 
     // Q1 → Q2.
     fireEvent.change(screen.getByLabelText(PROBE_LABEL), {
-      target: { value: "2" },
+      target: { value: "B" },
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
     await screen.findByText(Q2.text);
 
     // Q2 → boundary map.
     fireEvent.change(screen.getByLabelText(PROBE_LABEL), {
-      target: { value: "2" },
+      target: { value: "B" },
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
     await screen.findByText(
@@ -674,10 +674,10 @@ describe("NewSessionDialog probe loop", () => {
     await reachFirstQuestion();
     const textarea = () =>
       screen.getByLabelText(PROBE_LABEL) as HTMLTextAreaElement;
-    for (const bad of ["", "abc", "0", "5"]) {
+    for (const bad of ["", "E", "0", "ab"]) {
       fireEvent.change(textarea(), { target: { value: bad } });
       fireEvent.click(screen.getByRole("button", { name: /Send/ }));
-      await screen.findByText("Enter the number of your answer (1–4).");
+      await screen.findByText("Enter the letter of your answer (A–D).");
       // No request goes out for an invalid index.
       expect(mockAnswerProbe).not.toHaveBeenCalled();
       // The text is preserved for a corrected attempt.
@@ -690,9 +690,9 @@ describe("NewSessionDialog probe loop", () => {
     mockAnswerProbe.mockRejectedValue(
       new ApiError("selected_index out of range", 422),
     );
-    // "2" passes client-side validation, so the 422 comes from the backend.
+    // "B" passes client-side validation, so the 422 comes from the backend.
     fireEvent.change(screen.getByLabelText(PROBE_LABEL), {
-      target: { value: "2" },
+      target: { value: "B" },
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
@@ -700,7 +700,7 @@ describe("NewSessionDialog probe loop", () => {
     // The text is preserved and the question is still active.
     expect(
       (screen.getByLabelText(PROBE_LABEL) as HTMLTextAreaElement).value,
-    ).toBe("2");
+    ).toBe("B");
     expect(screen.getByText(Q1.text)).toBeTruthy();
   });
 

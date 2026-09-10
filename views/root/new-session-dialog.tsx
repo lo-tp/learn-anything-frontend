@@ -27,9 +27,9 @@ export type { RecentMessage };
  * The new-session popup over the History (#26), per
  * `design/home/new_session/code.html`: a header, a read-only "Recent
  * Messages" preview, an intake textarea, and a footer that adapts to the
- * Clarify loop and the probe loop (probe questions render as numbered
+ * Clarify loop and the probe loop (probe questions render as lettered
  * option lists inside the message bubbles; the learner answers by typing
- * the option's number).
+ * the option's letter).
  *
  * All state and business logic lives in `useNewSession`
  * (`./use-new-session.ts`); this component is purely presentational — it
@@ -197,7 +197,7 @@ export function NewSessionDialog({
                                     aria-hidden
                                     className="mt-0.5 font-mono text-xs font-semibold text-primary"
                                   >
-                                    {i + 1}
+                                    {String.fromCharCode("A".charCodeAt(0) + i)}
                                   </span>
                                   <span>{option}</span>
                                 </li>
@@ -233,7 +233,7 @@ export function NewSessionDialog({
                     disabled={pending}
                     placeholder={
                       probing && probeQuestion
-                        ? `Type the option number (1–${probeQuestion.options.length})`
+                        ? `Type the option letter (A–${String.fromCharCode("A".charCodeAt(0) + probeQuestion.options.length - 1)})`
                         : "Continue the discussion or describe the next query..."
                     }
                     className="w-full resize-none rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-base text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/50 focus:border-primary disabled:opacity-60"
