@@ -80,11 +80,7 @@ export interface components {
         ClarifyResult: {
             /** Session Id */
             session_id: string;
-            /**
-             * Phase
-             * @enum {string}
-             */
-            phase: "clarifying" | "probing";
+            phase: components["schemas"]["Phase"];
             /** Narrowed Goal */
             narrowed_goal?: string | null;
             /** Clarifying Questions */
