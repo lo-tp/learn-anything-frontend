@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Check,
   History,
@@ -29,9 +29,15 @@ export type RecentMessage = {
   role: "you" | "ai";
   /**
    * The turn's body. A single string renders as one line; an array with more
-   * than one entry renders as a list (e.g. the AI's clarifying questions).
+   * than one entry renders as a list (e.g. the AI's clarifying questions, or
+   * a learner's multi-line answer split into its lines).
    */
   text: string | string[];
+  /**
+   * Marks the AI's narrowed-goal turn so the confirm step can highlight it
+   * against the other bubbles.
+   */
+  highlighted?: boolean;
 };
 
 type Status = "idle" | "pending" | "error";
@@ -53,6 +59,10 @@ type Status = "idle" | "pending" | "error";
  * and the footer offers a single **Confirm** button that calls `onAccept`
  * (so the parent refetches the History) and closes. Errors keep the modal
  * open with the text preserved and an inline message.
+ *
+ * The Recent Messages preview pins itself to the bottom whenever a new turn
+ * lands. Answers are submitted with **Enter** (or the Send button); a bare
+ * **Shift+Enter** inserts a newline so answers can span multiple lines.
  */
 export function NewSessionDialog({
   open,
@@ -85,16 +95,44 @@ export function NewSessionDialog({
   // A non-clarifying phase means intake is done — show the confirm step.
   const confirming = phase !== null && phase !== "clarifying";
 
+  // The scrollable Recent Messages panel — pinned to the bottom as turns land.
+  const messagesPanelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const panel = messagesPanelRef.current;
+    if (panel) panel.scrollTop = panel.scrollHeight;
+  }, [messages.length]);
+
+  /**
+   * Break a learner's answer into its trimmed lines so a multi-line answer
+   * (Shift+Enter) renders as a list inside the bubble — the same shape as
+   * the AI's clarifying questions.
+   */
+  function splitAnswer(text: string): string | string[] {
+    const lines = text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    return lines.length > 1 ? lines : lines[0] ?? text;
+  }
+
   /**
    * The bubble body: a single line, or a list when there is more than one
-   * (the AI's clarifying questions).
+   * (the AI's clarifying questions, or a learner's multi-line answer). Each
+   * list item is preceded by a big dot marker.
    */
   function renderBody(text: string | string[]) {
     const lines = Array.isArray(text) ? text : [text];
     return lines.length > 1 ? (
-      <ul className="ml-4 list-disc space-y-1">
+      <ul className="space-y-1.5">
         {lines.map((line, i) => (
-          <li key={i}>{line}</li>
+          <li key={i} className="flex items-start gap-2">
+            <span
+              aria-hidden
+              className="mt-1 size-2 shrink-0 rounded-full bg-primary"
+            />
+            <span>{line}</span>
+          </li>
         ))}
       </ul>
     ) : (
@@ -128,8 +166,12 @@ export function NewSessionDialog({
     }
   }
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  /**
+   * The single submit path: the Send button (form submit) and a bare Enter
+   * key both funnel here. Shift+Enter is left to the textarea so answers can
+   * span multiple lines.
+   */
+  async function submit() {
     if (pending || confirming) return;
     setStatus("pending");
     setMessage(null);
@@ -154,18 +196,21 @@ export function NewSessionDialog({
         setParagraph("");
         setMessages((prev) => [
           ...prev,
-          { role: "you", text: paragraph },
+          { role: "you", text: splitAnswer(paragraph) },
           { role: "ai", text: questions },
         ]);
       } else {
         // The goal is narrowed (or the session is already progressing) —
         // enter the confirm step: record the turn (plus the narrowed goal,
         // when present), hide the textarea, and wait for the Confirm click.
-        const additions: RecentMessage[] = [{ role: "you", text: paragraph }];
+        const additions: RecentMessage[] = [
+          { role: "you", text: splitAnswer(paragraph) },
+        ];
         if (result.narrowed_goal) {
           additions.push({
             role: "ai",
             text: `Your narrowed goal is: ${result.narrowed_goal}`,
+            highlighted: true,
           });
         }
         setStatus("idle");
@@ -179,6 +224,18 @@ export function NewSessionDialog({
           ? err.message
           : "Something went wrong starting your session. Please try again.",
       );
+    }
+  }
+
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    void submit();
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      void submit();
     }
   }
 
@@ -226,14 +283,17 @@ export function NewSessionDialog({
                   </span>
                 </div>
 
-                <div className="flex max-h-80 flex-col gap-3 overflow-y-auto rounded-xl border border-outline-variant/30 bg-surface-container-lowest/50 p-3 pr-2">
+                <div
+                  ref={messagesPanelRef}
+                  className="flex max-h-80 flex-col gap-3 overflow-y-auto rounded-xl border border-outline-variant/30 bg-surface-container-lowest/50 p-3 pr-2"
+                >
                   {messages.map((entry, index) =>
                     entry.role === "you" ? (
                       <div key={index} className="flex flex-col items-end gap-1">
                         <span className="font-mono text-xs font-medium text-secondary">
                           You
                         </span>
-                        <div className="max-w-[85%] rounded-xl rounded-tr-sm border border-outline-variant/30 bg-secondary-container px-3.5 py-2 text-sm text-on-surface">
+                        <div className="max-w-[85%] whitespace-pre-line rounded-xl rounded-tr-sm border border-outline-variant/30 bg-secondary-container px-3.5 py-2 text-sm text-on-surface">
                           {renderBody(entry.text)}
                         </div>
                       </div>
@@ -243,8 +303,21 @@ export function NewSessionDialog({
                           <Sparkles className="size-3.5 text-primary" aria-hidden />
                           Lumina AI
                         </span>
-                        <div className="max-w-[85%] rounded-xl rounded-tl-sm border border-outline-variant/40 bg-surface-bright px-3.5 py-2.5 text-sm text-on-surface">
-                          {renderBody(entry.text)}
+                        <div
+                          className={cn(
+                            "max-w-[85%] whitespace-pre-line rounded-xl rounded-tl-sm border px-3.5 py-2.5 text-sm text-on-surface",
+                            entry.highlighted
+                              ? "border-primary/40 bg-primary/10"
+                              : "border-outline-variant/40 bg-surface-bright",
+                          )}
+                        >
+                          {entry.highlighted ? (
+                            <span className="font-semibold text-primary">
+                              {renderBody(entry.text)}
+                            </span>
+                          ) : (
+                            renderBody(entry.text)
+                          )}
                         </div>
                       </div>
                     ),
@@ -267,6 +340,7 @@ export function NewSessionDialog({
                     rows={3}
                     value={paragraph}
                     onChange={(e) => setParagraph(e.target.value)}
+                    onKeyDown={handleKeyDown}
                     disabled={pending}
                     placeholder="Continue the discussion or describe the next query..."
                     className="w-full resize-none rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-base text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/50 focus:border-primary disabled:opacity-60"

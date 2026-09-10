@@ -130,12 +130,20 @@ describe("NewSessionDialog", () => {
       phase: "probing",
       narrowed_goal: "Newton's second law of motion",
     });
-    const ANSWER = "Focus on how F=ma applies to collisions.";
+    // Messy on purpose: padded lines and a blank line — the bubble shows
+    // the trimmed lines only, while the raw answer goes to the backend.
+    const ANSWER =
+      "  Focus on how F=ma applies to collisions.  \n\n  Specifically the elastic ones.\n";
     await openDialog("I want to learn Newton's laws of motion.");
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
     // The clarifying round records both turns and clears the textarea.
     await screen.findByText("A bit more, please.");
+    // A clarifying question stays a plain bubble — only the narrowed goal is
+    // highlighted.
+    expect(
+      screen.getByText("A bit more, please.", { selector: "div" }).classList,
+    ).not.toContain("bg-primary/10");
     fireEvent.change(screen.getByLabelText(LABEL), {
       target: { value: ANSWER },
     });
@@ -146,12 +154,22 @@ describe("NewSessionDialog", () => {
     expect(mockClarifySession).toHaveBeenCalledWith("s-1", ANSWER);
     // The history grows: you goal → ai questions → you answer → ai goal.
     await screen.findByText("4 messages");
+    // The multi-line answer renders as a list inside the "you" bubble —
+    // one trimmed item per line.
+    const firstLine = screen.getByText("Focus on how F=ma applies to collisions.");
+    const list = firstLine.closest("ul")!;
     expect(
-      screen.getByText(
-        "Your narrowed goal is: Newton's second law of motion",
-        { selector: "div" },
-      ),
-    ).toBeTruthy();
+      Array.from(list.querySelectorAll("li")).map((li) => li.textContent),
+    ).toEqual([
+      "Focus on how F=ma applies to collisions.",
+      "Specifically the elastic ones.",
+    ]);
+    // The narrowed goal lands in a highlighted AI bubble.
+    const goal = screen.getByText(
+      "Your narrowed goal is: Newton's second law of motion",
+      { selector: "span" },
+    );
+    expect(goal.parentElement?.classList).toContain("bg-primary/10");
   });
 
   it("shows the confirm step with the narrowed goal when the phase advances", async () => {
@@ -163,13 +181,12 @@ describe("NewSessionDialog", () => {
     await openDialog("I want to master Newton's second law of motion.");
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
-    // The narrowed goal renders in an AI bubble.
-    expect(
-      await screen.findByText(
-        "Your narrowed goal is: Newton's second law of motion",
-        { selector: "div" },
-      ),
-    ).toBeTruthy();
+    // The narrowed goal renders in a highlighted AI bubble.
+    const goal = await screen.findByText(
+      "Your narrowed goal is: Newton's second law of motion",
+      { selector: "span" },
+    );
+    expect(goal.parentElement?.classList).toContain("bg-primary/10");
     // The intake (label + textarea) is hidden.
     expect(screen.queryByLabelText(LABEL)).toBeNull();
     // Only the Confirm button remains — no Send, no Cancel.
@@ -246,12 +263,18 @@ describe("NewSessionDialog", () => {
     await openDialog(SHORT);
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
-    // More than one question renders as a list inside the AI bubble.
+    // More than one question renders as a list inside the AI bubble, each
+    // item preceded by the big dot marker.
     const items = await screen.findAllByRole("listitem");
     expect(items.map((el) => el.textContent)).toEqual([
       "What is the scope?",
       "What is the target audience?",
     ]);
+    for (const item of items) {
+      const dot = item.firstElementChild as HTMLElement;
+      expect(dot.classList).toContain("rounded-full");
+      expect(dot.classList).toContain("bg-primary");
+    }
   });
 
   it("resets the form when the dialog is closed and reopened", async () => {
@@ -361,6 +384,67 @@ describe("NewSessionDialog", () => {
     // Clicking Confirm hands off.
     fireEvent.click(confirm);
     await vi.waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
+  });
+
+  it("submits the intake on a bare Enter key", async () => {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "probing",
+      narrowed_goal: "Newton's second law of motion",
+    });
+    await openDialog("I want to master Newton's second law of motion.");
+    const textarea = screen.getByLabelText(LABEL);
+    fireEvent.keyDown(textarea, { key: "Enter" });
+
+    // The submit went out without touching the Send button — the confirm
+    // step appears once the result lands.
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
+    await screen.findByRole("button", { name: /Confirm/ });
+  });
+
+  it("does not submit on Shift+Enter (multiline answers)", async () => {
+    mockCreateSession.mockReturnValue(new Promise(() => {}));
+    await openDialog("line one");
+    const textarea = screen.getByLabelText(LABEL);
+    fireEvent.keyDown(textarea, { key: "Enter", shiftKey: true });
+
+    // Shift+Enter is left to the textarea (newline) — no request goes out.
+    expect(mockCreateSession).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /Send/ })).toBeTruthy();
+  });
+
+  it("scrolls the recent messages to the bottom when a new message arrives", async () => {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: ["A bit more, please."],
+    });
+    mockClarifySession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: ["One more detail, please."],
+    });
+    await openDialog(SHORT);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    await screen.findByText("A bit more, please.");
+
+    // jsdom performs no layout, so spy the panel's scrollTop setter and
+    // verify the effect pins it to the panel's scrollHeight.
+    const panel = document.querySelector(".max-h-80") as HTMLElement;
+    const setScrollTop = vi.fn();
+    Object.defineProperty(panel, "scrollTop", {
+      set: setScrollTop,
+      get: () => 0,
+      configurable: true,
+    });
+
+    fireEvent.change(screen.getByLabelText(LABEL), {
+      target: { value: "More detail." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    await screen.findByText("One more detail, please.");
+
+    expect(setScrollTop).toHaveBeenCalledWith(panel.scrollHeight);
   });
 
   it("shows a transport error and stays open when the request fails", async () => {
