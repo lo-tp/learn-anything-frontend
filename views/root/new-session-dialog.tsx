@@ -95,7 +95,8 @@ export function NewSessionDialog({
   function handleOpenChange(next: boolean) {
     if (next) {
       onOpenChange(true);
-    } else {
+    } else if (!pending) {
+      // Don't dismiss mid-request — a submit is still in flight.
       close();
     }
   }
@@ -147,7 +148,7 @@ export function NewSessionDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="w-full max-w-2xl flex-col gap-0 overflow-hidden border-outline-variant bg-surface-container p-0 text-on-surface sm:max-w-2xl"
+        className="w-full max-w-2xl max-h-[90vh] flex-col gap-0 overflow-hidden border-outline-variant bg-surface-container p-0 text-on-surface sm:max-w-2xl"
       >
         <form onSubmit={handleSubmit} className="flex w-full flex-col">
           {/* Header — icon tile + title on the left, close at the right. */}
@@ -164,7 +165,8 @@ export function NewSessionDialog({
               <button
                 type="button"
                 aria-label="Close"
-                className="flex size-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-bright hover:text-on-surface"
+                disabled={pending}
+                className="flex size-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-bright hover:text-on-surface disabled:pointer-events-none disabled:opacity-50"
               >
                 <X className="size-5" aria-hidden />
               </button>
@@ -186,7 +188,7 @@ export function NewSessionDialog({
                   </span>
                 </div>
 
-                <div className="flex max-h-56 flex-col gap-3 overflow-y-auto rounded-xl border border-outline-variant/30 bg-surface-container-lowest/50 p-3 pr-2">
+                <div className="flex max-h-80 flex-col gap-3 overflow-y-auto rounded-xl border border-outline-variant/30 bg-surface-container-lowest/50 p-3 pr-2">
                   {messages.map((entry, index) =>
                     entry.role === "you" ? (
                       <div key={index} className="flex flex-col items-end gap-1">

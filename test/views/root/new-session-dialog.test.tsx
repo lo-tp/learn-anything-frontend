@@ -109,6 +109,30 @@ describe("NewSessionDialog", () => {
       (screen.getByRole("button", { name: /Cancel/ }) as HTMLButtonElement)
         .disabled,
     ).toBe(true);
+    // The header close button is disabled while the request is in flight.
+    expect(
+      (screen.getByRole("button", { name: "Close" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+
+  it("clears the textarea on a successful accept", async () => {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "probing",
+      narrowed_goal: "Newton's second law of motion",
+    });
+    const onAccept = vi.fn();
+    await openDialog("I want to master Newton's second law of motion.", onAccept);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    await vi.waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
+    // A successful hand-off resets the intake box.
+    await vi.waitFor(() =>
+      expect((screen.getByLabelText(LABEL) as HTMLTextAreaElement).value).toBe(
+        "",
+      ),
+    );
   });
 
   it("keeps the dialog open and shows the clarifying questions in recent messages", async () => {
