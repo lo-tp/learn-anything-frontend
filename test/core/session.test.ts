@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { Question } from "../core/contracts";
+import type { Question } from "@/core/contracts";
 import {
   fold,
   initialState,
   PROBE_CAP,
   SessionError,
   type TurnRow,
-} from "../core/session";
+} from "@/core/session";
 
 // ---------------------------------------------------------------------------
 // Fixtures — synthetic log rows, per docs/schema.md "The turn"

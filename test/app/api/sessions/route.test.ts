@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GET, POST } from "../app/api/sessions/route";
+import { GET, POST } from "@/app/api/sessions/route";
 
 function post(paragraph: string): Promise<Response> {
   return POST(

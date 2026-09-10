@@ -3,7 +3,7 @@ import { describe, expect, it, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 
 afterEach(cleanup);
-import { Frame } from "../components/frame";
+import { Frame } from "@/components/frame";
 
 describe("Frame", () => {
   it("renders the shared TopBar above the page content", () => {

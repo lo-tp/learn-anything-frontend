@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import { SessionCard, STAGE_BADGES } from "../components/session-card";
-import type { SessionSummary, Stage } from "../lib/dummy-sessions";
+import { SessionCard, STAGE_BADGES } from "@/components/session-card";
+import type { SessionSummary, Stage } from "@/lib/dummy-sessions";
 
 // Pin the clock so timeAgo's output is deterministic.
 const NOW = new Date("2025-10-25T12:00:00");

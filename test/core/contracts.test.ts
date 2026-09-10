@@ -17,7 +17,7 @@ import {
   retestResponseSchema,
   responseSchema,
   parseAnswerToken,
-} from "../core/contracts";
+} from "@/core/contracts";
 
 // ---------------------------------------------------------------------------
 // Fixtures — the happy path, per contract

@@ -14,14 +14,14 @@ import {
   render,
   screen,
 } from "@testing-library/react";
-import { NewSessionDialog } from "../views/root/new-session-dialog";
-import { ApiError, createSession } from "../lib/api-client";
+import { NewSessionDialog } from "@/views/root/new-session-dialog";
+import { ApiError, createSession } from "@/lib/api-client";
 
 // The dialog calls the typed backend client. Stub the module rather than the
 // global fetch: openapi-fetch binds `fetch` when the client is created, so a
 // `vi.stubGlobal("fetch", ...)` after the module import never intercepts its
 // requests.
-vi.mock("../lib/api-client", () => ({
+vi.mock("@/lib/api-client", () => ({
   createSession: vi.fn(),
   ApiError: class ApiError extends Error {},
 }));

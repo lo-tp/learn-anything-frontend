@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { timeAgo } from "../lib/time";
+import { timeAgo } from "@/lib/time";
 
 const NOW = new Date("2025-10-25T12:00:00");
 const iso = (d: Date) => d.toISOString();

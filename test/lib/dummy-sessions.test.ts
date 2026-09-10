@@ -5,7 +5,7 @@ import {
   MVP_LEARNER_ID,
   STAGES,
   type Stage,
-} from "../lib/dummy-sessions";
+} from "@/lib/dummy-sessions";
 
 describe("dummy session store", () => {
   it("seeds the four fixture sessions for the MVP learner", () => {

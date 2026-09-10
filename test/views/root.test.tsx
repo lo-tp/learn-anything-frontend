@@ -6,14 +6,14 @@ import {
   render,
   screen,
 } from "@testing-library/react";
-import { Root } from "../views/root";
-import { createSession } from "../lib/api-client";
-import type { SessionSummary } from "../lib/dummy-sessions";
+import { Root } from "@/views/root";
+import { createSession } from "@/lib/api-client";
+import type { SessionSummary } from "@/lib/dummy-sessions";
 
 // The new-session dialog creates sessions through the typed backend client;
 // stub that module (openapi-fetch binds `fetch` at client-creation time, so
 // stubbing the global fetch after import never intercepts it).
-vi.mock("../lib/api-client", () => ({
+vi.mock("@/lib/api-client", () => ({
   createSession: vi.fn(),
   ApiError: class ApiError extends Error {},
 }));

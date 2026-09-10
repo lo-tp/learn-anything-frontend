@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, fireEvent } from "@testing-library/react";
-import { SlideSidebar } from "../components/classroom/slide-sidebar";
+import { SlideSidebar } from "@/components/classroom/slide-sidebar";
 
 const samples = ["sample_1", "sample_2", "sample_3"];
 

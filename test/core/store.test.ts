@@ -20,7 +20,7 @@ const OTHER_ID = "00000000-0000-0000-0000-000000000002";
 const SESSION_A = "aaaaaaaa-0000-0000-0000-000000000001";
 const SESSION_B = "aaaaaaaa-0000-0000-0000-000000000002";
 
-let store: typeof import("../core/store");
+let store: typeof import("@/core/store");
 // Raw client for fixtures and cross-checks (the store itself is the API under test).
 const fixture = new pg.Client({ connectionString: TEST_DATABASE_URL });
 
@@ -28,7 +28,7 @@ beforeAll(async () => {
   execSync("bash scripts/setup-db.sh test", { stdio: "inherit" });
   // The store resolves DATABASE_URL on first use; point it at the test db.
   process.env.DATABASE_URL = TEST_DATABASE_URL;
-  store = await import("../core/store");
+  store = await import("@/core/store");
 
   await fixture.connect();
   await fixture.query(

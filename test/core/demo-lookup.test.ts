@@ -6,7 +6,7 @@
  * the real lookup lands with the `demo_slug` column.
  */
 import { describe, expect, it } from "vitest";
-import { getDemoBySlug } from "../core/store";
+import { getDemoBySlug } from "@/core/store";
 
 describe("getDemoBySlug (stub)", () => {
   it("returns { js, parts } for a slug", async () => {

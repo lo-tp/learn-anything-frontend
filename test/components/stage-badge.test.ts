@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { STAGES } from "../lib/dummy-sessions";
-import { STAGE_BADGES } from "../components/session-card";
+import { STAGES } from "@/lib/dummy-sessions";
+import { STAGE_BADGES } from "@/components/session-card";
 
 describe("STAGE_BADGES", () => {
   it("covers exactly the real stage vocabulary — nothing more, nothing less", () => {
