@@ -269,6 +269,7 @@ export function useNewSession({
     message,
     messages,
     pending,
+    phase,
     probing,
     probeQuestion,
     plan,

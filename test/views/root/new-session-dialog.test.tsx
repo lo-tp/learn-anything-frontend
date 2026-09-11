@@ -28,6 +28,8 @@ import {
 import {
   GOAL,
   LABEL,
+  PLAN_OUT,
+  PROBE_LABEL,
   Q1,
   SHORT,
   TITLE,
@@ -388,5 +390,45 @@ describe("NewSessionDialog", () => {
     expect(
       (screen.getByLabelText(LABEL) as HTMLTextAreaElement).value,
     ).toBe(SHORT);
+  });
+
+  it("shows a Ready phase indicator before the first submit", async () => {
+    await openDialog();
+    expect(screen.getByRole("status", { name: /ready/i })).toBeTruthy();
+  });
+
+  it("updates the phase indicator to Clarifying after the first submit", async () => {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: ["A bit more, please."],
+    });
+    await openDialog(SHORT);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    expect(await screen.findByRole("status", { name: /clarifying/i })).toBeTruthy();
+  });
+
+  it("tracks the phase through probing and into review", async () => {
+    // Clarify lands on probing and the first question is fetched.
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "probing",
+    });
+    mockStartProbe.mockResolvedValue({ phase: "probing", question: Q1 });
+    await openDialog(GOAL);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    expect(await screen.findByRole("status", { name: /probing/i })).toBeTruthy();
+
+    // Answering to the boundary auto-generates the plan → review step.
+    mockAnswerProbe.mockResolvedValue({
+      phase: "planning",
+      boundary_map: { f_ma_relation: { floor: "scalar F = ma", ceiling: null } },
+    });
+    mockGeneratePlan.mockResolvedValue(PLAN_OUT);
+    fireEvent.change(screen.getByLabelText(PROBE_LABEL), {
+      target: { value: "B" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    expect(await screen.findByRole("status", { name: /reviewing/i })).toBeTruthy();
   });
 });

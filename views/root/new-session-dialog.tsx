@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PhaseIndicator } from "@/components/phase-indicator";
 import {
   Dialog,
   DialogClose,
@@ -62,6 +63,7 @@ export function NewSessionDialog({
     message,
     messages,
     pending,
+    phase,
     probing,
     probeQuestion,
     reviewing,
@@ -121,7 +123,7 @@ export function NewSessionDialog({
         className="w-full max-w-3xl max-h-[95vh] flex-col gap-0 overflow-hidden border-outline-variant bg-surface-container p-0 text-on-surface sm:max-w-3xl"
       >
         <form onSubmit={handleSubmit} className="flex w-full flex-col">
-          {/* Header — icon tile + title on the left, close at the right. */}
+          {/* Header — icon tile + title on the left, phase indicator + close on the right. */}
           <div className="flex items-center justify-between gap-4 border-b border-outline-variant/50 bg-surface-container-low px-6 py-5">
             <div className="flex items-center gap-2.5">
               <span className="flex size-8 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
@@ -131,16 +133,19 @@ export function NewSessionDialog({
                 Start New Session
               </DialogTitle>
             </div>
-            <DialogClose asChild>
-              <button
-                type="button"
-                aria-label="Close"
-                disabled={pending}
-                className="flex size-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-bright hover:text-on-surface disabled:pointer-events-none disabled:opacity-50"
-              >
-                <X className="size-5" aria-hidden />
-              </button>
-            </DialogClose>
+            <div className="flex items-center gap-3">
+              <PhaseIndicator phase={phase} pending={pending} />
+              <DialogClose asChild>
+                <button
+                  type="button"
+                  aria-label="Close"
+                  disabled={pending}
+                  className="flex size-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-bright hover:text-on-surface disabled:pointer-events-none disabled:opacity-50"
+                >
+                  <X className="size-5" aria-hidden />
+                </button>
+              </DialogClose>
+            </div>
           </div>
 
           {/* Body — Recent Messages preview + the intake textarea. */}
