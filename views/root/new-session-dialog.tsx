@@ -85,7 +85,7 @@ export function NewSessionDialog({
     if (probing) {
       return probeQuestion
         ? "We're checking your answer. Give it a moment."
-        : "We're getting your question ready. Give it a moment.";
+        : "We're generating questions to check your current level of mastery. Give it a moment.";
     }
     if (phase === "clarifying") {
       return "We're working through what you shared. Give it a moment.";
