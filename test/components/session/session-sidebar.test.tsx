@@ -51,7 +51,7 @@ describe("SessionSidebar", () => {
     );
     const frame = container.querySelector("iframe");
     expect(frame).toBeTruthy();
-    expect(frame?.getAttribute("src")).toContain("/sandbox/slide-1");
+    expect(frame?.getAttribute("src")).toContain("/slides/slide-1");
     // The preview is a non-interactive, a11y-hidden mini render.
     expect(frame?.getAttribute("aria-hidden")).toBe("true");
     expect(frame?.getAttribute("tabindex")).toBe("-1");

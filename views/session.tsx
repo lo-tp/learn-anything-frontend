@@ -22,7 +22,7 @@ const PRE_MATERIAL = new Set(["clarifying", "probing", "planning", "reviewing"])
 
 /** The sandbox URL that serves a slide item's content. */
 const sandboxSrc = (slideId: string) =>
-  `${process.env.NEXT_PUBLIC_SANDBOX_ORIGIN}/sandbox/${slideId}`;
+  `${process.env.NEXT_PUBLIC_SANDBOX_ORIGIN}/slides/${slideId}`;
 
 /**
  * The `/session/{sessionId}` view (#47). **Client** component — the single

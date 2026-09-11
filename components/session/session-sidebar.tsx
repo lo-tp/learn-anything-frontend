@@ -1,6 +1,7 @@
 import { Presentation } from "lucide-react";
 import type { MaterialOut, QuestionItem, SlideItem } from "@/lib/api-client";
 import { QuizQuestion } from "@/components/session/quiz-question";
+import { SandboxFrame } from "@/components/sandbox/sandbox-frame";
 import { cn } from "@/lib/utils";
 
 /** One item card in the sidebar, addressed by its flat deck index. */
@@ -18,7 +19,7 @@ export interface SidebarGroup {
 
 /** The sandbox URL that serves a slide item's content. */
 const sandboxSrc = (slideId: string) =>
-  `${process.env.NEXT_PUBLIC_SANDBOX_ORIGIN}/sandbox/${slideId}`;
+  `${process.env.NEXT_PUBLIC_SANDBOX_ORIGIN}/slides/${slideId}`;
 
 /**
  * Left item sidebar for `/session/{sessionId}` (#47).
@@ -113,12 +114,9 @@ export function SessionSidebar({
                       {item.type === "slide" ? (
                         /* Mini preview: the slide's sandbox route, scaled down. */
                         <div className="relative h-40 w-full overflow-hidden rounded-lg border border-outline-variant/50 bg-background">
-                          <iframe
+                          <SandboxFrame
                             src={sandboxSrc(item.slide_id)}
-                            sandbox="allow-scripts allow-same-origin"
-                            loading="lazy"
-                            aria-hidden
-                            tabIndex={-1}
+                            mini
                             className="pointer-events-none absolute top-0 left-0 h-[720px] w-[1280px] origin-top-left scale-[0.22]"
                           />
                         </div>

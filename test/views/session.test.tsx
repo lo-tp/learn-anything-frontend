@@ -115,7 +115,7 @@ describe("Session", () => {
   it("starts on the first item (a slide) and loads it from the sandbox", () => {
     renderSession();
     const frame = screen.getByTitle("Sandbox");
-    expect(frame.getAttribute("src")).toContain("/sandbox/slide-1");
+    expect(frame.getAttribute("src")).toContain("/slides/slide-1");
   });
 
   it("activates the clicked item in the main area", () => {
