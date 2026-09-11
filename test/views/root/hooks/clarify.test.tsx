@@ -96,9 +96,10 @@ describe("NewSessionDialog clarify phase", () => {
     // The session was created once; the follow-up went to clarifySession.
     expect(mockCreateSession).toHaveBeenCalledTimes(1);
     expect(mockClarifySession).toHaveBeenCalledWith("s-1", ANSWER);
-    // The history grows: you goal → ai questions → you answer → ai goal →
-    // ai first probe question (auto-fetched once probing starts).
-    await screen.findByText("5 messages");
+    // The history grows (beside the fixed opening prompt): you goal →
+    // ai questions → you answer → ai goal → ai first probe question
+    // (auto-fetched once probing starts).
+    await screen.findByText("6 messages");
     // The multi-line answer renders as a list inside the "you" bubble —
     // one trimmed item per line.
     const firstLine = screen.getByText(
@@ -185,8 +186,9 @@ describe("NewSessionDialog clarify phase", () => {
     await openDialog(SHORT);
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
-    // The clarifying round appends both turns to the Recent Messages preview.
-    await screen.findByText("2 messages");
+    // The clarifying round appends both turns to the Recent Messages
+    // preview (beside the fixed opening prompt).
+    await screen.findByText("3 messages");
     // The learner's input shows as a "you" bubble (div — the textarea value
     // would also match the plain text, so scope to div elements).
     expect(screen.getByText(SHORT, { selector: "div" })).toBeTruthy();

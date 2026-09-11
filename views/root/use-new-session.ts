@@ -44,6 +44,15 @@ export type RecentMessage = {
 };
 
 /**
+ * The fixed opening prompt that always starts a new-session conversation,
+ * asking the learner to describe what they want to learn.
+ */
+const OPENING_PROMPT: RecentMessage = {
+  role: "ai",
+  text: "Tell us what you'd like to explore or learn, and we'll shape a session around it.",
+};
+
+/**
  * All the state and orchestration behind the new-session intake dialog.
  *
  * The hook is split into four **phase hooks** (see `./phases/`):
@@ -76,7 +85,10 @@ export function useNewSession({
   const [paragraph, setParagraph] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState<string | null>(null);
-  const [messages, setMessages] = useState<RecentMessage[]>(recentMessages);
+  const [messages, setMessages] = useState<RecentMessage[]>([
+    OPENING_PROMPT,
+    ...recentMessages,
+  ]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase | null>(null);
   const [probeQuestion, setProbeQuestion] =
@@ -178,7 +190,7 @@ export function useNewSession({
     setParagraph("");
     setStatus("idle");
     setMessage(null);
-    setMessages(recentMessages);
+    setMessages([OPENING_PROMPT, ...recentMessages]);
     setSessionId(null);
     setPhase(null);
     setProbeQuestion(null);

@@ -3,6 +3,7 @@
 import {
   Check,
   History,
+  Loader2,
   MessageSquareText,
   Send,
   Sparkles,
@@ -50,9 +51,9 @@ export function NewSessionDialog({
   /** Called after an accepted intake — the parent should refetch the History. */
   onAccept: () => void;
   /**
-   * The initial conversation previewed above the intake box. Defaults to
-   * empty, which hides the section; each clarifying round appends the
-   * learner's input and the AI's questions to it.
+   * The initial conversation previewed above the intake box. The fixed
+   * opening prompt is always shown first; each clarifying round appends
+   * the learner's input and the AI's questions to it.
    */
   recentMessages?: RecentMessage[];
 }) {
@@ -76,6 +77,28 @@ export function NewSessionDialog({
     confirm,
     handleOpenChange,
   } = useNewSession({ open, onAccept, onOpenChange, recentMessages });
+
+  /**
+   * The note shown in place of the intake box while a request is in
+   * flight — one or two sentences explaining what is happening.
+   */
+  function pendingNote(): string {
+    if (awaitingPlan) {
+      return "We're drafting your learning plan. This takes a few seconds — hang tight.";
+    }
+    if (reviewing) {
+      return "We're updating your plan to match your feedback. This takes a few seconds.";
+    }
+    if (probing) {
+      return probeQuestion
+        ? "We're checking your answer. Give it a moment."
+        : "We're getting your question ready. Give it a moment.";
+    }
+    if (phase === "clarifying") {
+      return "We're working through what you shared. Give it a moment.";
+    }
+    return "We're working out what you want to learn. Give it a moment.";
+  }
 
   /**
    * The bubble body: a single line, or a list when there is more than one
@@ -253,39 +276,56 @@ export function NewSessionDialog({
 
             {!confirming && (
               <div>
-                <label
-                  htmlFor="learning-goal"
-                  className="mb-2 block text-base font-medium text-on-surface"
-                >
-                  {probing
-                    ? "Which option is right?"
-                    : reviewing
-                      ? "How should we adjust the plan?"
-                      : awaitingPlan
-                        ? "Generating your plan…"
-                        : "What would you like to explore or learn?"}
-                </label>
-                <div className="relative">
-                  <textarea
-                    id="learning-goal"
-                    ref={attachTextarea}
-                    rows={3}
-                    value={paragraph}
-                    onChange={(e) => setParagraph(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    disabled={pending || awaitingPlan}
-                    placeholder={
-                      probing && probeQuestion
-                        ? `Type the option letter (A–${String.fromCharCode("A".charCodeAt(0) + probeQuestion.options.length - 1)})`
+                {pending ? (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    aria-label={pendingNote()}
+                    className="flex items-start gap-3 rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-sm text-on-surface-variant"
+                  >
+                    <Loader2
+                      className="mt-0.5 size-4 shrink-0 animate-spin text-primary"
+                      aria-hidden
+                    />
+                    <p>{pendingNote()}</p>
+                  </div>
+                ) : (
+                  <>
+                    <label
+                      htmlFor="learning-goal"
+                      className="mb-2 block text-base font-medium text-on-surface"
+                    >
+                      {probing
+                        ? "Which option is right?"
                         : reviewing
-                          ? "Type 'approve' to approve, or describe how to adjust — press Enter to send"
+                          ? "How should we adjust the plan?"
                           : awaitingPlan
-                            ? "Hang tight — your plan is being generated…"
-                            : "Continue the discussion or describe the next query..."
-                    }
-                    className="w-full resize-none rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-base text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/50 focus:border-primary disabled:opacity-60"
-                  />
-                </div>
+                            ? "Generating your plan…"
+                            : "What would you like to explore or learn?"}
+                    </label>
+                    <div className="relative">
+                      <textarea
+                        id="learning-goal"
+                        ref={attachTextarea}
+                        rows={3}
+                        value={paragraph}
+                        onChange={(e) => setParagraph(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        disabled={awaitingPlan}
+                        placeholder={
+                          probing && probeQuestion
+                            ? `Type the option letter (A–${String.fromCharCode("A".charCodeAt(0) + probeQuestion.options.length - 1)})`
+                            : reviewing
+                              ? "Type 'approve' to approve, or describe how to adjust — press Enter to send"
+                              : awaitingPlan
+                                ? "Hang tight — your plan is being generated…"
+                                : "Continue the discussion or describe the next query..."
+                        }
+                        className="w-full resize-none rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-base text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/50 focus:border-primary disabled:opacity-60"
+                      />
+                    </div>
+                  </>
+                )}
                 {status === "error" && (
                   <p className="mt-2 text-sm text-error" aria-live="polite">
                     {message}

@@ -73,8 +73,12 @@ describe("NewSessionDialog", () => {
   it("shows the intake form from the design", async () => {
     await openDialog();
     expect(screen.getByRole("heading", { name: TITLE })).toBeTruthy();
-    // The Recent Messages section is hidden by default (no messages).
-    expect(screen.queryByText("Recent Messages")).toBeNull();
+    // The Recent Messages section always shows the fixed opening prompt.
+    expect(screen.getByText("Recent Messages")).toBeTruthy();
+    expect(screen.getByText("1 message")).toBeTruthy();
+    expect(
+      screen.getByText(/Tell us what you'd like to explore or learn/),
+    ).toBeTruthy();
     expect(
       screen.getByPlaceholderText(/Continue the discussion/),
     ).toBeTruthy();
@@ -111,7 +115,8 @@ describe("NewSessionDialog", () => {
       />,
     );
     expect(screen.getByText("Recent Messages")).toBeTruthy();
-    expect(screen.getByText("3 messages")).toBeTruthy();
+    // The fixed opening prompt counts alongside the provided messages.
+    expect(screen.getByText("4 messages")).toBeTruthy();
   });
 
   it("shows a pending state and disables the buttons while the request is in flight", async () => {
@@ -132,6 +137,38 @@ describe("NewSessionDialog", () => {
       (screen.getByRole("button", { name: "Close" }) as HTMLButtonElement)
         .disabled,
     ).toBe(true);
+  });
+
+  it("hides the intake box and explains what is happening while a request is in flight", async () => {
+    mockCreateSession.mockReturnValue(new Promise(() => {}));
+    await openDialog(
+      "I want to understand Rust ownership and borrowing rules in depth.",
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    // The textarea is hidden while the request is in flight.
+    expect(screen.queryByLabelText(LABEL)).toBeNull();
+    // A short status note explains what is going on.
+    await screen.findByRole("status", {
+      name: /we're working out what you want to learn/i,
+    });
+  });
+
+  it("explains that the plan is being drafted while plan generation is in flight", async () => {
+    // The backend skips probing and auto-generates the plan.
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "planning",
+      narrowed_goal: "Newton's second law of motion",
+    });
+    mockGeneratePlan.mockReturnValue(new Promise(() => {}));
+    await openDialog(GOAL);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    expect(screen.queryByLabelText(LABEL)).toBeNull();
+    await screen.findByRole("status", {
+      name: /we're drafting your learning plan/i,
+    });
   });
 
   it("resets the form when the dialog is closed and reopened", async () => {
