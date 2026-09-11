@@ -1,18 +1,25 @@
 import { Root } from "@/views/root";
-import { getCurrentLearner, listSessions } from "@/lib/dummy-sessions";
+import { listSessions, type SessionListItem } from "@/lib/api-client";
 
 /**
- * Render per request, not as a build-time snapshot — the History is scoped to
- * the current learner, resolved at request time (see `getCurrentLearner`).
+ * Render per request, not as a build-time snapshot — the History is resolved
+ * against the backend at request time.
  */
 export const dynamic = "force-dynamic";
 
 /**
- * Home route: resolve the current learner and hand them their History. The
- * home page in `views/root/index.tsx` owns the interactive logic and renders it from
- * pure components. The shared frame is applied by the root layout.
+ * Home route: fetch the learner's History (all phases, newest first — #46)
+ * and hand it to the home page in `views/root/index.tsx`, which owns the
+ * interactive logic and renders it from pure components. If the backend is
+ * unreachable on first paint we degrade to the empty state; the client
+ * refresh can retry. The shared frame is applied by the root layout.
  */
-export default function Home() {
-  const { id } = getCurrentLearner();
-  return <Root initialSessions={listSessions(id)} />;
+export default async function Home() {
+  let sessions: SessionListItem[] = [];
+  try {
+    ({ sessions } = await listSessions());
+  } catch {
+    /* backend unreachable → render the empty state */
+  }
+  return <Root initialSessions={sessions} />;
 }

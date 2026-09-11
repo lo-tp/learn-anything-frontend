@@ -7,8 +7,13 @@ import {
   screen,
 } from "@testing-library/react";
 import { Root } from "@/views/root";
-import { createSession, generatePlan, approvePlan } from "@/lib/api-client";
-import type { SessionSummary } from "@/lib/dummy-sessions";
+import {
+  createSession,
+  generatePlan,
+  approvePlan,
+  listSessions,
+  type SessionListItem,
+} from "@/lib/api-client";
 
 // The new-session dialog creates sessions through the typed backend client;
 // stub that module (openapi-fetch binds `fetch` at client-creation time, so
@@ -21,37 +26,33 @@ vi.mock("@/lib/api-client", () => ({
   generatePlan: vi.fn(),
   adjustPlan: vi.fn(),
   approvePlan: vi.fn(),
+  listSessions: vi.fn(),
   ApiError: class ApiError extends Error {},
 }));
 
 const mockCreateSession = vi.mocked(createSession);
 const mockGeneratePlan = vi.mocked(generatePlan);
 const mockApprovePlan = vi.mocked(approvePlan);
+const mockListSessions = vi.mocked(listSessions);
 
 beforeEach(() => {
   mockCreateSession.mockReset();
   mockGeneratePlan.mockReset();
   mockApprovePlan.mockReset();
+  mockListSessions.mockReset();
 });
 
 afterEach(() => {
   cleanup();
-  vi.unstubAllGlobals();
 });
 
-function json(body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { "content-type": "application/json" },
-  });
-}
-
-function session(overrides: Partial<SessionSummary> = {}): SessionSummary {
+function session(overrides: Partial<SessionListItem> = {}): SessionListItem {
   return {
-    id: "s-1",
-    knowledgePoint: "React Hooks Deep Dive",
-    createdAt: new Date("2025-10-25T10:00:00").toISOString(),
-    stage: "probing",
+    session_id: "s-1",
+    phase: "executing",
+    goal: "React Hooks Deep Dive",
+    narrowed_goal: null,
+    created_at: "2025-10-25T10:00:00.000Z",
     ...overrides,
   };
 }
@@ -74,7 +75,6 @@ describe("Root (home History)", () => {
   });
 
   it("opens the new-session dialog from the 'Start New Session' CTA", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(json([]))));
     render(<Root initialSessions={[session()]} />);
     fireEvent.click(
       screen.getByRole("button", { name: /Start New Session/ }),
@@ -85,7 +85,6 @@ describe("Root (home History)", () => {
   });
 
   it("opens the new-session dialog from the empty-state CTA", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(json([]))));
     render(<Root initialSessions={[]} />);
     fireEvent.click(
       screen.getByRole("button", { name: /Start New Session/ }),
@@ -96,19 +95,21 @@ describe("Root (home History)", () => {
   });
 
   it("refetches the History when the dialog accepts a new session", async () => {
-    const fresh: SessionSummary = {
-      id: "s-newton",
-      knowledgePoint: "Newton's second law of motion",
-      createdAt: "2025-10-25T11:00:00.000Z",
-      stage: "probing",
+    const fresh: SessionListItem = {
+      session_id: "s-newton",
+      // Just approved → the backend transitions it to `generating`.
+      phase: "generating",
+      goal: "Newton's second law of motion",
+      narrowed_goal: "Newton's second law of motion",
+      created_at: "2025-10-25T11:00:00.000Z",
     };
     // The dialog creates the session through the typed backend client. A
     // non-probing advanced phase skips the probe loop and auto-generates the
     // plan (the review step replaces the old confirm step).
     mockCreateSession.mockResolvedValue({
-      session_id: fresh.id,
+      session_id: fresh.session_id,
       phase: "planning",
-      narrowed_goal: fresh.knowledgePoint,
+      narrowed_goal: fresh.narrowed_goal,
     });
     mockGeneratePlan.mockResolvedValue({
       phase: "reviewing",
@@ -131,8 +132,7 @@ describe("Root (home History)", () => {
       message: "Plan approved.",
     });
     // The re-fetch after accept returns the new session on top.
-    const fetchMock = vi.fn(() => Promise.resolve(json([fresh, session()])));
-    vi.stubGlobal("fetch", fetchMock);
+    mockListSessions.mockResolvedValue({ sessions: [fresh, session()] });
 
     render(<Root initialSessions={[session()]} />);
     fireEvent.click(
@@ -161,6 +161,7 @@ describe("Root (home History)", () => {
     // The accepted session appears at the top — only possible through the
     // re-fetch, since it was not in initialSessions.
     expect(await screen.findByText("Newton's second law of motion")).toBeTruthy();
-    expect(fetchMock).toHaveBeenCalledTimes(1); // the re-fetch (createSession goes through the stubbed client)
+    expect(mockListSessions).toHaveBeenCalledTimes(1); // createSession goes through the stubbed client
+    expect(mockListSessions).toHaveBeenCalledWith(); // no phase filter — History shows all phases
   });
 });

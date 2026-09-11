@@ -49,7 +49,7 @@ npm run dev     # http://localhost:3000 — the design shell (placeholder conten
 
 ## Backend integration
 
-The frontend talks to the backend's session API directly through a typed client — `lib/api-client.ts` (built on `openapi-fetch`) — instead of a Next.js proxy. New-session creation in the dialog goes through it; the Home History still reads from the dummy `/api/sessions` store until that migrates too.
+The frontend talks to the backend's session API directly through a typed client — `lib/api-client.ts` (built on `openapi-fetch`) — instead of a Next.js proxy. New-session creation in the dialog and the Home History (`GET /sessions`, all phases, newest first) both go through it.
 
 **Endpoint origin.** The client's `baseUrl` is exactly `process.env.BACKEND_URL` from `.env` — there is deliberately no fallback. When the variable is unset, requests are issued as relative paths (`/sessions` → same origin as the app), so the backend must be served there.
 

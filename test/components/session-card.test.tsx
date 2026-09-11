@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import { SessionCard, STAGE_BADGES } from "@/components/session-card";
-import type { SessionSummary, Stage } from "@/lib/dummy-sessions";
+import { SessionCard } from "@/components/session-card";
+import type { SessionListItem } from "@/lib/api-client";
 
 // Pin the clock so timeAgo's output is deterministic.
 const NOW = new Date("2025-10-25T12:00:00");
@@ -18,12 +18,13 @@ afterEach(() => {
   cleanup();
 });
 
-function session(overrides: Partial<SessionSummary> = {}): SessionSummary {
+function session(overrides: Partial<SessionListItem> = {}): SessionListItem {
   return {
-    id: "s-1",
-    knowledgePoint: "React Hooks Deep Dive",
-    createdAt: new Date(NOW.getTime() - 2 * 3_600_000).toISOString(),
-    stage: "probing",
+    session_id: "s-1",
+    phase: "executing",
+    goal: "React Hooks Deep Dive",
+    narrowed_goal: null,
+    created_at: new Date(NOW.getTime() - 2 * 3_600_000).toISOString(),
     ...overrides,
   };
 }
@@ -35,16 +36,14 @@ describe("SessionCard", () => {
     expect(card.getAttribute("href")).toBe("/classroom");
   });
 
-  it("shows the knowledge point as the title", () => {
-    render(<SessionCard session={session()} />);
-    expect(screen.getByText("React Hooks Deep Dive")).toBeTruthy();
+  it("shows the narrowed goal as the title when one is recorded", () => {
+    render(<SessionCard session={session({ narrowed_goal: "Hooks, narrowed" })} />);
+    expect(screen.getByText("Hooks, narrowed")).toBeTruthy();
   });
 
-  it("shows a muted 'New session' title when no knowledge point is recorded yet", () => {
-    render(<SessionCard session={session({ knowledgePoint: null })} />);
-    const title = screen.getByText("New session");
-    expect(title).toBeTruthy();
-    expect(title.className).toContain("text-on-surface-variant");
+  it("falls back to the goal when no narrowed goal is recorded", () => {
+    render(<SessionCard session={session()} />);
+    expect(screen.getByText("React Hooks Deep Dive")).toBeTruthy();
   });
 
   it("shows the relative creation time", () => {
@@ -52,16 +51,9 @@ describe("SessionCard", () => {
     expect(screen.getByText("2 hrs ago")).toBeTruthy();
   });
 
-  it("renders the stage badge label", () => {
+  it("renders the neutral card — no stage label text (#46)", () => {
     render(<SessionCard session={session()} />);
-    expect(screen.getByText("Probing")).toBeTruthy();
-  });
-
-  it("renders a badge for every stage in the real vocabulary", () => {
-    for (const stage of Object.keys(STAGE_BADGES) as Stage[]) {
-      cleanup();
-      render(<SessionCard session={session({ stage })} />);
-      expect(screen.getByText(STAGE_BADGES[stage].label)).toBeTruthy();
-    }
+    expect(screen.queryByText(/executing/i)).toBeNull();
+    expect(screen.queryByText(/complete/i)).toBeNull();
   });
 });

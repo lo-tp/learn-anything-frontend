@@ -58,4 +58,4 @@ Navigate to the new route — the frame/top bar come free from the layout.
 - ✅ Make leaves pure and reusable.
 - ❌ Don't re-wrap in `<Frame>`/`<TopBar>` in the page.
 - ❌ Don't put state in a leaf, or data-fetching in a component that isn't the view.
-- ❌ Don't import the server-side store (`lib/dummy-sessions`) from a client component — pass data through the route/view boundary instead.
+- ✅ Session data comes from the typed backend client (`lib/api-client`); `types/api.d.ts` is generated (`npm run generate:types`), never hand-edited.

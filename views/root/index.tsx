@@ -5,28 +5,32 @@ import { EmptyState } from "@/components/empty-state";
 import { NewSessionDialog } from "./new-session-dialog";
 import { SessionCard } from "@/components/session-card";
 import { StartSessionButton } from "@/components/start-session-button";
-import type { SessionSummary } from "@/lib/dummy-sessions";
+import { listSessions, type SessionListItem } from "@/lib/api-client";
 
 /**
  * The home page: the learner's History. Owns the list state (seeded from the
- * server-rendered `initialSessions`), the re-fetch against
- * `GET /api/sessions` (run after the new-session dialog accepts an intake),
- * and the dialog's open state, and renders the page directly from the pure
- * leaf components in `components/*`.
+ * server-rendered `initialSessions`), the re-fetch against `GET /sessions`
+ * (run after the new-session dialog accepts an intake), and the dialog's
+ * open state, and renders the page directly from the pure leaf components in
+ * `components/*`.
  *
  * With sessions: the "My Sessions" header (title + CTA) above the cards.
  * When empty: the header is hidden and the empty state carries the CTA at its
  * base, so there is one primary button in either view. Either CTA opens the
  * new-session dialog (#26).
  */
-export function Root({ initialSessions }: { initialSessions: SessionSummary[] }) {
-  const [sessions, setSessions] = useState<SessionSummary[]>(initialSessions);
+export function Root({ initialSessions }: { initialSessions: SessionListItem[] }) {
+  const [sessions, setSessions] = useState<SessionListItem[]>(initialSessions);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  /** Re-fetch the History from the dummy store and swap the list in place. */
+  /** Re-fetch the History from the backend and swap the list in place. */
   const refresh = useCallback(async () => {
-    const res = await fetch("/api/sessions");
-    if (res.ok) setSessions(await res.json());
+    try {
+      const { sessions } = await listSessions();
+      setSessions(sessions);
+    } catch {
+      /* keep the current list */
+    }
   }, []);
 
   return (
@@ -52,7 +56,7 @@ export function Root({ initialSessions }: { initialSessions: SessionSummary[] })
 
             <div className="flex flex-col gap-4">
               {sessions.map((session) => (
-                <SessionCard key={session.id} session={session} />
+                <SessionCard key={session.session_id} session={session} />
               ))}
             </div>
           </>

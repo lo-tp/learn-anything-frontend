@@ -8,9 +8,7 @@ import type { components, paths } from "@/types/api";
  * OpenAPI spec via `npm run generate:types` (run it after the spec changes —
  * never hand-edit the generated file).
  *
- * Note: this talks to the *backend* (`NEXT_PUBLIC_BACKEND_URL` in .env), not
- * the Next.js `/api/sessions` dummy-store route — the two have different
- * shapes (e.g. backend takes `{ goal }`, the dummy route takes `{ paragraph }`).
+ * Note: this talks to the *backend* (`NEXT_PUBLIC_BACKEND_URL` in .env).
  *
  * The client runs in the browser, so the origin must be a `NEXT_PUBLIC_`-prefixed
  * var: Next.js only inlines those into the client bundle. An unprefixed
@@ -29,6 +27,8 @@ export type ClarifyResult = components["schemas"]["ClarifyResult"];
 export type SessionState = components["schemas"]["SessionState"];
 export type Phase = components["schemas"]["Phase"];
 export type ProbeOut = components["schemas"]["ProbeOut"];
+export type SessionList = components["schemas"]["SessionList"];
+export type SessionListItem = components["schemas"]["SessionListItem"];
 export type ProbeQuestionOut = components["schemas"]["ProbeQuestionOut"];
 export type PlanOut = components["schemas"]["PlanOut"];
 export type PlanBody = components["schemas"]["PlanBody"];
@@ -56,6 +56,15 @@ function describeError(
     detail?.map((d) => d.msg).join(" ") ?? `Request failed (${status ?? "unknown"})`,
     status,
   );
+}
+
+/** `GET /sessions` — list sessions (newest first), optionally filtered by phase(s). */
+export async function listSessions(phases?: Phase[]): Promise<SessionList> {
+  const { data, error, response } = await api.GET("/sessions", {
+    params: { query: { phase: phases } },
+  });
+  if (!data) throw describeError(error, response?.status);
+  return data;
 }
 
 /** `POST /sessions` — create a session and make the first Clarify call. */
