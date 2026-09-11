@@ -44,18 +44,11 @@ export function NewSessionDialog({
   open,
   onOpenChange,
   onAccept,
-  recentMessages = [],
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Called after an accepted intake — the parent should refetch the History. */
   onAccept: () => void;
-  /**
-   * The initial conversation previewed above the intake box. The fixed
-   * opening prompt is always shown first; each clarifying round appends
-   * the learner's input and the AI's questions to it.
-   */
-  recentMessages?: RecentMessage[];
 }) {
   const {
     paragraph,
@@ -76,7 +69,7 @@ export function NewSessionDialog({
     close,
     confirm,
     handleOpenChange,
-  } = useNewSession({ open, onAccept, onOpenChange, recentMessages });
+  } = useNewSession({ open, onAccept, onOpenChange });
 
   /**
    * The note shown in place of the intake box while a request is in

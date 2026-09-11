@@ -92,33 +92,6 @@ describe("NewSessionDialog", () => {
     expect(screen.getAllByRole("button", { name: "Close" })).toHaveLength(1);
   });
 
-  it("shows the Recent Messages preview when messages are provided", async () => {
-    render(
-      <NewSessionDialog
-        open
-        onOpenChange={() => {}}
-        onAccept={() => {}}
-        recentMessages={[
-          {
-            role: "you",
-            text: "Can we start a deep dive into distributed consensus protocols like Raft?",
-          },
-          {
-            role: "ai",
-            text: "Certainly! Raft breaks consensus down into leader election, log replication, and safety. What specific aspect would you like to explore first?",
-          },
-          {
-            role: "you",
-            text: "Let's focus on how leader election handles split votes during network partitions.",
-          },
-        ]}
-      />,
-    );
-    expect(screen.getByText("Recent Messages")).toBeTruthy();
-    // The fixed opening prompt counts alongside the provided messages.
-    expect(screen.getByText("4 messages")).toBeTruthy();
-  });
-
   it("shows a pending state and disables the buttons while the request is in flight", async () => {
     mockCreateSession.mockReturnValue(new Promise(() => {}));
     await openDialog(

@@ -70,7 +70,6 @@ export function useNewSession({
   open,
   onAccept,
   onOpenChange,
-  recentMessages = [],
 }: {
   /** Whether the dialog is open. */
   open: boolean;
@@ -78,8 +77,6 @@ export function useNewSession({
   onAccept: () => void;
   /** Propagates the dialog's open/closed state to the parent. */
   onOpenChange: (open: boolean) => void;
-  /** The initial conversation previewed above the intake box. */
-  recentMessages?: RecentMessage[];
 }) {
   // ── Shared state ─────────────────────────────────────────────────────────
   const [paragraph, setParagraph] = useState("");
@@ -87,7 +84,6 @@ export function useNewSession({
   const [message, setMessage] = useState<string | null>(null);
   const [messages, setMessages] = useState<RecentMessage[]>([
     OPENING_PROMPT,
-    ...recentMessages,
   ]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase | null>(null);
@@ -190,7 +186,7 @@ export function useNewSession({
     setParagraph("");
     setStatus("idle");
     setMessage(null);
-    setMessages([OPENING_PROMPT, ...recentMessages]);
+    setMessages([OPENING_PROMPT]);
     setSessionId(null);
     setPhase(null);
     setProbeQuestion(null);
