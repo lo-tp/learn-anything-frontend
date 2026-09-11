@@ -509,7 +509,7 @@ describe("NewSessionDialog", () => {
 
     // jsdom performs no layout, so spy the panel's scrollTop setter and
     // verify the effect pins it to the panel's scrollHeight.
-    const panel = document.querySelector(".max-h-80") as HTMLElement;
+    const panel = document.querySelector(".overflow-y-auto") as HTMLElement;
     const setScrollTop = vi.fn();
     Object.defineProperty(panel, "scrollTop", {
       set: setScrollTop,

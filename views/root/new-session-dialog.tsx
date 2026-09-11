@@ -114,7 +114,7 @@ export function NewSessionDialog({
         // Opt out of Radix's open auto-focus (it targets the close button);
         // useNewSession owns focus and puts it in the textarea when enabled.
         onOpenAutoFocus={(event) => event.preventDefault()}
-        className="w-full max-w-2xl max-h-[90vh] flex-col gap-0 overflow-hidden border-outline-variant bg-surface-container p-0 text-on-surface sm:max-w-2xl"
+        className="w-full max-w-3xl max-h-[95vh] flex-col gap-0 overflow-hidden border-outline-variant bg-surface-container p-0 text-on-surface sm:max-w-3xl"
       >
         <form onSubmit={handleSubmit} className="flex w-full flex-col">
           {/* Header — icon tile + title on the left, close at the right. */}
@@ -156,7 +156,7 @@ export function NewSessionDialog({
 
                 <div
                   ref={messagesPanelRef}
-                  className="flex max-h-80 flex-col gap-3 overflow-y-auto rounded-xl border border-outline-variant/30 bg-surface-container-lowest/50 p-3 pr-2"
+                  className="flex max-h-[40rem] flex-col gap-3 overflow-y-auto rounded-xl border border-outline-variant/30 bg-surface-container-lowest/50 p-3 pr-2"
                 >
                   {messages.map((entry, index) =>
                     entry.role === "you" ? (
