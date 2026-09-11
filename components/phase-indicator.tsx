@@ -7,6 +7,7 @@ import {
   Play,
   Search,
   Sparkles,
+  TriangleAlert,
   type LucideIcon,
 } from "lucide-react";
 import type { Phase } from "@/lib/api-client";
@@ -81,6 +82,14 @@ const PHASE_META: Record<Phase, PhaseMeta> = {
     text: "text-tertiary",
     border: "border-tertiary/30",
     bg: "bg-tertiary/10",
+  },
+  error: {
+    label: "Error",
+    hint: "Something went wrong",
+    icon: TriangleAlert,
+    text: "text-error",
+    border: "border-error/30",
+    bg: "bg-error/10",
   },
 };
 

@@ -30,10 +30,10 @@ function session(overrides: Partial<SessionListItem> = {}): SessionListItem {
 }
 
 describe("SessionCard", () => {
-  it("links to the classroom page", () => {
+  it("links to the session's materials page", () => {
     render(<SessionCard session={session()} />);
     const card = screen.getByRole("link", { name: /React Hooks Deep Dive/ });
-    expect(card.getAttribute("href")).toBe("/classroom");
+    expect(card.getAttribute("href")).toBe("/session/s-1");
   });
 
   it("shows the narrowed goal as the title when one is recorded", () => {

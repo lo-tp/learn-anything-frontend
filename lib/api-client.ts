@@ -34,6 +34,10 @@ export type PlanOut = components["schemas"]["PlanOut"];
 export type PlanBody = components["schemas"]["PlanBody"];
 export type StepOut = components["schemas"]["StepOut"];
 export type ApproveOut = components["schemas"]["ApproveOut"];
+export type MaterialsOut = components["schemas"]["MaterialsOut"];
+export type MaterialOut = components["schemas"]["MaterialOut"];
+export type SlideItem = components["schemas"]["SlideItem"];
+export type QuestionItem = components["schemas"]["QuestionItem"];
 
 /** Thrown when the backend answers with a declared error (e.g. 422). */
 export class ApiError extends Error {
@@ -165,6 +169,19 @@ export async function adjustPlan(
 export async function approvePlan(sessionId: string): Promise<ApproveOut> {
   const { data, error, response } = await api.POST(
     "/sessions/{session_id}/plan/approve",
+    { params: { path: { session_id: sessionId } } },
+  );
+  if (!data) throw describeError(error, response?.status);
+  return data;
+}
+
+/**
+ * `GET /sessions/{session_id}/materials` — poll material generation
+ * progress with full content.
+ */
+export async function getMaterials(sessionId: string): Promise<MaterialsOut> {
+  const { data, error, response } = await api.GET(
+    "/sessions/{session_id}/materials",
     { params: { path: { session_id: sessionId } } },
   );
   if (!data) throw describeError(error, response?.status);

@@ -13,6 +13,7 @@ const PHASES: Record<Phase, string> = {
   generating: "Generating",
   executing: "Executing",
   complete: "Complete",
+  error: "Error",
 };
 
 afterEach(() => {

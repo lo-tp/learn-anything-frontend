@@ -139,7 +139,7 @@ export interface paths {
         put?: never;
         /**
          * Approve Plan
-         * @description Approve the plan and transition to generating.
+         * @description Approve the plan, then start material generation in the background.
          */
         post: operations["approve_plan_sessions__session_id__plan_approve_post"];
         delete?: never;
@@ -215,10 +215,9 @@ export interface components {
         MaterialOut: {
             /** Step Id */
             step_id: string;
-            /** Slides */
-            slides: string[];
-            /** Questions */
-            questions: components["schemas"]["QuestionOut"][];
+            summary: components["schemas"]["SummaryOut"];
+            /** Items */
+            items: (components["schemas"]["SlideItem"] | components["schemas"]["QuestionItem"])[];
         };
         /** MaterialsOut */
         MaterialsOut: {
@@ -230,7 +229,7 @@ export interface components {
          * Phase
          * @enum {string}
          */
-        Phase: "clarifying" | "probing" | "planning" | "reviewing" | "generating" | "executing" | "complete";
+        Phase: "clarifying" | "probing" | "planning" | "reviewing" | "generating" | "executing" | "complete" | "error";
         /** PlanBody */
         PlanBody: {
             /** Prose Summary */
@@ -293,8 +292,13 @@ export interface components {
                 [key: string]: number;
             };
         };
-        /** QuestionOut */
-        QuestionOut: {
+        /** QuestionItem */
+        QuestionItem: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "question";
             /** Id */
             id: string;
             /** Text */
@@ -335,6 +339,16 @@ export interface components {
             narrowed_goal: string | null;
             progress: components["schemas"]["Progress"];
         };
+        /** SlideItem */
+        SlideItem: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "slide";
+            /** Slide Id */
+            slide_id: string;
+        };
         /** StepOut */
         StepOut: {
             /** Id */
@@ -347,6 +361,15 @@ export interface components {
             depends_on: string[];
             /** Depth */
             depth: number;
+        };
+        /** SummaryOut */
+        SummaryOut: {
+            /** Step Id */
+            step_id: string;
+            /** Title */
+            title: string;
+            /** Key Points */
+            key_points: string[];
         };
         /** ValidationError */
         ValidationError: {
