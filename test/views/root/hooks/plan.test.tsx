@@ -216,16 +216,15 @@ describe("NewSessionDialog plan review", () => {
     await openDialog(GOAL);
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
-    // The failed auto-generation surfaces as an inline error; the awaiting
-    // chrome ("Generating your plan…" + disabled textarea) stays put.
+    // The failed auto-generation surfaces as an inline error; the intake
+    // box stays hidden while the plan is awaited (status note in its place).
     await screen.findByText(/went wrong|try again/i);
-    const awaitingLabel = "Generating your plan…";
-    expect(screen.getByText(awaitingLabel)).toBeTruthy();
     expect(
-      (
-        screen.getByLabelText(awaitingLabel) as HTMLTextAreaElement
-      ).disabled,
-    ).toBe(true);
+      screen.getByText(
+        "We're drafting your learning plan. This takes a few seconds — hang tight.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole("textbox")).toBeNull();
 
     // A second Send click retries the generation.
     mockGeneratePlan.mockResolvedValue(PLAN_OUT);

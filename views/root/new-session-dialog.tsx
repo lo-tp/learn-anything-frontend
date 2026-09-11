@@ -72,8 +72,9 @@ export function NewSessionDialog({
   } = useNewSession({ open, onAccept, onOpenChange });
 
   /**
-   * The note shown in place of the intake box while a request is in
-   * flight — one or two sentences explaining what is happening.
+   * The note shown in place of the intake box while a request is in flight
+   * or the plan is still being generated — one or two sentences explaining
+   * what is happening.
    */
   function pendingNote(): string {
     if (awaitingPlan) {
@@ -269,7 +270,7 @@ export function NewSessionDialog({
 
             {!confirming && (
               <div>
-                {pending ? (
+                {pending || awaitingPlan ? (
                   <div
                     role="status"
                     aria-live="polite"
@@ -292,9 +293,7 @@ export function NewSessionDialog({
                         ? "Which option is right?"
                         : reviewing
                           ? "How should we adjust the plan?"
-                          : awaitingPlan
-                            ? "Generating your plan…"
-                            : "What would you like to explore or learn?"}
+                          : "What would you like to explore or learn?"}
                     </label>
                     <div className="relative">
                       <textarea
@@ -304,17 +303,14 @@ export function NewSessionDialog({
                         value={paragraph}
                         onChange={(e) => setParagraph(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        disabled={awaitingPlan}
                         placeholder={
                           probing && probeQuestion
                             ? `Type the option letter (A–${String.fromCharCode("A".charCodeAt(0) + probeQuestion.options.length - 1)})`
                             : reviewing
                               ? "Type 'approve' to approve, or describe how to adjust — press Enter to send"
-                              : awaitingPlan
-                                ? "Hang tight — your plan is being generated…"
-                                : "Continue the discussion or describe the next query..."
+                              : "Continue the discussion or describe the next query..."
                         }
-                        className="w-full resize-none rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-base text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/50 focus:border-primary disabled:opacity-60"
+                        className="w-full resize-none rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-base text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/50 focus:border-primary"
                       />
                     </div>
                   </>
