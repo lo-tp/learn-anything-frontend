@@ -149,10 +149,14 @@ describe("Root (home History)", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
-    // The plan auto-generates: the review step replaces Send, and only
-    // Approve hands off (triggering the re-fetch).
-    const approve = await screen.findByRole("button", { name: /Approve/ });
-    fireEvent.click(approve);
+    // The plan auto-generates: the review step replaces the old confirm
+    // step, and the typed approval command ("approve" + Enter) hands off
+    // (triggering the re-fetch).
+    const review = await screen.findByLabelText(
+      "How should we adjust the plan?",
+    );
+    fireEvent.change(review, { target: { value: "approve" } });
+    fireEvent.keyDown(review, { key: "Enter" });
 
     // The accepted session appears at the top — only possible through the
     // re-fetch, since it was not in initialSessions.
