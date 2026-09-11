@@ -7,7 +7,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { Root } from "@/views/root";
-import { createSession } from "@/lib/api-client";
+import { createSession, generatePlan, approvePlan } from "@/lib/api-client";
 import type { SessionSummary } from "@/lib/dummy-sessions";
 
 // The new-session dialog creates sessions through the typed backend client;
@@ -18,13 +18,20 @@ vi.mock("@/lib/api-client", () => ({
   clarifySession: vi.fn(),
   startProbe: vi.fn(),
   answerProbe: vi.fn(),
+  generatePlan: vi.fn(),
+  adjustPlan: vi.fn(),
+  approvePlan: vi.fn(),
   ApiError: class ApiError extends Error {},
 }));
 
 const mockCreateSession = vi.mocked(createSession);
+const mockGeneratePlan = vi.mocked(generatePlan);
+const mockApprovePlan = vi.mocked(approvePlan);
 
 beforeEach(() => {
   mockCreateSession.mockReset();
+  mockGeneratePlan.mockReset();
+  mockApprovePlan.mockReset();
 });
 
 afterEach(() => {
@@ -96,11 +103,32 @@ describe("Root (home History)", () => {
       stage: "probing",
     };
     // The dialog creates the session through the typed backend client. A
-    // non-probing advanced phase skips the probe loop and confirms directly.
+    // non-probing advanced phase skips the probe loop and auto-generates the
+    // plan (the review step replaces the old confirm step).
     mockCreateSession.mockResolvedValue({
       session_id: fresh.id,
       phase: "planning",
       narrowed_goal: fresh.knowledgePoint,
+    });
+    mockGeneratePlan.mockResolvedValue({
+      phase: "reviewing",
+      plan: {
+        prose_summary: "Start from scalar F = ma, then extend to vectors.",
+        dependency_dag: "scalar -> vector",
+        steps: [
+          {
+            id: "step-1",
+            title: "Scalar F = ma",
+            description: "One-dimensional force, mass, and acceleration.",
+            depends_on: [],
+            depth: 0,
+          },
+        ],
+      },
+    });
+    mockApprovePlan.mockResolvedValue({
+      phase: "generating",
+      message: "Plan approved.",
     });
     // The re-fetch after accept returns the new session on top.
     const fetchMock = vi.fn(() => Promise.resolve(json([fresh, session()])));
@@ -121,10 +149,10 @@ describe("Root (home History)", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
-    // The phase advanced past clarifying: the confirm step replaces Send,
-    // and only Confirm hands off (triggering the re-fetch).
-    const confirm = await screen.findByRole("button", { name: /Confirm/ });
-    fireEvent.click(confirm);
+    // The plan auto-generates: the review step replaces Send, and only
+    // Approve hands off (triggering the re-fetch).
+    const approve = await screen.findByRole("button", { name: /Approve/ });
+    fireEvent.click(approve);
 
     // The accepted session appears at the top — only possible through the
     // re-fetch, since it was not in initialSessions.

@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ApiError,
+  adjustPlan,
   answerProbe,
+  approvePlan,
   clarifySession,
   createSession,
+  generatePlan,
   startProbe,
   type Phase,
+  type PlanBody,
+  type PlanOut,
   type ProbeQuestionOut,
 } from "@/lib/api-client";
 
@@ -29,6 +34,12 @@ export type RecentMessage = {
    * out against the other bubbles.
    */
   highlighted?: boolean;
+  /**
+   * When set, the bubble is a plan bubble: `text` carries the plan's prose
+   * summary and the bubble renders the plan's numbered steps (with inline
+   * "builds on" notes for dependencies) beneath it.
+   */
+  plan?: PlanBody;
 };
 
 type Status = "idle" | "pending" | "error";
@@ -51,11 +62,21 @@ type Status = "idle" | "pending" | "error";
  * or — once the backend returns the `boundary_map` (phase `planning`) — a
  * completion message.
  *
- * Only once probing is done — or when the backend skips straight to a later
- * lifecycle phase — does the dialog enter a confirm step: the textarea is
- * hidden and the footer offers a single **Confirm** button that calls
- * `onAccept` (so the parent refetches the History) and closes. Errors keep
- * the modal open with the text preserved and an inline message.
+ * Once probing is done (or when the backend skips straight to `planning` /
+ * `reviewing`), the dialog auto-calls `generatePlan` and renders the plan as
+ * a highlighted plan bubble (prose summary + numbered steps). The review
+ * step then offers the learner two actions: adjust the plan with free text
+ * — each submit calls `adjustPlan` and appends a regenerated plan bubble
+ * (the previous one stays in the history) — or approve it. `approve` calls
+ * `approvePlan`, then `onAccept` (so the parent refetches the History), and
+ * closes. While a plan is owed (`awaitingPlan`), the intake is disabled and
+ * the Send button generates (or retries a failed generation of) the plan.
+ *
+ * When the backend reports a post-plan phase (`generating` / `executing` /
+ * `complete`) at create/clarify time, the dialog instead enters the legacy
+ * confirm step: the textarea is hidden and the footer offers a single
+ * **Confirm** button that calls `onAccept` and closes. Errors keep the modal
+ * open with the text preserved and an inline message.
  *
  * `messagesPanelRef` is exposed so the component can pin its Recent
  * Messages panel to the bottom whenever a new turn lands, and
@@ -94,14 +115,24 @@ export function useNewSession({
   );
   // How many probe questions have been served so far.
   const [probeCount, setProbeCount] = useState(0);
+  // The latest generated/adjusted plan; null until one arrives.
+  const [plan, setPlan] = useState<PlanBody | null>(null);
 
   const pending = status === "pending";
   // The probe loop is live: one question is owed an answer.
   const probing = phase === "probing";
-  // A non-clarifying, non-probing phase means intake is done — show the
-  // confirm step (probe completion lands here with phase "planning").
+  // A plan has landed — the learner is adjusting or approving it.
+  const reviewing = plan !== null;
+  // Probing is done (or was skipped) and no plan has landed yet: generation
+  // is owed, or being retried after a failed generation.
+  const awaitingPlan =
+    sessionId !== null &&
+    plan === null &&
+    (phase === "planning" || phase === "reviewing");
+  // A post-plan phase reported by the backend: the legacy confirm step
+  // (the session is already progressing — there is no plan to review).
   const confirming =
-    phase !== null && phase !== "clarifying" && phase !== "probing";
+    phase === "generating" || phase === "executing" || phase === "complete";
 
   // The scrollable Recent Messages panel — pinned to the bottom as turns land.
   const messagesPanelRef = useRef<HTMLDivElement | null>(null);
@@ -124,14 +155,21 @@ export function useNewSession({
 
   // Focus the textarea once it is enabled: on open (Radix would otherwise
   // auto-focus the header's close button), and again whenever a pending
-  // submit settles (clarifying round, probe turn, or error) so the next
-  // answer can be typed immediately. Skipped in the confirm step, where it
+  // submit settles (clarifying round, probe turn, plan landing, or error) so
+  // the next answer can be typed immediately. Skipped while a plan is being
+  // generated (the textarea is disabled) and in the confirm step, where it
   // is hidden.
   useEffect(() => {
-    if (open && textareaMounted && !pending && !confirming) {
+    if (
+      open &&
+      textareaMounted &&
+      !pending &&
+      !confirming &&
+      !awaitingPlan
+    ) {
       textareaRef.current?.focus({ preventScroll: true });
     }
-  }, [open, textareaMounted, pending, confirming]);
+  }, [open, textareaMounted, pending, confirming, awaitingPlan]);
 
   /**
    * Break a learner's answer into its trimmed lines so a multi-line answer
@@ -228,6 +266,25 @@ export function useNewSession({
     setMessages((prev) => [...prev, ...additions]);
   }
 
+  /**
+   * Record a generated or adjusted plan: append the highlighted plan bubble
+   * (prose summary + structured steps) and move into the review step.
+   */
+  function recordPlan(result: PlanOut) {
+    setStatus("idle");
+    setPhase(result.phase);
+    setPlan(result.plan);
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "ai",
+        text: result.plan.prose_summary,
+        highlighted: true,
+        plan: result.plan,
+      },
+    ]);
+  }
+
   /** Close the dialog, always leaving it pristine for the next opening. */
   function close() {
     setParagraph("");
@@ -238,6 +295,7 @@ export function useNewSession({
     setPhase(null);
     setProbeQuestion(null);
     setProbeCount(0);
+    setPlan(null);
     onOpenChange(false);
   }
 
@@ -245,6 +303,29 @@ export function useNewSession({
   function confirm() {
     onAccept();
     close();
+  }
+
+  /**
+   * The review step's Approve button: approve the plan on the backend, hand
+   * off (so the parent refetches the History), and close. A failure keeps
+   * the dialog open in the review step with an inline error.
+   */
+  async function approve() {
+    if (pending || sessionId === null) return;
+    setStatus("pending");
+    setMessage(null);
+    try {
+      await approvePlan(sessionId);
+      onAccept();
+      close();
+    } catch (err) {
+      setStatus("error");
+      setMessage(
+        err instanceof ApiError
+          ? err.message
+          : "Something went wrong approving your plan. Please try again.",
+      );
+    }
   }
 
   function handleOpenChange(next: boolean) {
@@ -266,6 +347,49 @@ export function useNewSession({
     setStatus("pending");
     setMessage(null);
     try {
+      // The review step: adjust the plan with free text. An empty
+      // adjustment is rejected client-side — no request goes out.
+      if (reviewing) {
+        const text = paragraph.trim();
+        if (text === "") {
+          setStatus("error");
+          setMessage("Describe how you'd like to adjust the plan.");
+          return;
+        }
+        if (sessionId === null) {
+          setStatus("error");
+          setMessage(
+            "Something went wrong with your session. Please try again.",
+          );
+          return;
+        }
+        const result = await adjustPlan(sessionId, text);
+        setMessages((prev) => [
+          ...prev,
+          { role: "you", text: splitAnswer(paragraph) },
+          {
+            role: "ai",
+            text: result.plan.prose_summary,
+            highlighted: true,
+            plan: result.plan,
+          },
+        ]);
+        setPlan(result.plan);
+        setPhase(result.phase);
+        setParagraph("");
+        setStatus("idle");
+        return;
+      }
+
+      // The awaiting-plan step: generate (or retry) the plan. Any typed
+      // text is ignored — the learner only reviews the generated plan.
+      if (awaitingPlan && sessionId !== null) {
+        setParagraph("");
+        const result = await generatePlan(sessionId);
+        recordPlan(result);
+        return;
+      }
+
       // The probe loop: retry a failed first fetch, or answer the active
       // question with the typed option number.
       if (phase === "probing") {
@@ -302,6 +426,13 @@ export function useNewSession({
         }
         const result = await answerProbe(sessionId, probeQuestion.id, index - 1);
         recordProbeResult(index, result);
+        if (!result.question) {
+          // The boundary is established — auto-generate the plan and render
+          // it as the highlighted plan bubble (instead of the legacy
+          // confirm step).
+          const generated = await generatePlan(sessionId);
+          recordPlan(generated);
+        }
         return;
       }
 
@@ -351,10 +482,29 @@ export function useNewSession({
           return;
         }
         recordProbeQuestion(probe.question);
+      } else if (result.phase === "planning" || result.phase === "reviewing") {
+        // The backend skipped probing — record the turn (plus the narrowed
+        // goal, when present) and auto-generate the plan (instead of the
+        // legacy confirm step).
+        const additions: RecentMessage[] = [
+          { role: "you", text: splitAnswer(paragraph) },
+        ];
+        if (result.narrowed_goal) {
+          additions.push({
+            role: "ai",
+            text: `Your narrowed goal is: ${result.narrowed_goal}`,
+            highlighted: true,
+          });
+        }
+        setMessages((prev) => [...prev, ...additions]);
+        setParagraph("");
+        setPhase(result.phase);
+        const generated = await generatePlan(result.session_id);
+        recordPlan(generated);
       } else {
-        // The goal is narrowed (or the session is already progressing) —
-        // enter the confirm step: record the turn (plus the narrowed goal,
-        // when present), hide the textarea, and wait for the Confirm click.
+        // The session is already in a post-plan phase — enter the legacy
+        // confirm step: record the turn (plus the narrowed goal, when
+        // present), hide the textarea, and wait for the Confirm click.
         const additions: RecentMessage[] = [
           { role: "you", text: splitAnswer(paragraph) },
         ];
@@ -388,12 +538,16 @@ export function useNewSession({
     pending,
     probing,
     probeQuestion,
+    plan,
+    reviewing,
+    awaitingPlan,
     confirming,
     messagesPanelRef,
     attachTextarea,
     submit,
     close,
     confirm,
+    approve,
     handleOpenChange,
   };
 }

@@ -27,14 +27,16 @@ export type { RecentMessage };
  * The new-session popup over the History (#26), per
  * `design/home/new_session/code.html`: a header, a read-only "Recent
  * Messages" preview, an intake textarea, and a footer that adapts to the
- * Clarify loop and the probe loop (probe questions render as lettered
- * option lists inside the message bubbles; the learner answers by typing
- * the option's letter).
+ * Clarify loop, the probe loop (probe questions render as lettered option
+ * lists inside the message bubbles; the learner answers by typing the
+ * option's letter), and the plan review step (the generated plan renders as
+ * a highlighted bubble with its numbered steps; the learner adjusts it
+ * with free text or approves it).
  *
  * All state and business logic lives in `useNewSession`
  * (`./use-new-session.ts`); this component is purely presentational — it
  * renders the header, message bubbles, intake box, and footer, and wires
- * the Send/Cancel/Confirm actions to the hook.
+ * the Send/Cancel/Confirm/Approve actions to the hook.
  */
 export function NewSessionDialog({
   open,
@@ -62,12 +64,15 @@ export function NewSessionDialog({
     pending,
     probing,
     probeQuestion,
+    reviewing,
+    awaitingPlan,
     confirming,
     messagesPanelRef,
     attachTextarea,
     submit,
     close,
     confirm,
+    approve,
     handleOpenChange,
   } = useNewSession({ open, onAccept, onOpenChange, recentMessages });
 
@@ -158,17 +163,21 @@ export function NewSessionDialog({
                   ref={messagesPanelRef}
                   className="flex max-h-[40rem] flex-col gap-3 overflow-y-auto rounded-xl border border-outline-variant/30 bg-surface-container-lowest/50 p-3 pr-2"
                 >
-                  {messages.map((entry, index) =>
-                    entry.role === "you" ? (
-                      <div key={index} className="flex flex-col items-end gap-1">
-                        <span className="font-mono text-xs font-medium text-secondary">
-                          You
-                        </span>
-                        <div className="max-w-[85%] whitespace-pre-line rounded-xl rounded-tr-sm border border-outline-variant/30 bg-secondary-container px-3.5 py-2 text-sm text-on-surface">
-                          {renderBody(entry.text)}
+                  {messages.map((entry, index) => {
+                    if (entry.role === "you") {
+                      return (
+                        <div key={index} className="flex flex-col items-end gap-1">
+                          <span className="font-mono text-xs font-medium text-secondary">
+                            You
+                          </span>
+                          <div className="max-w-[85%] whitespace-pre-line rounded-xl rounded-tr-sm border border-outline-variant/30 bg-secondary-container px-3.5 py-2 text-sm text-on-surface">
+                            {renderBody(entry.text)}
+                          </div>
                         </div>
-                      </div>
-                    ) : (
+                      );
+                    }
+                    const plan = entry.plan;
+                    return (
                       <div key={index} className="flex flex-col items-start gap-1">
                         <span className="flex items-center gap-1 font-mono text-xs font-medium text-primary">
                           <Sparkles className="size-3.5 text-primary" aria-hidden />
@@ -189,6 +198,32 @@ export function NewSessionDialog({
                           ) : (
                             renderBody(entry.text)
                           )}
+                          {plan && (
+                            <ul className="mt-2.5 space-y-1.5">
+                              {plan.steps.map((step, i) => (
+                                <li key={step.id} className="flex items-start gap-2">
+                                  <span
+                                    aria-hidden
+                                    className="mt-0.5 font-mono text-xs font-semibold text-primary"
+                                  >
+                                    {i + 1}.
+                                  </span>
+                                  <span>
+                                    {step.title} — {step.description}
+                                    {step.depends_on.length > 0 &&
+                                      ` · builds on: ${step.depends_on
+                                        .map(
+                                          (id) =>
+                                            plan.steps.find(
+                                              (s) => s.id === id,
+                                            )?.title ?? id,
+                                        )
+                                        .join(", ")}`}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                           {entry.options && (
                             <ul className="mt-2.5 space-y-1.5">
                               {entry.options.map((option, i) => (
@@ -206,8 +241,8 @@ export function NewSessionDialog({
                           )}
                         </div>
                       </div>
-                    ),
-                  )}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -220,7 +255,11 @@ export function NewSessionDialog({
                 >
                   {probing
                     ? "Which option is right?"
-                    : "What would you like to explore or learn?"}
+                    : reviewing
+                      ? "How should we adjust the plan?"
+                      : awaitingPlan
+                        ? "Generating your plan…"
+                        : "What would you like to explore or learn?"}
                 </label>
                 <div className="relative">
                   <textarea
@@ -230,11 +269,15 @@ export function NewSessionDialog({
                     value={paragraph}
                     onChange={(e) => setParagraph(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    disabled={pending}
+                    disabled={pending || awaitingPlan}
                     placeholder={
                       probing && probeQuestion
                         ? `Type the option letter (A–${String.fromCharCode("A".charCodeAt(0) + probeQuestion.options.length - 1)})`
-                        : "Continue the discussion or describe the next query..."
+                        : reviewing
+                          ? "Describe how to adjust the plan — press Enter to send"
+                          : awaitingPlan
+                            ? "Hang tight — your plan is being generated…"
+                            : "Continue the discussion or describe the next query..."
                     }
                     className="w-full resize-none rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-base text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/50 focus:border-primary disabled:opacity-60"
                   />
@@ -248,7 +291,8 @@ export function NewSessionDialog({
             )}
           </div>
 
-          {/* Footer — Cancel + Send, or a single Confirm in the confirm step. */}
+          {/* Footer — Cancel + Send, Cancel + Approve in the review step,
+              or a single Confirm in the legacy confirm step. */}
           <div className="flex justify-end gap-3 border-t border-outline-variant/50 bg-surface-container-low px-6 py-4">
             {confirming ? (
               <Button
@@ -261,6 +305,29 @@ export function NewSessionDialog({
                 <Check className="size-4" aria-hidden />
                 Confirm
               </Button>
+            ) : reviewing ? (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={pending}
+                  onClick={close}
+                  className="h-auto border border-transparent px-4 py-2 text-on-surface-variant hover:border-outline-variant hover:bg-surface-bright hover:text-on-surface"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  disabled={pending}
+                  onClick={approve}
+                  className={cn(
+                    "gap-2 px-6 py-2.5 text-on-primary-container hover:bg-primary-fixed hover:text-on-primary-container",
+                  )}
+                >
+                  <Check className="size-4" aria-hidden />
+                  Approve
+                </Button>
+              </>
             ) : (
               <>
                 <Button

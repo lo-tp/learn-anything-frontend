@@ -30,6 +30,10 @@ export type SessionState = components["schemas"]["SessionState"];
 export type Phase = components["schemas"]["Phase"];
 export type ProbeOut = components["schemas"]["ProbeOut"];
 export type ProbeQuestionOut = components["schemas"]["ProbeQuestionOut"];
+export type PlanOut = components["schemas"]["PlanOut"];
+export type PlanBody = components["schemas"]["PlanBody"];
+export type StepOut = components["schemas"]["StepOut"];
+export type ApproveOut = components["schemas"]["ApproveOut"];
 
 /** Thrown when the backend answers with a declared error (e.g. 422). */
 export class ApiError extends Error {
@@ -111,6 +115,48 @@ export async function answerProbe(
       params: { path: { session_id: sessionId } },
       body: { question_id: questionId, selected_index: selectedIndex },
     },
+  );
+  if (!data) throw describeError(error, response?.status);
+  return data;
+}
+
+/** `POST /sessions/{session_id}/plan/generate` — trigger plan generation. */
+export async function generatePlan(sessionId: string): Promise<PlanOut> {
+  const { data, error, response } = await api.POST(
+    "/sessions/{session_id}/plan/generate",
+    { params: { path: { session_id: sessionId } } },
+  );
+  if (!data) throw describeError(error, response?.status);
+  return data;
+}
+
+/**
+ * `POST /sessions/{session_id}/plan/adjust` — submit a free-text adjustment
+ * and get the regenerated plan.
+ */
+export async function adjustPlan(
+  sessionId: string,
+  adjustment: string,
+): Promise<PlanOut> {
+  const { data, error, response } = await api.POST(
+    "/sessions/{session_id}/plan/adjust",
+    {
+      params: { path: { session_id: sessionId } },
+      body: { adjustment },
+    },
+  );
+  if (!data) throw describeError(error, response?.status);
+  return data;
+}
+
+/**
+ * `POST /sessions/{session_id}/plan/approve` — approve the plan and
+ * transition the session to `generating` (202 response).
+ */
+export async function approvePlan(sessionId: string): Promise<ApproveOut> {
+  const { data, error, response } = await api.POST(
+    "/sessions/{session_id}/plan/approve",
+    { params: { path: { session_id: sessionId } } },
   );
   if (!data) throw describeError(error, response?.status);
   return data;

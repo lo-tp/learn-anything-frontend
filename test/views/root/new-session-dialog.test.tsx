@@ -17,10 +17,15 @@ import {
 import { NewSessionDialog } from "@/views/root/new-session-dialog";
 import {
   ApiError,
+  adjustPlan,
   answerProbe,
+  approvePlan,
   clarifySession,
   createSession,
+  generatePlan,
   startProbe,
+  type PlanBody,
+  type PlanOut,
 } from "@/lib/api-client";
 
 // The dialog calls the typed backend client. Stub the module rather than the
@@ -32,6 +37,9 @@ vi.mock("@/lib/api-client", () => ({
   clarifySession: vi.fn(),
   startProbe: vi.fn(),
   answerProbe: vi.fn(),
+  generatePlan: vi.fn(),
+  adjustPlan: vi.fn(),
+  approvePlan: vi.fn(),
   ApiError: class ApiError extends Error {},
 }));
 
@@ -39,10 +47,14 @@ const mockCreateSession = vi.mocked(createSession);
 const mockClarifySession = vi.mocked(clarifySession);
 const mockStartProbe = vi.mocked(startProbe);
 const mockAnswerProbe = vi.mocked(answerProbe);
+const mockGeneratePlan = vi.mocked(generatePlan);
+const mockAdjustPlan = vi.mocked(adjustPlan);
+const mockApprovePlan = vi.mocked(approvePlan);
 
 const TITLE = "Start New Session";
 const LABEL = "What would you like to explore or learn?";
 const PROBE_LABEL = "Which option is right?";
+const REVIEW_LABEL = "How should we adjust the plan?";
 const SHORT = "Too short.";
 const GOAL = "I want to master Newton's second law of motion.";
 
@@ -66,6 +78,49 @@ const Q2 = {
   explanation: "a = F/m, so doubling F doubles a.",
   strand: "f_ma_relation",
   difficulty: 3,
+};
+
+/** A 3-step plan, depth-ascending, with a dependency chain. */
+const PLAN: PlanBody = {
+  prose_summary:
+    "Start from scalar F = ma, extend to vectors, then combine forces.",
+  dependency_dag: "scalar -> vector -> combine",
+  steps: [
+    {
+      id: "step-1",
+      title: "Scalar F = ma",
+      description: "One-dimensional force, mass, and acceleration.",
+      depends_on: [],
+      depth: 0,
+    },
+    {
+      id: "step-2",
+      title: "Vector form",
+      description: "Forces and accelerations as vectors.",
+      depends_on: ["step-1"],
+      depth: 1,
+    },
+    {
+      id: "step-3",
+      title: "Combining forces",
+      description: "Summing several forces into a net force.",
+      depends_on: ["step-2"],
+      depth: 2,
+    },
+  ],
+};
+
+/** The plan-generation/adjustment result the backend returns. */
+const PLAN_OUT: PlanOut = { phase: "reviewing", plan: PLAN };
+
+/** A revised plan (one step dropped) returned by an adjustment. */
+const PLAN_OUT_REVISED: PlanOut = {
+  phase: "reviewing",
+  plan: {
+    prose_summary: "A tighter two-step path from scalar F = ma to vectors.",
+    dependency_dag: "scalar -> vector",
+    steps: PLAN.steps.slice(0, 2),
+  },
 };
 
 /** Render the dialog open and focus its textarea with `value`. */
@@ -105,6 +160,9 @@ beforeEach(() => {
   mockClarifySession.mockReset();
   mockStartProbe.mockReset();
   mockAnswerProbe.mockReset();
+  mockGeneratePlan.mockReset();
+  mockAdjustPlan.mockReset();
+  mockApprovePlan.mockReset();
 });
 
 afterEach(() => {
@@ -232,12 +290,13 @@ describe("NewSessionDialog", () => {
     expect(await screen.findByText(Q1.text)).toBeTruthy();
   });
 
-  it("shows the confirm step with the narrowed goal when the phase advances", async () => {
+  it("auto-generates the plan (instead of the confirm step) when the phase advances to planning", async () => {
     mockCreateSession.mockResolvedValue({
       session_id: "s-1",
       phase: "planning",
       narrowed_goal: "Newton's second law of motion",
     });
+    mockGeneratePlan.mockResolvedValue(PLAN_OUT);
     await openDialog(GOAL);
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
@@ -247,30 +306,43 @@ describe("NewSessionDialog", () => {
       { selector: "span" },
     );
     expect(goal.parentElement?.classList).toContain("bg-primary/10");
-    // The intake (label + textarea) is hidden.
-    expect(screen.queryByLabelText(LABEL)).toBeNull();
-    // Only the Confirm button remains — no Send, no Cancel.
-    expect(screen.getByRole("button", { name: /Confirm/ })).toBeTruthy();
+    // The plan auto-generates and lands in a highlighted plan bubble.
+    expect(mockGeneratePlan).toHaveBeenCalledWith("s-1");
+    const summary = await screen.findByText(PLAN.prose_summary);
+    expect(summary.parentElement?.classList).toContain("bg-primary/10");
+    // The review step: Cancel + Approve — no Send, no Confirm. The intake
+    // stays visible, adapted to plan adjustments.
+    expect(screen.getByRole("button", { name: /Approve/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Cancel/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Send/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Cancel/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Confirm/ })).toBeNull();
+    expect(screen.getByText("How should we adjust the plan?")).toBeTruthy();
     // A non-probing advanced phase never touches the probe endpoints.
     expect(mockStartProbe).not.toHaveBeenCalled();
   });
 
-  it("clears the textarea and hands off once when Confirm is clicked", async () => {
+  it("clears the textarea and hands off once when Approve is clicked", async () => {
     mockCreateSession.mockResolvedValue({
       session_id: "s-1",
       phase: "planning",
       narrowed_goal: "Newton's second law of motion",
     });
+    mockGeneratePlan.mockResolvedValue(PLAN_OUT);
+    mockApprovePlan.mockResolvedValue({
+      phase: "generating",
+      message: "Plan approved.",
+    });
     const onAccept = vi.fn();
     await openDialog(GOAL, onAccept);
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
-    const confirm = await screen.findByRole("button", { name: /Confirm/ });
-    fireEvent.click(confirm);
+    const approve = await screen.findByRole("button", { name: /Approve/ });
+    fireEvent.click(approve);
 
     await vi.waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
+    // The approve request went out exactly once, with the session id.
+    expect(mockApprovePlan).toHaveBeenCalledTimes(1);
+    expect(mockApprovePlan).toHaveBeenCalledWith("s-1");
     // A successful hand-off resets the intake box.
     await vi.waitFor(() =>
       expect((screen.getByLabelText(LABEL) as HTMLTextAreaElement).value).toBe(
@@ -380,11 +452,16 @@ describe("NewSessionDialog", () => {
     expect(screen.queryByText("A bit more, please.")).toBeNull();
   });
 
-  it("notifies the parent and closes when Confirm is clicked", async () => {
+  it("notifies the parent and closes when Approve is clicked", async () => {
     mockCreateSession.mockResolvedValue({
       session_id: "s-1",
       phase: "planning",
       narrowed_goal: "Newton's second law of motion",
+    });
+    mockGeneratePlan.mockResolvedValue(PLAN_OUT);
+    mockApprovePlan.mockResolvedValue({
+      phase: "generating",
+      message: "Plan approved.",
     });
     // Stateful harness: the dialog's onOpenChange(false) must be able to flip
     // `open` for the close to be observable.
@@ -402,9 +479,9 @@ describe("NewSessionDialog", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
-    // The confirm step replaces Send/Cancel; only Confirm hands off.
-    const confirm = await screen.findByRole("button", { name: /Confirm/ });
-    fireEvent.click(confirm);
+    // The review step replaces Send; only Approve hands off.
+    const approve = await screen.findByRole("button", { name: /Approve/ });
+    fireEvent.click(approve);
 
     await vi.waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
     // Depending on the (never-completing in jsdom) exit animation the panel
@@ -420,7 +497,7 @@ describe("NewSessionDialog", () => {
   it("enters the confirm step for later phases, without a goal message when narrowed_goal is absent", async () => {
     mockCreateSession.mockResolvedValue({
       session_id: "s-1",
-      phase: "planning",
+      phase: "generating",
     });
     function Harness({ onAccept }: { onAccept: () => void }) {
       const [open, setOpen] = useState(true);
@@ -436,14 +513,15 @@ describe("NewSessionDialog", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
-    // A later lifecycle stage is not "clarifying": the confirm step appears
-    // (no narrowed-goal message, since the result carries none), and no
-    // probe fetch is made for a non-probing phase.
+    // A post-plan lifecycle stage is not "clarifying": the legacy confirm
+    // step appears (no narrowed-goal message, since the result carries
+    // none), and no probe or plan fetch is made for this phase.
     const confirm = await screen.findByRole("button", { name: /Confirm/ });
     expect(screen.queryByText("Your narrowed goal is:")).toBeNull();
     expect(screen.queryByRole("button", { name: /Send/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /Cancel/ })).toBeNull();
     expect(mockStartProbe).not.toHaveBeenCalled();
+    expect(mockGeneratePlan).not.toHaveBeenCalled();
 
     // Clicking Confirm hands off.
     fireEvent.click(confirm);
@@ -614,13 +692,14 @@ describe("NewSessionDialog probe loop", () => {
     await screen.findByText(Q2.text);
   });
 
-  it("enters the confirm step once the boundary map arrives", async () => {
+  it("auto-generates the plan once the boundary map arrives", async () => {
     const onAccept = vi.fn();
     await reachFirstQuestion(GOAL, onAccept);
     mockAnswerProbe.mockResolvedValue({
       phase: "planning",
       boundary_map: { f_ma_relation: { floor: "scalar F = ma", ceiling: null } },
     });
+    mockGeneratePlan.mockResolvedValue(PLAN_OUT);
     fireEvent.change(screen.getByLabelText(PROBE_LABEL), {
       target: { value: "B" },
     });
@@ -630,14 +709,22 @@ describe("NewSessionDialog probe loop", () => {
     await screen.findByText(
       "Boundary established after 1 question. Your learning plan is ready.",
     );
-    // The confirm step replaces Send/Cancel; the intake is hidden.
-    expect(screen.getByRole("button", { name: /Confirm/ })).toBeTruthy();
+    // The plan auto-generates and lands in a highlighted plan bubble; the
+    // review step offers Cancel + Approve (no Send, no Confirm).
+    expect(mockGeneratePlan).toHaveBeenCalledWith("s-1");
+    const summary = await screen.findByText(PLAN.prose_summary);
+    expect(summary.parentElement?.classList).toContain("bg-primary/10");
+    expect(screen.getByRole("button", { name: /Approve/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Cancel/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Send/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Cancel/ })).toBeNull();
-    expect(screen.queryByLabelText(PROBE_LABEL)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Confirm/ })).toBeNull();
 
-    // Confirm hands off once and closes.
-    fireEvent.click(screen.getByRole("button", { name: /Confirm/ }));
+    // Approve hands off once.
+    mockApprovePlan.mockResolvedValue({
+      phase: "generating",
+      message: "Plan approved.",
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Approve/ }));
     await vi.waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
   });
 
@@ -660,6 +747,7 @@ describe("NewSessionDialog probe loop", () => {
     await screen.findByText(Q2.text);
 
     // Q2 → boundary map.
+    mockGeneratePlan.mockResolvedValue(PLAN_OUT);
     fireEvent.change(screen.getByLabelText(PROBE_LABEL), {
       target: { value: "B" },
     });
@@ -667,7 +755,9 @@ describe("NewSessionDialog probe loop", () => {
     await screen.findByText(
       "Boundary established after 2 questions. Your learning plan is ready.",
     );
-    expect(screen.getByRole("button", { name: /Confirm/ })).toBeTruthy();
+    // The plan bubble lands and the review step takes over.
+    expect(await screen.findByText(PLAN.prose_summary)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Approve/ })).toBeTruthy();
   });
 
   it("validates the answer index client-side before any request", async () => {
@@ -724,5 +814,166 @@ describe("NewSessionDialog probe loop", () => {
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
     await screen.findByText(Q1.text);
     expect(mockStartProbe).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("NewSessionDialog plan review", () => {
+  /** Drive the dialog from intake to the review step. */
+  async function reachReviewStep(onAccept: () => void = () => {}) {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "planning",
+      narrowed_goal: null,
+    });
+    mockGeneratePlan.mockResolvedValue(PLAN_OUT);
+    await openDialog(GOAL, onAccept);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    return screen.findByText(PLAN.prose_summary);
+  }
+
+  it("renders the plan bubble with its numbered steps and builds-on notes", async () => {
+    await reachReviewStep();
+
+    // The prose summary is the bubble body (highlighted).
+    const summary = screen.getByText(PLAN.prose_summary, { selector: "span" });
+    expect(summary.parentElement?.classList).toContain("bg-primary/10");
+    // Three numbered steps render in backend order, each
+    // "title — description", with dependencies resolved to titles.
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+    expect(
+      screen.getByText(
+        "Scalar F = ma — One-dimensional force, mass, and acceleration.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Vector form — Forces and accelerations as vectors. · builds on: Scalar F = ma",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Combining forces — Summing several forces into a net force. · builds on: Vector form",
+      ),
+    ).toBeTruthy();
+    // Each step carries its number marker (1., 2., 3.).
+    expect(
+      screen.getAllByText(/^\d+\.$/).map((marker) => marker.textContent),
+    ).toEqual(["1.", "2.", "3."]);
+  });
+
+  it("adjusts the plan with free text: Enter sends adjustPlan and appends a new plan bubble", async () => {
+    mockAdjustPlan.mockResolvedValue(PLAN_OUT_REVISED);
+    await reachReviewStep();
+
+    // The review chrome: the adjusted label and placeholder, no Send button.
+    expect(screen.getByText(REVIEW_LABEL)).toBeTruthy();
+    expect(
+      screen.getByPlaceholderText(
+        "Describe how to adjust the plan — press Enter to send",
+      ),
+    ).toBeTruthy();
+
+    // Enter in the textarea submits the adjustment (there is no Send
+    // button in this step).
+    fireEvent.change(screen.getByLabelText(REVIEW_LABEL), {
+      target: { value: "Drop the last step — I already know how to combine forces." },
+    });
+    fireEvent.keyDown(screen.getByLabelText(REVIEW_LABEL), { key: "Enter" });
+
+    expect(mockAdjustPlan).toHaveBeenCalledTimes(1);
+    expect(mockAdjustPlan).toHaveBeenCalledWith(
+      "s-1",
+      "Drop the last step — I already know how to combine forces.",
+    );
+    // The "you" bubble records the adjustment text.
+    expect(
+      await screen.findByText(
+        "Drop the last step — I already know how to combine forces.",
+        { selector: "div" },
+      ),
+    ).toBeTruthy();
+    // The regenerated plan lands in a new highlighted plan bubble.
+    const revised = await screen.findByText(
+      PLAN_OUT_REVISED.plan.prose_summary,
+      { selector: "span" },
+    );
+    expect(revised.parentElement?.classList).toContain("bg-primary/10");
+    // The previous plan bubble stays in the history.
+    expect(screen.getByText(PLAN.prose_summary)).toBeTruthy();
+    // The textarea is cleared for the next adjustment.
+    expect((screen.getByLabelText(REVIEW_LABEL) as HTMLTextAreaElement).value)
+      .toBe("");
+  });
+
+  it("rejects an empty adjustment client-side, without a request", async () => {
+    await reachReviewStep();
+
+    fireEvent.keyDown(screen.getByLabelText(REVIEW_LABEL), { key: "Enter" });
+
+    await screen.findByText("Describe how you'd like to adjust the plan.");
+    expect(mockAdjustPlan).not.toHaveBeenCalled();
+    // The review step is still active.
+    expect(screen.getByRole("button", { name: /Approve/ })).toBeTruthy();
+  });
+
+  it("keeps the review step open with an inline error when Approve fails", async () => {
+    const onAccept = vi.fn();
+    mockApprovePlan.mockRejectedValue(
+      new ApiError("Plan not ready for approval.", 409),
+    );
+    await reachReviewStep(onAccept);
+
+    fireEvent.click(screen.getByRole("button", { name: /Approve/ }));
+
+    await screen.findByText("Plan not ready for approval.");
+    // Still in the review step — the dialog is open, the plan bubble is
+    // still rendered, and Approve can be clicked again.
+    expect(onAccept).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { name: TITLE })).toBeTruthy();
+    expect(screen.getByText(PLAN.prose_summary)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Approve/ })).toBeTruthy();
+  });
+
+  it("shows an inline error when plan generation fails, and Send retries", async () => {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "planning",
+      narrowed_goal: null,
+    });
+    mockGeneratePlan.mockRejectedValueOnce(new Error("network down"));
+    await openDialog(GOAL);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    // The failed auto-generation surfaces as an inline error; the awaiting
+    // chrome ("Generating your plan…" + disabled textarea) stays put.
+    await screen.findByText(/went wrong|try again/i);
+    const awaitingLabel = "Generating your plan…";
+    expect(screen.getByText(awaitingLabel)).toBeTruthy();
+    expect(
+      (screen.getByLabelText(awaitingLabel) as HTMLTextAreaElement).disabled,
+    ).toBe(true);
+
+    // A second Send click retries the generation.
+    mockGeneratePlan.mockResolvedValue(PLAN_OUT);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    expect(await screen.findByText(PLAN.prose_summary)).toBeTruthy();
+    expect(mockGeneratePlan).toHaveBeenCalledTimes(2);
+  });
+
+  it("refocuses the textarea once the plan lands (review step)", async () => {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "planning",
+      narrowed_goal: null,
+    });
+    mockGeneratePlan.mockResolvedValue(PLAN_OUT);
+    await openDialog(GOAL);
+    // Move focus away (as clicking Send would), then submit.
+    fireEvent.focus(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    await screen.findByText(PLAN.prose_summary);
+    // The review step's textarea is visible + enabled, so focus returns.
+    expect(document.activeElement).toBe(screen.getByLabelText(REVIEW_LABEL));
   });
 });

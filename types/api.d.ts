@@ -84,10 +84,101 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sessions/{session_id}/plan/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate Plan
+         * @description Trigger plan generation.
+         */
+        post: operations["generate_plan_sessions__session_id__plan_generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sessions/{session_id}/plan/adjust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adjust Plan
+         * @description Submit a free-text adjustment and get the regenerated plan.
+         */
+        post: operations["adjust_plan_sessions__session_id__plan_adjust_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sessions/{session_id}/plan/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Plan
+         * @description Approve the plan and transition to generating.
+         */
+        post: operations["approve_plan_sessions__session_id__plan_approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sessions/{session_id}/materials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Materials
+         * @description Poll material generation progress with full content.
+         */
+        get: operations["get_materials_sessions__session_id__materials_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AdjustIn */
+        AdjustIn: {
+            /** Adjustment */
+            adjustment: string;
+        };
+        /** ApproveOut */
+        ApproveOut: {
+            phase: components["schemas"]["Phase"];
+            /** Message */
+            message: string;
+        };
         /** ClarifyIn */
         ClarifyIn: {
             /** Answer */
@@ -116,11 +207,40 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** MaterialOut */
+        MaterialOut: {
+            /** Step Id */
+            step_id: string;
+            /** Slides */
+            slides: string[];
+            /** Questions */
+            questions: components["schemas"]["QuestionOut"][];
+        };
+        /** MaterialsOut */
+        MaterialsOut: {
+            phase: components["schemas"]["Phase"];
+            /** Generated Steps */
+            generated_steps: components["schemas"]["MaterialOut"][];
+        };
         /**
          * Phase
          * @enum {string}
          */
         Phase: "clarifying" | "probing" | "planning" | "reviewing" | "generating" | "executing" | "complete";
+        /** PlanBody */
+        PlanBody: {
+            /** Prose Summary */
+            prose_summary: string;
+            /** Dependency Dag */
+            dependency_dag: string;
+            /** Steps */
+            steps: components["schemas"]["StepOut"][];
+        };
+        /** PlanOut */
+        PlanOut: {
+            phase: components["schemas"]["Phase"];
+            plan: components["schemas"]["PlanBody"];
+        };
         /** ProbeIn */
         ProbeIn: {
             /** Question Id */
@@ -169,6 +289,19 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /** QuestionOut */
+        QuestionOut: {
+            /** Id */
+            id: string;
+            /** Text */
+            text: string;
+            /** Options */
+            options: string[];
+            /** Correct Index */
+            correct_index: number;
+            /** Explanation */
+            explanation: string;
+        };
         /** SessionState */
         SessionState: {
             /** Session Id */
@@ -177,6 +310,19 @@ export interface components {
             /** Narrowed Goal */
             narrowed_goal: string | null;
             progress: components["schemas"]["Progress"];
+        };
+        /** StepOut */
+        StepOut: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Depends On */
+            depends_on: string[];
+            /** Depth */
+            depth: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -321,6 +467,134 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProbeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_plan_sessions__session_id__plan_generate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    adjust_plan_sessions__session_id__plan_adjust_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdjustIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_plan_sessions__session_id__plan_approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApproveOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_materials_sessions__session_id__materials_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaterialsOut"];
                 };
             };
             /** @description Validation Error */
