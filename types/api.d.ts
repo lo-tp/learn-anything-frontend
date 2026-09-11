@@ -11,33 +11,17 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Sessions
+         * @description List all sessions, newest first, optionally filtered by phase(s).
+         */
+        get: operations["list_sessions_sessions_get"];
         put?: never;
         /**
          * Create Session
          * @description Create a session and make the first Clarify graph call.
          */
         post: operations["create_session_sessions_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/sessions/{session_id}/clarify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Clarify Session
-         * @description Resume the Clarify graph loop with the learner's answer.
-         */
-        post: operations["clarify_session_sessions__session_id__clarify_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -58,6 +42,26 @@ export interface paths {
         get: operations["get_session_sessions__session_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sessions/{session_id}/clarify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Clarify Session
+         * @description Resume the Clarify graph loop with the learner's answer.
+         */
+        post: operations["clarify_session_sessions__session_id__clarify_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -302,6 +306,26 @@ export interface components {
             /** Explanation */
             explanation: string;
         };
+        /** SessionList */
+        SessionList: {
+            /** Sessions */
+            sessions: components["schemas"]["SessionListItem"][];
+        };
+        /** SessionListItem */
+        SessionListItem: {
+            /** Session Id */
+            session_id: string;
+            phase: components["schemas"]["Phase"];
+            /** Goal */
+            goal: string;
+            /** Narrowed Goal */
+            narrowed_goal: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** SessionState */
         SessionState: {
             /** Session Id */
@@ -346,18 +370,16 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    create_session_sessions_post: {
+    list_sessions_sessions_get: {
         parameters: {
-            query?: never;
+            query?: {
+                phase?: components["schemas"]["Phase"][] | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GoalIn"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -365,7 +387,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ClarifyResult"];
+                    "application/json": components["schemas"]["SessionList"];
                 };
             };
             /** @description Validation Error */
@@ -379,18 +401,16 @@ export interface operations {
             };
         };
     };
-    clarify_session_sessions__session_id__clarify_post: {
+    create_session_sessions_post: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                session_id: string;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ClarifyIn"];
+                "application/json": components["schemas"]["GoalIn"];
             };
         };
         responses: {
@@ -432,6 +452,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clarify_session_sessions__session_id__clarify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClarifyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClarifyResult"];
                 };
             };
             /** @description Validation Error */
