@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, JetBrains_Mono } from "next/font/google";
 import { Frame } from "@/components/frame";
 import "./globals.css";
+import "temml/dist/Temml-Local.css";
 
 const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
 const jetbrainsMono = JetBrains_Mono({

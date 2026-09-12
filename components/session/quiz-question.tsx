@@ -1,5 +1,6 @@
 import { Check, X } from "lucide-react";
 import type { QuestionItem } from "@/lib/api-client";
+import { MathText } from "@/components/math-text";
 import { cn } from "@/lib/utils";
 
 /** The letter badge shown next to each option (A, B, C, …). */
@@ -32,7 +33,7 @@ export function QuizQuestion({
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
       <h2 className="font-display text-xl font-medium text-on-surface">
-        {question.text}
+        <MathText content={question.text} />
       </h2>
 
       <div className="flex flex-col gap-2">
@@ -68,7 +69,9 @@ export function QuizQuestion({
               >
                 {optionLetter(i)}
               </span>
-              <span className="flex-1 text-sm text-on-surface">{option}</span>
+              <span className="flex-1 text-sm text-on-surface">
+                <MathText content={option} />
+              </span>
               {revealed && isCorrect && (
                 <Check className="size-4 shrink-0 text-primary" aria-hidden />
               )}
@@ -91,7 +94,7 @@ export function QuizQuestion({
             {wasCorrect ? "Correct." : "Not quite."}
           </p>
           <p className="text-sm text-on-surface-variant">
-            {question.explanation}
+            <MathText content={question.explanation} />
           </p>
         </div>
       )}
