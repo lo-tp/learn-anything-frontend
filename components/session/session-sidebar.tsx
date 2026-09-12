@@ -76,6 +76,7 @@ export function SessionSidebar({
                         role="button"
                         tabIndex={0}
                         aria-current={active ? "true" : undefined}
+                        aria-label={item.type === "slide" ? undefined : item.text}
                         onClick={() => onSelect(index)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
@@ -101,16 +102,18 @@ export function SessionSidebar({
                               Q
                             </span>
                           )}
-                          <span
-                            className={cn(
-                              "truncate text-xs",
-                              active
-                                ? "font-medium text-primary"
-                                : "text-on-surface-variant",
-                            )}
-                          >
-                            {item.type === "slide" ? "Slide" : item.text}
-                          </span>
+                          {item.type === "slide" && (
+                            <span
+                              className={cn(
+                                "truncate text-xs",
+                                active
+                                  ? "font-medium text-primary"
+                                  : "text-on-surface-variant",
+                              )}
+                            >
+                              Slide
+                            </span>
+                          )}
                         </div>
                         {item.type === "slide" ? (
                           /* Mini preview: the slide's sandbox route, scaled down. */
