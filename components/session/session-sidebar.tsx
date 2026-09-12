@@ -67,78 +67,80 @@ export function SessionSidebar({
                   {group.step.summary.title}
                 </span>
               </div>
-              {group.items.map(({ index, item }) => {
-                const active = index === activeIndex;
-                return (
-                  <li key={item.type === "slide" ? item.slide_id : item.id}>
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      aria-current={active ? "true" : undefined}
-                      onClick={() => onSelect(index)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          onSelect(index);
-                        }
-                      }}
-                      className={cn(
-                        "cursor-pointer rounded-xl border p-2.5 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/50",
-                        active
-                          ? "border-primary/60 bg-gradient-to-b from-surface-container-low to-surface-container-lowest shadow-md shadow-primary/10"
-                          : "border-outline-variant/40 bg-surface-container-low/60 hover:border-outline-variant",
-                      )}
-                    >
-                      <div className="mb-2 flex items-center gap-2">
-                        {item.type === "slide" ? (
-                          <Presentation
-                            className="size-4 shrink-0 text-on-surface-variant"
-                            aria-hidden
-                          />
-                        ) : (
-                          <span className="flex size-4 shrink-0 items-center justify-center rounded-full border border-outline-variant/60 text-[10px] font-semibold text-on-surface-variant">
-                            Q
-                          </span>
+              <ul className="flex flex-col gap-2">
+                {group.items.map(({ index, item }) => {
+                  const active = index === activeIndex;
+                  return (
+                    <li key={item.type === "slide" ? item.slide_id : item.id}>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        aria-current={active ? "true" : undefined}
+                        onClick={() => onSelect(index)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onSelect(index);
+                          }
+                        }}
+                        className={cn(
+                          "cursor-pointer rounded-xl border p-2.5 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/50",
+                          active
+                            ? "border-primary/60 bg-gradient-to-b from-surface-container-low to-surface-container-lowest shadow-md shadow-primary/10"
+                            : "border-outline-variant/40 bg-surface-container-low/60 hover:border-outline-variant",
                         )}
-                        <span
-                          className={cn(
-                            "truncate text-xs",
-                            active
-                              ? "font-medium text-primary"
-                              : "text-on-surface-variant",
+                      >
+                        <div className="mb-2 flex items-center gap-2">
+                          {item.type === "slide" ? (
+                            <Presentation
+                              className="size-4 shrink-0 text-on-surface-variant"
+                              aria-hidden
+                            />
+                          ) : (
+                            <span className="flex size-4 shrink-0 items-center justify-center rounded-full border border-outline-variant/60 text-[10px] font-semibold text-on-surface-variant">
+                              Q
+                            </span>
                           )}
-                        >
-                          {item.type === "slide" ? "Slide" : item.text}
-                        </span>
-                      </div>
-                      {item.type === "slide" ? (
-                        /* Mini preview: the slide's sandbox route, scaled down. */
-                        <div className="relative h-40 w-full overflow-hidden rounded-lg border border-outline-variant/50 bg-background">
-                          <SandboxFrame
-                            src={sandboxSrc(item.slide_id)}
-                            mini
-                            className="pointer-events-none absolute top-0 left-0 h-[720px] w-[1280px] origin-top-left scale-[0.22]"
-                          />
-                        </div>
-                      ) : (
-                        /* Mini preview: the question rendered as the main area shows it. */
-                        <div className="relative h-40 w-full overflow-hidden rounded-lg border border-outline-variant/50 bg-background">
-                          <div
-                            aria-hidden
-                            className="pointer-events-none absolute top-0 left-0 w-[672px] origin-top-left scale-[0.41]"
+                          <span
+                            className={cn(
+                              "truncate text-xs",
+                              active
+                                ? "font-medium text-primary"
+                                : "text-on-surface-variant",
+                            )}
                           >
-                            <QuizQuestion
-                              question={item}
-                              selected={null}
-                              onSelect={() => {}}
+                            {item.type === "slide" ? "Slide" : item.text}
+                          </span>
+                        </div>
+                        {item.type === "slide" ? (
+                          /* Mini preview: the slide's sandbox route, scaled down. */
+                          <div className="relative h-40 w-full overflow-hidden rounded-lg border border-outline-variant/50 bg-background">
+                            <SandboxFrame
+                              src={sandboxSrc(item.slide_id)}
+                              mini
+                              className="pointer-events-none absolute top-0 left-0 h-[720px] w-[1280px] origin-top-left scale-[0.22]"
                             />
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
+                        ) : (
+                          /* Mini preview: the question rendered as the main area shows it. */
+                          <div className="relative h-40 w-full overflow-hidden rounded-lg border border-outline-variant/50 bg-background">
+                            <div
+                              aria-hidden
+                              className="pointer-events-none absolute top-0 left-0 w-[672px] origin-top-left scale-[0.41]"
+                            >
+                              <QuizQuestion
+                                question={item}
+                                selected={null}
+                                onSelect={() => {}}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             </li>
           ))}
         </ul>
