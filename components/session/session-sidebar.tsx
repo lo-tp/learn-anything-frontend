@@ -1,4 +1,4 @@
-import { Presentation } from "lucide-react";
+import { ListChecks, Presentation } from "lucide-react";
 import type { MaterialOut, QuestionItem, SlideItem } from "@/lib/api-client";
 import { QuizQuestion } from "@/components/session/quiz-question";
 import { SandboxFrame } from "@/components/sandbox/sandbox-frame";
@@ -98,22 +98,21 @@ export function SessionSidebar({
                               aria-hidden
                             />
                           ) : (
-                            <span className="flex size-4 shrink-0 items-center justify-center rounded-full border border-outline-variant/60 text-[10px] font-semibold text-on-surface-variant">
-                              Q
-                            </span>
+                            <ListChecks
+                              className="size-4 shrink-0 text-on-surface-variant"
+                              aria-hidden
+                            />
                           )}
-                          {item.type === "slide" && (
-                            <span
-                              className={cn(
-                                "truncate text-xs",
-                                active
-                                  ? "font-medium text-primary"
-                                  : "text-on-surface-variant",
-                              )}
-                            >
-                              Slide
-                            </span>
-                          )}
+                          <span
+                            className={cn(
+                              "truncate text-xs",
+                              active
+                                ? "font-medium text-primary"
+                                : "text-on-surface-variant",
+                            )}
+                          >
+                            {item.type === "slide" ? "Slide" : "Quiz"}
+                          </span>
                         </div>
                         {item.type === "slide" ? (
                           /* Mini preview: the slide's sandbox route, scaled down. */
