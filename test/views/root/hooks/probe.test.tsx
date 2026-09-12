@@ -183,6 +183,33 @@ describe("NewSessionDialog probe loop", () => {
     await vi.waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
   });
 
+  it("disables the buttons while the boundary-triggered plan generation is in flight", async () => {
+    await reachFirstQuestion();
+    mockAnswerProbe.mockResolvedValue({
+      phase: "planning",
+      boundary_map: { f_ma_relation: { floor: "scalar F = ma", ceiling: null } },
+    });
+    mockGeneratePlan.mockReturnValue(new Promise(() => {}));
+    fireEvent.change(screen.getByLabelText(PROBE_LABEL), {
+      target: { value: "B" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    // The completion message lands while generatePlan is still in flight.
+    await screen.findByText(
+      "Boundary established after 1 question. Your learning plan is ready.",
+    );
+    // Send and Cancel stay disabled until the plan arrives.
+    expect(
+      (screen.getByRole("button", { name: /Send/ }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: /Cancel/ }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+
   it("completes the loop after the final question with a plural count", async () => {
     await reachFirstQuestion();
     mockAnswerProbe

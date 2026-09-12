@@ -77,6 +77,8 @@ export function useProbePhase(ctx: PhaseContext) {
       });
       setProbeQuestion(result.question);
       setProbeCount((count) => count + 1);
+      // A next question is owed an answer — reopen the intake.
+      setStatus("idle");
     } else {
       additions.push({
         role: "ai",
@@ -86,9 +88,12 @@ export function useProbePhase(ctx: PhaseContext) {
         highlighted: true,
       });
       setProbeQuestion(null);
+      // No next question: the boundary is set and the plan auto-generates
+      // right after this. Keep the status pending so Send/Cancel stay
+      // disabled while that generation is in flight (recordPlan settles it
+      // on success; the error path settles it for a retry).
     }
 
-    setStatus("idle");
     setPhase(result.phase);
     setParagraph("");
     setMessages((prev) => [...prev, ...additions]);
