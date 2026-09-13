@@ -1,4 +1,5 @@
 import { CircleHelp, Settings } from "lucide-react";
+import Link from "next/link";
 
 /**
  * Top app bar — wordmark on the left, utility actions on the right.
@@ -8,9 +9,9 @@ import { CircleHelp, Settings } from "lucide-react";
 export function TopBar() {
   return (
     <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between border-b border-outline-variant bg-surface px-gutter">
-      <span className="font-display text-lg font-semibold text-primary">
+      <Link href="/" className="font-display text-lg font-semibold text-primary">
         Learn Anything
-      </span>
+      </Link>
       <nav className="flex items-center gap-2">
         <button
           type="button"
