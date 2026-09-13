@@ -1,0 +1,76 @@
+/* /palette.css — design palette tokens, served for cross-origin iframe use.
+ *
+ * Ported from app/globals.css (:root). The sandbox loads this via a
+ * <link> tag so LLM-authored demos can reference var(--primary), etc.
+ * Dark-only; no light mode.
+ */
+
+:root {
+  /* Background & surface */
+  --background: #081425;
+  --on-background: #d8e3fb;
+  --surface: #081425;
+  --surface-dim: #081425;
+  --surface-bright: #2f3a4c;
+  --surface-variant: #2a3548;
+  --surface-tint: #c0c1ff;
+  --surface-container-lowest: #040e1f;
+  --surface-container-low: #111c2d;
+  --surface-container: #152031;
+  --surface-container-high: #1f2a3c;
+  --surface-container-highest: #2a3548;
+  --on-surface: #d8e3fb;
+  --on-surface-variant: #c7c4d7;
+
+  /* Primary (periwinkle/indigo) */
+  --primary: #c0c1ff;
+  --primary-container: #8083ff;
+  --primary-fixed: #e1e0ff;
+  --primary-fixed-dim: #c0c1ff;
+  --on-primary: #1000a9;
+  --on-primary-container: #0d0096;
+  --on-primary-fixed: #07006c;
+  --on-primary-fixed-variant: #2f2ebe;
+  --inverse-primary: #494bd6;
+
+  /* Secondary (blue-gray) */
+  --secondary: #bec6e0;
+  --secondary-container: #3f465c;
+  --secondary-fixed: #dae2fd;
+  --secondary-fixed-dim: #bec6e0;
+  --on-secondary: #283044;
+  --on-secondary-container: #adb4ce;
+  --on-secondary-fixed: #131b2e;
+  --on-secondary-fixed-variant: #3f465c;
+
+  /* Tertiary (cool gray) */
+  --tertiary: #c4c7c9;
+  --tertiary-container: #8e9193;
+  --tertiary-fixed: #e0e3e5;
+  --tertiary-fixed-dim: #c4c7c9;
+  --on-tertiary: #2d3133;
+  --on-tertiary-container: #272a2c;
+  --on-tertiary-fixed: #191c1e;
+  --on-tertiary-fixed-variant: #444749;
+
+  /* Inverse */
+  --inverse-surface: #d8e3fb;
+  --inverse-on-surface: #263143;
+
+  /* Outlines & borders */
+  --outline: #908fa0;
+  --outline-variant: #464554;
+
+  /* Error */
+  --error: #ffb4ab;
+  --error-container: #93000a;
+  --on-error: #690005;
+  --on-error-container: #ffdad6;
+
+  /* Chart colors */
+  --chart-1: #c0c1ff;
+  --chart-2: #8083ff;
+  --chart-3: #bec6e0;
+  --chart-4: #8e9193;
+  --chart-5: #464554;
+}
