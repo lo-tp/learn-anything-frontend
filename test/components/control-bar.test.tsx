@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, fireEvent } from "@testing-library/react";
-import { ControlBar } from "@/components/classroom/control-bar";
+import { ControlBar } from "@/components/control-bar";
 
 const noop = () => {};
 

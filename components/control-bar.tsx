@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight, Presentation } from "lucide-react";
 
 /**
- * Bottom-right control bar for `/classroom` (map #43).
+ * Bottom-right control bar (map #43).
  *
  * Presentational — a slide-counter pill ("index / total") and prev/next
  * buttons that call the provided handlers.

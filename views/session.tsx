@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Loader2, TriangleAlert } from "lucide-react";
-import { ControlBar } from "@/components/classroom/control-bar";
+import { ControlBar } from "@/components/control-bar";
 import { PhaseIndicator } from "@/components/phase-indicator";
 import { QuizQuestion } from "@/components/session/quiz-question";
 import { SessionSidebar, type SidebarGroup } from "@/components/session/session-sidebar";
