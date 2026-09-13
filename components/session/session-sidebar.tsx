@@ -50,17 +50,18 @@ export function SessionSidebar({
   return (
     <aside className="flex h-full w-80 shrink-0 select-none flex-col border-r border-outline-variant bg-surface">
       <div className="flex-1 overflow-y-auto p-3">
-        <ul className="flex flex-col gap-2.5">
+        <ul className="flex flex-col">
           {groups.map((group, stepNo) => (
-            <li key={group.step.step_id} className="flex flex-col gap-2">
+            <li key={group.step.step_id} className="flex flex-col">
               {/* Step divider — the step summary splitting the item groups. */}
-              <div className="flex items-center gap-2 px-1">
-                <span className="flex size-5 shrink-0 items-center justify-center rounded-full border border-outline-variant/60 bg-surface-container font-mono text-[11px] font-semibold text-on-surface-variant">
+              <div className="my-4 flex items-center gap-2 px-1">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary font-mono text-xs font-bold text-on-primary shadow-sm">
                   {stepNo + 1}
                 </span>
-                <span className="truncate text-xs font-medium uppercase tracking-wide text-on-surface-variant">
+                <span className="truncate text-xs font-semibold uppercase tracking-wide text-on-surface">
                   {group.step.summary.title}
                 </span>
+                <span aria-hidden className="ml-1 h-px flex-1 bg-outline-variant/60" />
               </div>
               <ul className="flex flex-col gap-2">
                 {group.items.map(({ index, item }) => {
