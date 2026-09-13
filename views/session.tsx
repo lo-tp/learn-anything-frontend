@@ -167,13 +167,15 @@ export function Session({
               <SandboxFrame src={sandboxSrc(active.slide_id)} />
             </div>
           ) : (
-            <QuizQuestion
-              question={active}
-              selected={answers[active.id] ?? null}
-              onSelect={(i) =>
-                setAnswers((prev) => ({ ...prev, [active.id]: i }))
-              }
-            />
+            <div className="flex min-h-full items-center justify-center">
+              <QuizQuestion
+                question={active}
+                selected={answers[active.id] ?? null}
+                onSelect={(i) =>
+                  setAnswers((prev) => ({ ...prev, [active.id]: i }))
+                }
+              />
+            </div>
           )}
         </main>
 
