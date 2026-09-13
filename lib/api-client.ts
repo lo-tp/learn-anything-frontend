@@ -20,6 +20,20 @@ export const api = createClient<paths>({
   baseUrl: process.env.NEXT_PUBLIC_BACKEND_URL,
 });
 
+/**
+ * Bound on how long a *server-rendered* fetch may block. Without it a
+ * stalling backend hangs the SSR render forever: the pages' `try/catch`
+ * only turns a *thrown* error into the fallback state, not a *stall* (#52).
+ * When this fires the fetch throws and that same catch degrades to the
+ * empty / not-ready state in bounded time instead of hanging.
+ */
+const SSR_TIMEOUT_MS = 5_000;
+
+/** Abort signal for server-rendered fetches (see `SSR_TIMEOUT_MS`). */
+function ssrTimeout(): AbortSignal {
+  return AbortSignal.timeout(SSR_TIMEOUT_MS);
+}
+
 /** Named schema types, lifted out of the generated `components.schemas`. */
 export type GoalIn = components["schemas"]["GoalIn"];
 export type ClarifyIn = components["schemas"]["ClarifyIn"];
@@ -66,6 +80,7 @@ function describeError(
 export async function listSessions(phases?: Phase[]): Promise<SessionList> {
   const { data, error, response } = await api.GET("/sessions", {
     params: { query: { phase: phases } },
+    signal: ssrTimeout(),
   });
   if (!data) throw describeError(error, response?.status);
   return data;
@@ -97,6 +112,7 @@ export async function clarifySession(
 export async function getSession(sessionId: string): Promise<SessionState> {
   const { data, error, response } = await api.GET("/sessions/{session_id}", {
     params: { path: { session_id: sessionId } },
+    signal: ssrTimeout(),
   });
   if (!data) throw describeError(error, response?.status);
   return data;
@@ -182,7 +198,7 @@ export async function approvePlan(sessionId: string): Promise<ApproveOut> {
 export async function getMaterials(sessionId: string): Promise<MaterialsOut> {
   const { data, error, response } = await api.GET(
     "/sessions/{session_id}/materials",
-    { params: { path: { session_id: sessionId } } },
+    { params: { path: { session_id: sessionId } }, signal: ssrTimeout() },
   );
   if (!data) throw describeError(error, response?.status);
   return data;

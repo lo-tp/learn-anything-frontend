@@ -9,11 +9,12 @@ process.env.NEXT_PUBLIC_BACKEND_URL = BACKEND;
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
 
-const { ApiError, getMaterials, listSessions } =
+const { ApiError, getMaterials, getSession, listSessions } =
   await import("@/lib/api-client");
 
 afterEach(() => {
   fetchMock.mockReset();
+  vi.restoreAllMocks();
 });
 
 function json(body: unknown, status = 200): Response {
@@ -86,6 +87,30 @@ const MATERIALS = {
     },
   ],
 };
+
+/**
+ * Server-rendered fetches must be bounded: when the backend stalls (rather
+ * than refusing the connection), the page's `try/catch` only sees a *throw*,
+ * not a hang, so each SSR fetch carries an abort timeout that turns a stall
+ * into the fallback state in bounded time (#52).
+ */
+describe("server-rendered fetch timeout (#52)", () => {
+  it.each([
+    ["listSessions", () => listSessions()],
+    ["getSession", () => getSession("s-1")],
+    ["getMaterials", () => getMaterials("s-1")],
+  ])("%s sends a timeout signal with the request", async (_name, call) => {
+    const timeoutSpy = vi.spyOn(AbortSignal, "timeout");
+    fetchMock.mockResolvedValue(json({}));
+
+    await call();
+
+    // a finite timeout is created and attached to the Request
+    expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Number));
+    const request = fetchMock.mock.calls.at(-1)?.[0] as Request;
+    expect(request.signal).toBeInstanceOf(AbortSignal);
+  });
+});
 
 describe("getMaterials", () => {
   it("returns the MaterialsOut for the session", async () => {
