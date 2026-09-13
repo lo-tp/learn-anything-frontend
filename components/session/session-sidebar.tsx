@@ -49,11 +49,6 @@ export function SessionSidebar({
 }) {
   return (
     <aside className="flex h-full w-80 shrink-0 select-none flex-col border-r border-outline-variant bg-surface">
-      <div className="flex items-center p-3 pb-1">
-        <span className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
-          Materials
-        </span>
-      </div>
       <div className="flex-1 overflow-y-auto p-3">
         <ul className="flex flex-col gap-2.5">
           {groups.map((group, stepNo) => (
