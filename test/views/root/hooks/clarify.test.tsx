@@ -86,7 +86,7 @@ describe("NewSessionDialog clarify phase", () => {
     // A clarifying question stays a plain bubble — only the narrowed goal is
     // highlighted.
     expect(
-      screen.getByText("A bit more, please.", { selector: "div" }).classList,
+      screen.getByText("A bit more, please.").closest("div")?.className,
     ).not.toContain("bg-primary/10");
     fireEvent.change(screen.getByLabelText(LABEL), {
       target: { value: ANSWER },
@@ -115,9 +115,8 @@ describe("NewSessionDialog clarify phase", () => {
     // The narrowed goal lands in a highlighted AI bubble.
     const goal = screen.getByText(
       "Your narrowed goal is: Newton's second law of motion",
-      { selector: "span" },
     );
-    expect(goal.parentElement?.classList).toContain("bg-primary/10");
+    expect(goal.closest('[class*="bg-primary/10"]')).toBeTruthy();
     // The probe loop started: the first question rendered with its options.
     expect(mockStartProbe).toHaveBeenCalledWith("s-1");
     expect(await screen.findByText(Q1.text)).toBeTruthy();
@@ -136,13 +135,12 @@ describe("NewSessionDialog clarify phase", () => {
     // The narrowed goal renders in a highlighted AI bubble.
     const goal = await screen.findByText(
       "Your narrowed goal is: Newton's second law of motion",
-      { selector: "span" },
     );
-    expect(goal.parentElement?.classList).toContain("bg-primary/10");
+    expect(goal.closest('[class*="bg-primary/10"]')).toBeTruthy();
     // The plan auto-generates and lands in a highlighted plan bubble.
     expect(mockGeneratePlan).toHaveBeenCalledWith("s-1");
     const summary = await screen.findByText(PLAN_OUT.plan.prose_summary);
-    expect(summary.parentElement?.classList).toContain("bg-primary/10");
+    expect(summary.closest('[class*="bg-primary/10"]')).toBeTruthy();
     // The review step: the footer keeps Cancel + Send (no Confirm) —
     // approval is a typed command, not a button. The intake stays visible,
     // adapted to plan adjustments.
@@ -189,13 +187,13 @@ describe("NewSessionDialog clarify phase", () => {
     // The clarifying round appends both turns to the Recent Messages
     // preview (beside the fixed opening prompt).
     await screen.findByText("3 messages");
-    // The learner's input shows as a "you" bubble (div — the textarea value
-    // would also match the plain text, so scope to div elements).
-    expect(screen.getByText(SHORT, { selector: "div" })).toBeTruthy();
-    // The AI's question shows as a single-line "ai" bubble.
+    // The learner's input shows as a "you" bubble (the textarea value would
+    // also match the plain text, so scope to the "you" bubble element).
     expect(
-      screen.getByText("A bit more, please.", { selector: "div" }),
+      screen.getByText(SHORT).closest(".bg-secondary-container"),
     ).toBeTruthy();
+    // The AI's question shows as a single-line "ai" bubble.
+    expect(screen.getByText("A bit more, please.")).toBeTruthy();
   });
 
   it("renders multiple clarifying questions as a list", async () => {

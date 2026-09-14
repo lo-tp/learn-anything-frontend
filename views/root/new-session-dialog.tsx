@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PhaseIndicator } from "@/components/phase-indicator";
+import { MathText } from "@/components/math-text";
 import {
   Dialog,
   DialogClose,
@@ -109,12 +110,14 @@ export function NewSessionDialog({
               aria-hidden
               className="mt-1 size-2 shrink-0 rounded-full bg-primary"
             />
-            <span>{line}</span>
+            <span>
+              <MathText content={line} />
+            </span>
           </li>
         ))}
       </ul>
     ) : (
-      <>{lines[0]}</>
+      <MathText content={lines[0]} />
     );
   }
 
@@ -255,7 +258,9 @@ export function NewSessionDialog({
                                   >
                                     {String.fromCharCode("A".charCodeAt(0) + i)}
                                   </span>
-                                  <span>{option}</span>
+                                  <span>
+                                    <MathText content={option} />
+                                  </span>
                                 </li>
                               ))}
                             </ul>

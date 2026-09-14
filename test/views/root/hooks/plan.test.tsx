@@ -79,10 +79,8 @@ describe("NewSessionDialog plan review", () => {
     await reachReviewStep();
 
     // The prose summary is the bubble body (highlighted).
-    const summary = screen.getByText(PLAN.prose_summary, {
-      selector: "span",
-    });
-    expect(summary.parentElement?.classList).toContain("bg-primary/10");
+    const summary = screen.getByText(PLAN.prose_summary);
+    expect(summary.closest('[class*="bg-primary/10"]')).toBeTruthy();
     // Three numbered steps render in backend order, each
     // "title — description", with dependencies resolved to titles.
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
@@ -135,17 +133,15 @@ describe("NewSessionDialog plan review", () => {
     );
     // The "you" bubble records the adjustment text.
     expect(
-      await screen.findByText(
+      (await screen.findByText(
         "Drop the last step — I already know how to combine forces.",
-        { selector: "div" },
-      ),
+      )).closest(".bg-secondary-container"),
     ).toBeTruthy();
     // The regenerated plan lands in a new highlighted plan bubble.
     const revised = await screen.findByText(
       PLAN_OUT_REVISED.plan.prose_summary,
-      { selector: "span" },
     );
-    expect(revised.parentElement?.classList).toContain("bg-primary/10");
+    expect(revised.closest('[class*="bg-primary/10"]')).toBeTruthy();
     // The previous plan bubble stays in the history.
     expect(screen.getByText(PLAN.prose_summary)).toBeTruthy();
     // The textarea is cleared for the next adjustment.

@@ -107,16 +107,18 @@ describe("NewSessionDialog probe loop", () => {
 
     // "B" goes to the wire as 0-based index 1.
     expect(mockAnswerProbe).toHaveBeenCalledWith("s-1", "q1", 1);
-    // The pick renders as a "you" bubble with the selected option's text.
-    expect(
-      await screen.findByText("5 m/s²", {
-        selector: ".bg-secondary-container",
-      }),
-    ).toBeTruthy();
     // The verdict names the picked option and carries the explanation.
     await screen.findByText(
       "Correct — option B (5 m/s²). a = F/m = 10/2 = 5 m/s².",
     );
+    // The pick renders as a "you" bubble with the selected option's text.
+    // (Scoped to the "you" bubble — the same option text also appears in
+    // Q1's option list.)
+    expect(
+      await screen.findByText("5 m/s²", {
+        selector: ".bg-secondary-container span",
+      }),
+    ).toBeTruthy();
     // The next question renders with its own numbered options.
     await screen.findByText(Q2.text);
     // The textarea is cleared for the next answer.
@@ -138,10 +140,10 @@ describe("NewSessionDialog probe loop", () => {
     );
     // The (wrong) pick is recorded in a "you" bubble.
     expect(
-      screen.getByText("2 m/s²", {
-        selector: ".bg-secondary-container",
-      }),
-    ).toBeTruthy();
+      screen.getAllByText("2 m/s²").some(
+        (el) => el.closest(".bg-secondary-container"),
+      ),
+    ).toBe(true);
     await screen.findByText(Q2.text);
   });
 
@@ -167,7 +169,7 @@ describe("NewSessionDialog probe loop", () => {
     // command, not a button.
     expect(mockGeneratePlan).toHaveBeenCalledWith("s-1");
     const summary = await screen.findByText(PLAN_OUT.plan.prose_summary);
-    expect(summary.parentElement?.classList).toContain("bg-primary/10");
+    expect(summary.closest('[class*="bg-primary/10"]')).toBeTruthy();
     expect(screen.getByRole("button", { name: /Cancel/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Send/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Confirm/ })).toBeNull();
