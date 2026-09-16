@@ -6,10 +6,12 @@ import { routing } from "@/i18n/routing";
  * a locale-less path is redirected to `/{locale}{pathname}` based on
  * `Accept-Language` (any `zh*` → `zh`, anything else/absent → `en`);
  * `/en` and `/zh` prefixes pass through; API routes and static assets are
- * never touched.
+ * never touched. Dotted paths (`/palette.css`, …) are excluded so `public/`
+ * files keep being served at their root URLs — the middleware would
+ * otherwise locale-redirect them to `/en/…`, where they don't exist.
  */
 export default createMiddleware(routing);
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.).*)"],
 };
