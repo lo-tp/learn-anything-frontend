@@ -158,16 +158,15 @@ export function useProbePhase(ctx: PhaseContext) {
     setParagraph("");
 
     if (result.questions) {
-      // Next batch: surface its first question and reset the collected
+      // Next batch: surface only its FIRST question and reset the collected
       // answers. The rest of the batch is drawn locally as the learner goes.
-      const bubbles: RecentMessage[] = result.questions.map((q) => ({
-        role: "ai",
-        text: q.text,
-        options: q.options,
-      }));
+      const first = result.questions[0];
       setProbeBatch(result.questions);
       setProbeAnswers([]);
-      setMessages((prev) => [...prev, ...bubbles]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "ai", text: first.text, options: first.options },
+      ]);
       setPhase(result.phase);
       setStatus("idle");
       return;

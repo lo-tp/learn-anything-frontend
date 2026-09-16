@@ -261,6 +261,25 @@ describe("NewSessionDialog probe loop (one at a time)", () => {
     expect(screen.getByText(REVIEW_LABEL)).toBeTruthy();
   });
 
+  it("shows only the first question of a following batch", async () => {
+    // First batch is a single question; the second batch has two.
+    await reachFirstBatch([Q1]);
+    mockAnswerProbe.mockResolvedValue({ phase: "probing", questions: [Q2, Q3] });
+
+    // Answer the only question in batch 1 → the combined submit returns batch 2.
+    answer("B");
+    // Only the FIRST question of batch 2 ([Q2, Q3]) is surfaced — never Q3 yet.
+    expect(await screen.findByText(Q2.text)).toBeTruthy();
+    expect(screen.queryByText(Q3.text)).toBeNull();
+    // Still only one request (the batch-1 submit); stepping to Q3 is local.
+    expect(mockAnswerProbe).toHaveBeenCalledTimes(1);
+
+    // Answer Q2 → Q3 is drawn from the batch (no round-trip).
+    answer("B");
+    expect(await screen.findByText(Q3.text)).toBeTruthy();
+    expect(mockAnswerProbe).toHaveBeenCalledTimes(1);
+  });
+
   it("validates the answer letter client-side before any request", async () => {
     await reachFirstBatch([Q1, Q2]);
     const textarea = () =>
