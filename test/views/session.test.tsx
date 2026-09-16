@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { Session } from "@/views/session";
+import { act, cleanup, fireEvent, screen } from "@testing-library/react";
+import { renderWithLocale } from "@/test/test-utils";import { Session } from "@/views/session";
 import { getMaterials, type MaterialsOut, type SessionState } from "@/lib/api-client";
 
 vi.mock("@/lib/api-client", () => ({
@@ -79,7 +79,7 @@ function materials(overrides: Partial<MaterialsOut> = {}): MaterialsOut {
 function renderSession(
   props: Partial<React.ComponentProps<typeof Session>> = {},
 ) {
-  return render(
+  return renderWithLocale(
     <Session
       sessionId="s-1"
       initialSession={session()}
@@ -204,7 +204,7 @@ describe("Session", () => {
     expect(screen.getByText("Session not found")).toBeTruthy();
     expect(
       screen.getByRole("link", { name: /back to my sessions/i } ).getAttribute("href"),
-    ).toBe("/");
+    ).toBe("/en");
   });
 
   it("renders the error state when the session errored", () => {
@@ -229,7 +229,7 @@ describe("Session", () => {
     vi.useFakeTimers();
     try {
       mockGetMaterials.mockResolvedValue(materials());
-      render(
+      renderWithLocale(
         <Session
           sessionId="s-1"
           initialSession={session({ phase: "generating" })}
@@ -266,7 +266,7 @@ describe("Session", () => {
     vi.useFakeTimers();
     try {
       mockGetMaterials.mockRejectedValue(new Error("boom"));
-      render(
+      renderWithLocale(
         <Session
           sessionId="s-1"
           initialSession={session({ phase: "generating" })}

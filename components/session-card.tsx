@@ -1,18 +1,24 @@
+"use client";
+
 import { BookOpen, Clock } from "lucide-react";
+import { useLocale, useMessages } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { timeAgo } from "@/lib/time";
 import type { SessionListItem } from "@/lib/api-client";
 
 /**
  * One History card: neutral icon tile, title, relative time. Links to the
- * session's materials page (`/session/{sessionId}`). The stage badge was
- * removed in #46 — cards no longer carry stage vocabulary; the icon tile
- * has a fixed neutral treatment instead.
+ * session's materials page (`/session/{sessionId}`) via the locale-aware
+ * `Link`. The stage badge was removed in #46 — cards no longer carry stage
+ * vocabulary; the icon tile has a fixed neutral treatment instead.
  */
 export function SessionCard({ session }: { session: SessionListItem }) {
   const { session_id, narrowed_goal, goal, created_at } = session;
+  const locale = useLocale();
+  const messages = useMessages();
 
   return (
-    <a
+    <Link
       href={`/session/${session_id}`}
       className="group relative flex flex-col gap-4 overflow-hidden rounded-xl border border-outline-variant/50 bg-surface-container p-6 transition-all hover:border-outline-variant hover:bg-surface-container-high md:flex-row md:items-center md:gap-6"
     >
@@ -26,9 +32,9 @@ export function SessionCard({ session }: { session: SessionListItem }) {
         </h3>
         <span className="flex items-center gap-1 font-mono text-xs tracking-widest text-on-surface-variant">
           <Clock className="size-3.5" />
-          {timeAgo(created_at)}
+          {timeAgo(created_at, locale, messages.time)}
         </span>
       </div>
-    </a>
+    </Link>
   );
 }

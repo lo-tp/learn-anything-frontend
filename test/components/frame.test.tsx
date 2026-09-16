@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 import { describe, expect, it, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
-
+import { screen, cleanup } from "@testing-library/react";
+import { renderWithLocale } from "@/test/test-utils";
 afterEach(cleanup);
 import { Frame } from "@/components/frame";
 
 describe("Frame", () => {
   it("renders the shared TopBar above the page content", () => {
-    render(
+    renderWithLocale(
       <Frame>
         <main>Page content</main>
       </Frame>,
@@ -21,7 +21,7 @@ describe("Frame", () => {
   });
 
   it("places the TopBar before the children in the DOM", () => {
-    render(
+    renderWithLocale(
       <Frame>
         <main>Page content</main>
       </Frame>,
@@ -35,7 +35,7 @@ describe("Frame", () => {
   });
 
   it("is a full-height flex column so the content fills the space below the TopBar", () => {
-    render(
+    renderWithLocale(
       <Frame>
         <main>Page content</main>
       </Frame>,

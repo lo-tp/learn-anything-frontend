@@ -1,4 +1,7 @@
+"use client";
+
 import { Check, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { QuestionItem } from "@/lib/api-client";
 import { MathText } from "@/components/math-text";
 import { cn } from "@/lib/utils";
@@ -27,6 +30,7 @@ export function QuizQuestion({
   selected: number | null;
   onSelect: (index: number) => void;
 }) {
+  const t = useTranslations("session");
   const revealed = selected !== null;
   const wasCorrect = revealed && selected === question.correct_index;
 
@@ -91,7 +95,7 @@ export function QuizQuestion({
               wasCorrect ? "text-primary" : "text-error",
             )}
           >
-            {wasCorrect ? "Correct." : "Not quite."}
+            {wasCorrect ? t("correct") : t("notQuite")}
           </p>
           <p className="text-sm text-on-surface-variant">
             <MathText content={question.explanation} />

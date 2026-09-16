@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useTranslations } from "next-intl";
 import { EmptyState } from "@/components/empty-state";
 import { NewSessionDialog } from "./new-session-dialog";
 import { SessionCard } from "@/components/session-card";
@@ -20,6 +21,7 @@ import { listSessions, type SessionListItem } from "@/lib/api-client";
  * new-session dialog (#26).
  */
 export function Root({ initialSessions }: { initialSessions: SessionListItem[] }) {
+  const t = useTranslations("home");
   const [sessions, setSessions] = useState<SessionListItem[]>(initialSessions);
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -45,10 +47,10 @@ export function Root({ initialSessions }: { initialSessions: SessionListItem[] }
             <div className="mb-12 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
               <div>
                 <h1 className="font-display text-3xl font-semibold tracking-tight text-on-surface">
-                  My Sessions
+                  {t("title")}
                 </h1>
                 <p className="mt-2 max-w-2xl text-lg text-on-surface-variant">
-                  Resume your deep dives or launch a new contextual inquiry.
+                  {t("subtitle")}
                 </p>
               </div>
               <StartSessionButton onClick={() => setDialogOpen(true)} />

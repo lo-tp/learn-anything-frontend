@@ -11,9 +11,9 @@ import {
 import {
   cleanup,
   fireEvent,
-  render,
   screen,
 } from "@testing-library/react";
+import { renderWithLocale } from "@/test/test-utils";
 import { NewSessionDialog } from "@/views/root/new-session-dialog";
 import {
   ApiError,
@@ -92,6 +92,15 @@ describe("NewSessionDialog", () => {
     expect(screen.getAllByRole("button", { name: "Close" })).toHaveLength(1);
   });
 
+  it("shows the opening prompt from the zh catalog under the zh locale", async () => {
+    await openDialog("", () => {}, "zh");
+    expect(
+      screen.getByText(
+        "告诉我们你想探索或学习什么，我们会为你量身安排一次学习。",
+      ),
+    ).toBeTruthy();
+  });
+
   it("shows a pending state and disables the buttons while the request is in flight", async () => {
     mockCreateSession.mockReturnValue(new Promise(() => {}));
     await openDialog(
@@ -165,7 +174,7 @@ describe("NewSessionDialog", () => {
         </>
       );
     }
-    render(<Harness />);
+    renderWithLocale(<Harness />);
     const textarea = await screen.findByLabelText(LABEL);
     fireEvent.change(textarea, { target: { value: SHORT } });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
@@ -224,7 +233,7 @@ describe("NewSessionDialog", () => {
       );
     }
     const onAccept = vi.fn();
-    const view = render(<Harness onAccept={onAccept} />);
+    const view = renderWithLocale(<Harness onAccept={onAccept} />);
     const textarea = await screen.findByLabelText(LABEL);
     fireEvent.change(textarea, {
       target: {
@@ -268,7 +277,7 @@ describe("NewSessionDialog", () => {
       );
     }
     const onAccept = vi.fn();
-    render(<Harness onAccept={onAccept} />);
+    renderWithLocale(<Harness onAccept={onAccept} />);
     const textarea = await screen.findByLabelText(LABEL);
     fireEvent.change(textarea, {
       target: {

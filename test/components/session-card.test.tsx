@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
-import { SessionCard } from "@/components/session-card";
+import { cleanup, screen } from "@testing-library/react";
+import { renderWithLocale } from "@/test/test-utils";import { SessionCard } from "@/components/session-card";
 import type { SessionListItem } from "@/lib/api-client";
 
 // Pin the clock so timeAgo's output is deterministic.
@@ -31,28 +31,28 @@ function session(overrides: Partial<SessionListItem> = {}): SessionListItem {
 
 describe("SessionCard", () => {
   it("links to the session's materials page", () => {
-    render(<SessionCard session={session()} />);
+    renderWithLocale(<SessionCard session={session()} />);
     const card = screen.getByRole("link", { name: /React Hooks Deep Dive/ });
-    expect(card.getAttribute("href")).toBe("/session/s-1");
+    expect(card.getAttribute("href")).toBe("/en/session/s-1");
   });
 
   it("shows the narrowed goal as the title when one is recorded", () => {
-    render(<SessionCard session={session({ narrowed_goal: "Hooks, narrowed" })} />);
+    renderWithLocale(<SessionCard session={session({ narrowed_goal: "Hooks, narrowed" })} />);
     expect(screen.getByText("Hooks, narrowed")).toBeTruthy();
   });
 
   it("falls back to the goal when no narrowed goal is recorded", () => {
-    render(<SessionCard session={session()} />);
+    renderWithLocale(<SessionCard session={session()} />);
     expect(screen.getByText("React Hooks Deep Dive")).toBeTruthy();
   });
 
   it("shows the relative creation time", () => {
-    render(<SessionCard session={session()} />);
+    renderWithLocale(<SessionCard session={session()} />);
     expect(screen.getByText("2 hrs ago")).toBeTruthy();
   });
 
   it("renders the neutral card — no stage label text (#46)", () => {
-    render(<SessionCard session={session()} />);
+    renderWithLocale(<SessionCard session={session()} />);
     expect(screen.queryByText(/executing/i)).toBeNull();
     expect(screen.queryByText(/complete/i)).toBeNull();
   });

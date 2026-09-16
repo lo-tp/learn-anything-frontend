@@ -1,4 +1,7 @@
+"use client";
+
 import { ListChecks, Presentation } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { MaterialOut, QuestionItem, SlideItem } from "@/lib/api-client";
 import { QuizQuestion } from "@/components/session/quiz-question";
 import { SandboxFrame } from "@/components/sandbox/sandbox-frame";
@@ -47,6 +50,7 @@ export function SessionSidebar({
   activeIndex: number;
   onSelect: (index: number) => void;
 }) {
+  const t = useTranslations("session");
   return (
     <aside className="flex h-full w-80 shrink-0 select-none flex-col border-r border-outline-variant bg-surface">
       <div className="flex-1 overflow-y-auto p-3">
@@ -107,7 +111,7 @@ export function SessionSidebar({
                                 : "text-on-surface-variant",
                             )}
                           >
-                            {item.type === "slide" ? "Slide" : "Quiz"}
+                            {item.type === "slide" ? t("slide") : t("quiz")}
                           </span>
                         </div>
                         {item.type === "slide" ? (

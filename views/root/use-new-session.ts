@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   ApiError,
   type Phase,
@@ -44,15 +45,6 @@ export type RecentMessage = {
 };
 
 /**
- * The fixed opening prompt that always starts a new-session conversation,
- * asking the learner to describe what they want to learn.
- */
-const OPENING_PROMPT: RecentMessage = {
-  role: "ai",
-  text: "Tell us what you'd like to explore or learn, and we'll shape a session around it.",
-};
-
-/**
  * All the state and orchestration behind the new-session intake dialog.
  *
  * The hook is split into four **phase hooks** (see `./phases/`):
@@ -78,13 +70,21 @@ export function useNewSession({
   /** Propagates the dialog's open/closed state to the parent. */
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useTranslations("dialog");
+
   // ── Shared state ─────────────────────────────────────────────────────────
+  /**
+   * The fixed opening prompt that always starts a new-session conversation,
+   * asking the learner to describe what they want to learn.
+   */
+  const openingPrompt: RecentMessage = {
+    role: "ai",
+    text: t("openingPrompt"),
+  };
   const [paragraph, setParagraph] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState<string | null>(null);
-  const [messages, setMessages] = useState<RecentMessage[]>([
-    OPENING_PROMPT,
-  ]);
+  const [messages, setMessages] = useState<RecentMessage[]>([openingPrompt]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase | null>(null);
   const [probeBatch, setProbeBatch] = useState<ProbeQuestionOut[] | null>(null);
@@ -198,7 +198,7 @@ export function useNewSession({
     setParagraph("");
     setStatus("idle");
     setMessage(null);
-    setMessages([OPENING_PROMPT]);
+    setMessages([openingPrompt]);
     setSessionId(null);
     setPhase(null);
     setProbeBatch(null);
@@ -277,11 +277,9 @@ export function useNewSession({
       await clarify.submit();
     } catch (err) {
       setStatus("error");
-      setMessage(
-        err instanceof ApiError
-          ? err.message
-          : "Something went wrong starting your session. Please try again.",
-      );
+      // Raw backend errors (`ApiError.message`) pass through untouched;
+      // anything else gets the localized generic fallback in the dialog.
+      setMessage(err instanceof ApiError ? err.message : null);
     }
   }
 

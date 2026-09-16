@@ -1,0 +1,115 @@
+{
+  "app": {
+    "title": "Learn Anything",
+    "description": "An AI conversation-driven learning assistant: declare a knowledge point and it walks you to mastery, one question at a time."
+  },
+  "topbar": {
+    "settings": "Settings",
+    "help": "Help"
+  },
+  "home": {
+    "title": "My Sessions",
+    "subtitle": "Resume your deep dives or launch a new contextual inquiry.",
+    "emptyTitle": "No sessions yet",
+    "emptyBody": "Start your first deep dive or launch a contextual inquiry to begin your learning journey.",
+    "startNewSession": "Start New Session"
+  },
+  "dialog": {
+    "openingPrompt": "Tell us what you'd like to explore or learn, and we'll shape a session around it.",
+    "title": "Start New Session",
+    "close": "Close",
+    "recentMessages": "Recent Messages",
+    "messages": "{n, plural, one {# message} other {# messages}}",
+    "you": "You",
+    "lumina": "Lumina AI",
+    "labelClarify": "What would you like to explore or learn?",
+    "labelProbe": "Which option is right?",
+    "labelReview": "How should we adjust the plan?",
+    "placeholderProbe": "Type the option letter (A–{last})",
+    "placeholderReview": "Type 'approve' to approve, or describe how to adjust — press Enter to send",
+    "placeholderDefault": "Continue the discussion or describe the next query...",
+    "pendingPlan": "We're drafting your learning plan. This takes a few seconds — hang tight.",
+    "pendingReview": "We're updating your plan to match your feedback. This takes a few seconds.",
+    "pendingProbeAnswer": "We're checking your answer. Give it a moment.",
+    "pendingProbeGenerate": "We're generating questions to check your current level of mastery. Give it a moment.",
+    "pendingClarify": "We're working through what you shared. Give it a moment.",
+    "pendingDefault": "We're working out what you want to learn. Give it a moment.",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "send": "Send",
+    "sending": "Sending…",
+    "errorFallback": "Something went wrong starting your session. Please try again."
+  },
+  "session": {
+    "notFound": {
+      "title": "Session not found",
+      "note": "That session doesn't exist — it may have been removed."
+    },
+    "error": {
+      "title": "Something went wrong",
+      "note": "This session hit an error. Head back and try again."
+    },
+    "notReady": {
+      "title": "Materials aren't ready yet",
+      "note": "They're generated in the background once your plan is approved."
+    },
+    "generating": {
+      "title": "Generating materials…",
+      "note": "Hang tight — your slides and questions are being prepared.",
+      "retryNote": "Can't reach the backend right now — retrying."
+    },
+    "learningSession": "Learning session",
+    "backToSessions": "Back to my sessions",
+    "slide": "Slide",
+    "quiz": "Quiz",
+    "correct": "Correct.",
+    "notQuite": "Not quite.",
+    "slideOf": "Slide {n} of {total}",
+    "prevSlide": "Previous slide",
+    "nextSlide": "Next slide"
+  },
+  "phases": {
+    "ready": {
+      "label": "Ready",
+      "hint": "Describe what you want to learn"
+    },
+    "clarifying": {
+      "label": "Clarifying",
+      "hint": "Pinning down your goal"
+    },
+    "probing": {
+      "label": "Probing",
+      "hint": "Testing your understanding"
+    },
+    "planning": {
+      "label": "Planning",
+      "hint": "Building your study plan"
+    },
+    "reviewing": {
+      "label": "Reviewing",
+      "hint": "Adjusting the plan"
+    },
+    "generating": {
+      "label": "Generating",
+      "hint": "Preparing the steps"
+    },
+    "executing": {
+      "label": "Executing",
+      "hint": "Working through the steps"
+    },
+    "complete": {
+      "label": "Complete",
+      "hint": "Session finished"
+    },
+    "error": {
+      "label": "Error",
+      "hint": "Something went wrong"
+    }
+  },
+  "time": {
+    "justNow": "just now",
+    "minAgo": "{n, plural, one {# min ago} other {# min ago}}",
+    "yesterday": "Yesterday",
+    "hrsAgo": "{n, plural, one {# hr ago} other {# hrs ago}}"
+  }
+}

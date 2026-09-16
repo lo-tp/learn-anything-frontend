@@ -1,4 +1,7 @@
+"use client";
+
 import { ChevronLeft, ChevronRight, Presentation } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 /**
  * Bottom-right control bar (map #43).
@@ -17,12 +20,13 @@ export function ControlBar({
   onPrev: () => void;
   onNext: () => void;
 }) {
+  const t = useTranslations("session");
   return (
     <div className="flex items-center gap-4">
       {/* Slide counter pill */}
       <div
         className="flex items-center gap-1.5 rounded-lg border border-outline-variant/50 bg-surface-container-low px-3 py-1.5 font-mono text-xs text-on-surface-variant"
-        aria-label={`Slide ${index} of ${total}`}
+        aria-label={t("slideOf", { n: String(index), total: String(total) })}
       >
         <Presentation className="size-4 text-primary" />
         <span className="font-semibold text-on-surface">{index}</span>
@@ -34,7 +38,7 @@ export function ControlBar({
       <div className="flex items-center gap-1 rounded-lg border border-outline-variant/50 bg-surface-container-low p-1">
         <button
           type="button"
-          aria-label="Previous slide"
+          aria-label={t("prevSlide")}
           disabled={index <= 1}
           onClick={onPrev}
           className="flex size-7 items-center justify-center rounded text-on-surface-variant disabled:opacity-40"
@@ -43,7 +47,7 @@ export function ControlBar({
         </button>
         <button
           type="button"
-          aria-label="Next slide"
+          aria-label={t("nextSlide")}
           disabled={index >= total}
           onClick={onNext}
           className="flex size-7 items-center justify-center rounded text-on-surface-variant disabled:opacity-40"

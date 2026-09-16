@@ -1,4 +1,7 @@
+"use client";
+
 import { Sparkles } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 /**
  * The empty History state, per `design/home/empty_state`: a subtle primary
@@ -7,6 +10,7 @@ import { Sparkles } from "lucide-react";
  * (`children`), which is the shared primary button supplied by the page.
  */
 export function EmptyState({ children }: { children?: React.ReactNode }) {
+  const t = useTranslations("home");
   return (
     <div className="relative flex flex-col items-center justify-center overflow-hidden py-24 text-center">
       {/* Subtle primary glow behind the content */}
@@ -24,11 +28,10 @@ export function EmptyState({ children }: { children?: React.ReactNode }) {
         </div>
 
         <h2 className="mb-4 font-display text-3xl font-semibold tracking-tight text-on-surface">
-          No sessions yet
+          {t("emptyTitle")}
         </h2>
         <p className="mx-auto max-w-[360px] text-lg leading-relaxed text-on-surface-variant">
-          Start your first deep dive or launch a contextual inquiry to begin
-          your learning journey.
+          {t("emptyBody")}
         </p>
 
         {children ? <div className="mt-10">{children}</div> : null}

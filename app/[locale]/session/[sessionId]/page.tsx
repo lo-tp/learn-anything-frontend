@@ -1,5 +1,7 @@
 import { Session } from "@/views/session";
 import { getMaterials, getSession } from "@/lib/api-client";
+import { setRequestLocale } from "next-intl/server";
+import { hasLocale, routing } from "@/i18n/routing";
 
 /**
  * Render per request, not as a build-time snapshot — the session state and
@@ -17,8 +19,9 @@ export const dynamic = "force-dynamic";
  */
 export default async function SessionPage({
   params,
-}: PageProps<"/session/[sessionId]">) {
-  const { sessionId } = await params;
+}: PageProps<"/[locale]/session/[sessionId]">) {
+  const { locale, sessionId } = await params;
+  setRequestLocale(hasLocale(locale) ? locale : routing.defaultLocale);
 
   const [sessionResult, materialsResult] = await Promise.allSettled([
     getSession(sessionId),

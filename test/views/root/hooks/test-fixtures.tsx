@@ -2,7 +2,8 @@
 // Import this from each per-phase test file. The `vi.mock` call must still
 // live in each test file (Vitest hoists it to the top of the module).
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
+import { renderWithLocale, type TestLocale } from "@/test/test-utils";
 import { NewSessionDialog } from "@/views/root/new-session-dialog";
 import type { PlanBody, PlanOut } from "@/lib/api-client";
 
@@ -97,11 +98,15 @@ export const PLAN_OUT_REVISED: PlanOut = {
 export async function openDialog(
   value: string = "",
   onAccept: () => void = () => {},
+  locale: TestLocale = "en",
 ) {
-  render(
+  renderWithLocale(
     <NewSessionDialog open onOpenChange={() => {}} onAccept={onAccept} />,
+    { locale },
   );
-  const textarea = await screen.findByLabelText(LABEL);
+  // The intake textarea is the dialog's only textbox (its label is
+  // localized, so look it up by role instead of by `LABEL`).
+  const textarea = await screen.findByRole("textbox");
   if (value) fireEvent.change(textarea, { target: { value } });
   return textarea;
 }

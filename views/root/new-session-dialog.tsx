@@ -9,6 +9,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { PhaseIndicator } from "@/components/phase-indicator";
 import { MathText } from "@/components/math-text";
@@ -51,6 +52,7 @@ export function NewSessionDialog({
   /** Called after an accepted intake — the parent should refetch the History. */
   onAccept: () => void;
 }) {
+  const t = useTranslations("dialog");
   const {
     paragraph,
     setParagraph,
@@ -78,21 +80,13 @@ export function NewSessionDialog({
    * what is happening.
    */
   function pendingNote(): string {
-    if (awaitingPlan) {
-      return "We're drafting your learning plan. This takes a few seconds — hang tight.";
-    }
-    if (reviewing) {
-      return "We're updating your plan to match your feedback. This takes a few seconds.";
-    }
+    if (awaitingPlan) return t("pendingPlan");
+    if (reviewing) return t("pendingReview");
     if (probing) {
-      return probeQuestion
-        ? "We're checking your answer. Give it a moment."
-        : "We're generating questions to check your current level of mastery. Give it a moment.";
+      return probeQuestion ? t("pendingProbeAnswer") : t("pendingProbeGenerate");
     }
-    if (phase === "clarifying") {
-      return "We're working through what you shared. Give it a moment.";
-    }
-    return "We're working out what you want to learn. Give it a moment.";
+    if (phase === "clarifying") return t("pendingClarify");
+    return t("pendingDefault");
   }
 
   /**
@@ -150,7 +144,7 @@ export function NewSessionDialog({
                 <MessageSquareText className="size-5" aria-hidden />
               </span>
               <DialogTitle className="text-left font-display text-2xl font-semibold text-on-surface">
-                Start New Session
+                {t("title")}
               </DialogTitle>
             </div>
             <div className="flex items-center gap-3">
@@ -158,7 +152,7 @@ export function NewSessionDialog({
               <DialogClose asChild>
                 <button
                   type="button"
-                  aria-label="Close"
+                  aria-label={t("close")}
                   disabled={pending}
                   className="flex size-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-bright hover:text-on-surface disabled:pointer-events-none disabled:opacity-50"
                 >
@@ -175,11 +169,10 @@ export function NewSessionDialog({
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 font-mono text-xs font-medium uppercase tracking-wider text-on-surface-variant">
                     <History className="size-4 text-primary" aria-hidden />
-                    Recent Messages
+                    {t("recentMessages")}
                   </span>
                   <span className="font-mono text-xs text-on-surface-variant/70">
-                    {messages.length}{" "}
-                    {messages.length === 1 ? "message" : "messages"}
+                    {t("messages", { n: messages.length })}
                   </span>
                 </div>
 
@@ -192,7 +185,7 @@ export function NewSessionDialog({
                       return (
                         <div key={index} className="flex flex-col items-end gap-1">
                           <span className="font-mono text-xs font-medium text-secondary">
-                            You
+                            {t("you")}
                           </span>
                           <div className="max-w-[85%] whitespace-pre-line rounded-xl rounded-tr-sm border border-outline-variant/30 bg-secondary-container px-3.5 py-2 text-sm text-on-surface">
                             {renderBody(entry.text)}
@@ -205,7 +198,7 @@ export function NewSessionDialog({
                       <div key={index} className="flex flex-col items-start gap-1">
                         <span className="flex items-center gap-1 font-mono text-xs font-medium text-primary">
                           <Sparkles className="size-3.5 text-primary" aria-hidden />
-                          Lumina AI
+                          {t("lumina")}
                         </span>
                         <div
                           className={cn(
@@ -295,10 +288,10 @@ export function NewSessionDialog({
                       className="mb-2 block text-base font-medium text-on-surface"
                     >
                       {probing
-                        ? "Which option is right?"
+                        ? t("labelProbe")
                         : reviewing
-                          ? "How should we adjust the plan?"
-                          : "What would you like to explore or learn?"}
+                          ? t("labelReview")
+                          : t("labelClarify")}
                     </label>
                     <div className="relative">
                       <textarea
@@ -310,12 +303,16 @@ export function NewSessionDialog({
                         onKeyDown={handleKeyDown}
                         placeholder={
                           probing && probeQuestion
-                            ? `Type the option letter (A–${String.fromCharCode(
-                                "A".charCodeAt(0) + probeQuestion.options.length - 1,
-                              )})`
+                            ? t("placeholderProbe", {
+                                last: String.fromCharCode(
+                                  "A".charCodeAt(0) +
+                                    probeQuestion.options.length -
+                                    1,
+                                ),
+                              })
                             : reviewing
-                              ? "Type 'approve' to approve, or describe how to adjust — press Enter to send"
-                              : "Continue the discussion or describe the next query..."
+                              ? t("placeholderReview")
+                              : t("placeholderDefault")
                         }
                         className="w-full resize-none rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-base text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/50 focus:border-primary"
                       />
@@ -324,7 +321,7 @@ export function NewSessionDialog({
                 )}
                 {status === "error" && (
                   <p className="mt-2 text-sm text-error" aria-live="polite">
-                    {message}
+                    {message ?? t("errorFallback")}
                   </p>
                 )}
               </div>
@@ -344,7 +341,7 @@ export function NewSessionDialog({
                 )}
               >
                 <Check className="size-4" aria-hidden />
-                Confirm
+                {t("confirm")}
               </Button>
             ) : (
               <>
@@ -355,7 +352,7 @@ export function NewSessionDialog({
                   onClick={close}
                   className="h-auto border border-transparent px-4 py-2 text-on-surface-variant hover:border-outline-variant hover:bg-surface-bright hover:text-on-surface"
                 >
-                  Cancel
+                  {t("cancel")}
                 </Button>
                 <Button
                   type="submit"
@@ -365,7 +362,7 @@ export function NewSessionDialog({
                   )}
                 >
                   <Send className={cn("transition-transform", !pending && "group-hover:translate-x-0.5")} aria-hidden />
-                  {pending ? "Sending…" : "Send"}
+                  {pending ? t("sending") : t("send")}
                 </Button>
               </>
             )}

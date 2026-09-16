@@ -1,4 +1,7 @@
+"use client";
+
 import { Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 /**
  * The primary "Start New Session" CTA, shared by the History header and the
@@ -7,6 +10,7 @@ import { Plus } from "lucide-react";
  * accepted intake.
  */
 export function StartSessionButton({ onClick }: { onClick: () => void }) {
+  const t = useTranslations("home");
   return (
     <button
       type="button"
@@ -14,7 +18,7 @@ export function StartSessionButton({ onClick }: { onClick: () => void }) {
       className="group relative flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-on-primary-container transition-all duration-200 shadow-[0_0_15px_rgba(192,193,255,0.2)] hover:bg-primary-fixed hover:shadow-[0_0_25px_rgba(192,193,255,0.4)] active:scale-95 md:flex-shrink-0"
     >
       <Plus className="size-5 transition-transform duration-300 group-hover:rotate-90" />
-      Start New Session
+      {t("startNewSession")}
     </button>
   );
 }

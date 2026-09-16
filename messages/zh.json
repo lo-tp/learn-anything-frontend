@@ -1,0 +1,115 @@
+{
+  "app": {
+    "title": "Learn Anything",
+    "description": "AI 对话驱动的学习助手：说出一个知识点，它会一步步带你走向精通。"
+  },
+  "topbar": {
+    "settings": "设置",
+    "help": "帮助"
+  },
+  "home": {
+    "title": "我的会话",
+    "subtitle": "继续你的深度探索，或发起一次新的学习探究。",
+    "emptyTitle": "还没有会话",
+    "emptyBody": "开始你的第一次深度探索，或发起一次新的学习探究，开启学习之旅。",
+    "startNewSession": "开始新会话"
+  },
+  "dialog": {
+    "openingPrompt": "告诉我们你想探索或学习什么，我们会为你量身安排一次学习。",
+    "title": "开始新会话",
+    "close": "关闭",
+    "recentMessages": "最近的消息",
+    "messages": "{n, plural, other {# 条消息}}",
+    "you": "你",
+    "lumina": "Lumina AI",
+    "labelClarify": "你想探索或学习什么？",
+    "labelProbe": "哪个选项是正确的？",
+    "labelReview": "应该如何调整学习计划？",
+    "placeholderProbe": "输入选项字母（A–{last}）",
+    "placeholderReview": "输入 'approve' 批准计划，或描述如何调整 —— 按 Enter 发送",
+    "placeholderDefault": "继续讨论或描述下一个问题...",
+    "pendingPlan": "正在为你起草学习计划，需要几秒钟 —— 请稍候。",
+    "pendingReview": "正在根据你的反馈更新计划，需要几秒钟。",
+    "pendingProbeAnswer": "正在核对你的答案，请稍等。",
+    "pendingProbeGenerate": "正在生成题目以检测你当前的掌握程度，请稍等。",
+    "pendingClarify": "正在理解你分享的内容，请稍等。",
+    "pendingDefault": "正在明确你想学习的内容，请稍等。",
+    "confirm": "确认",
+    "cancel": "取消",
+    "send": "发送",
+    "sending": "发送中…",
+    "errorFallback": "启动会话时出了点问题，请重试。"
+  },
+  "session": {
+    "notFound": {
+      "title": "未找到会话",
+      "note": "该会话不存在 —— 可能已被删除。"
+    },
+    "error": {
+      "title": "出了点问题",
+      "note": "此会话发生了错误。请返回重试。"
+    },
+    "notReady": {
+      "title": "学习材料尚未就绪",
+      "note": "计划批准后会在后台生成。"
+    },
+    "generating": {
+      "title": "正在生成学习材料…",
+      "note": "请稍候 —— 你的幻灯片和题目正在准备中。",
+      "retryNote": "当前无法连接后端 —— 正在重试。"
+    },
+    "learningSession": "学习会话",
+    "backToSessions": "返回我的会话",
+    "slide": "幻灯片",
+    "quiz": "测验",
+    "correct": "答对了。",
+    "notQuite": "不太对。",
+    "slideOf": "第 {n} / {total} 张",
+    "prevSlide": "上一张",
+    "nextSlide": "下一张"
+  },
+  "phases": {
+    "ready": {
+      "label": "就绪",
+      "hint": "描述你想学什么"
+    },
+    "clarifying": {
+      "label": "澄清目标",
+      "hint": "正在明确你的目标"
+    },
+    "probing": {
+      "label": "水平检测",
+      "hint": "正在测试你的理解"
+    },
+    "planning": {
+      "label": "制定计划",
+      "hint": "正在制定学习计划"
+    },
+    "reviewing": {
+      "label": "审核计划",
+      "hint": "正在调整计划"
+    },
+    "generating": {
+      "label": "生成材料",
+      "hint": "正在准备学习内容"
+    },
+    "executing": {
+      "label": "学习中",
+      "hint": "正在学习各个步骤"
+    },
+    "complete": {
+      "label": "已完成",
+      "hint": "会话已结束"
+    },
+    "error": {
+      "label": "出错",
+      "hint": "出了点问题"
+    }
+  },
+  "time": {
+    "justNow": "刚刚",
+    "minAgo": "{n, plural, other {# 分钟前}}",
+    "yesterday": "昨天",
+    "hrsAgo": "{n, plural, other {# 小时前}}"
+  }
+}

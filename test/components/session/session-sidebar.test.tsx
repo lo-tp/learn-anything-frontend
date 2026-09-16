@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import {
+import { cleanup, fireEvent, screen } from "@testing-library/react";
+import { renderWithLocale } from "@/test/test-utils";import {
   SessionSidebar,
   type SidebarGroup,
 } from "@/components/session/session-sidebar";
@@ -37,7 +37,7 @@ afterEach(() => {
 
 describe("SessionSidebar", () => {
   it("renders the step divider and one card per item", () => {
-    render(<SessionSidebar groups={groups} activeIndex={0} onSelect={() => {}} />);
+    renderWithLocale(<SessionSidebar groups={groups} activeIndex={0} onSelect={() => {}} />);
     expect(screen.getByText("Force and mass")).toBeTruthy();
     expect(screen.getByRole("button", { name: /^slide$/i })).toBeTruthy();
     expect(
@@ -46,7 +46,7 @@ describe("SessionSidebar", () => {
   });
 
   it("previews the slide card's sandbox route scaled down", () => {
-    const { container } = render(
+    const { container } = renderWithLocale(
       <SessionSidebar groups={groups} activeIndex={0} onSelect={() => {}} />,
     );
     const frame = container.querySelector("iframe");
@@ -58,14 +58,14 @@ describe("SessionSidebar", () => {
   });
 
   it("previews the question card's full content (prompt and options)", () => {
-    render(<SessionSidebar groups={groups} activeIndex={0} onSelect={() => {}} />);
+    renderWithLocale(<SessionSidebar groups={groups} activeIndex={0} onSelect={() => {}} />);
     // The options exist only in the preview — the main area isn't rendered here.
     expect(screen.getByText("Friction")).toBeTruthy();
     expect(screen.getByText("Force")).toBeTruthy();
   });
 
   it("keeps the previews out of the accessibility tree", () => {
-    render(<SessionSidebar groups={groups} activeIndex={0} onSelect={() => {}} />);
+    renderWithLocale(<SessionSidebar groups={groups} activeIndex={0} onSelect={() => {}} />);
     // The preview's option buttons are aria-hidden; only the two cards
     // plus nothing else expose the button role.
     expect(screen.queryAllByRole("button")).toHaveLength(2);
@@ -73,7 +73,7 @@ describe("SessionSidebar", () => {
 
   it("reports the clicked item's flat index", () => {
     const onSelect = vi.fn();
-    render(<SessionSidebar groups={groups} activeIndex={0} onSelect={onSelect} />);
+    renderWithLocale(<SessionSidebar groups={groups} activeIndex={0} onSelect={onSelect} />);
     fireEvent.click(
       screen.getByRole("button", { name: /what does f stand for\?/i }),
     );
@@ -81,7 +81,7 @@ describe("SessionSidebar", () => {
   });
 
   it("marks the active card with aria-current", () => {
-    render(<SessionSidebar groups={groups} activeIndex={1} onSelect={() => {}} />);
+    renderWithLocale(<SessionSidebar groups={groups} activeIndex={1} onSelect={() => {}} />);
     expect(
       screen
         .getByRole("button", { name: /what does f stand for\?/i })

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { Loader2, TriangleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { ControlBar } from "@/components/control-bar";
 import { PhaseIndicator } from "@/components/phase-indicator";
 import { QuizQuestion } from "@/components/session/quiz-question";
@@ -51,6 +52,7 @@ export function Session({
   const [activeIndex, setActiveIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const inFlight = useRef(false);
+  const t = useTranslations("session");
 
   /** The freshest known phase — the polled materials beat the SSR session. */
   const phase = materials?.phase ?? initialSession?.phase ?? null;
@@ -96,8 +98,8 @@ export function Session({
     return (
       <StatePanel
         icon={<TriangleAlert className="size-8 text-error" aria-hidden />}
-        title="Session not found"
-        note="That session doesn't exist — it may have been removed."
+        title={t("notFound.title")}
+        note={t("notFound.note")}
       />
     );
   }
@@ -106,8 +108,8 @@ export function Session({
     return (
       <StatePanel
         icon={<TriangleAlert className="size-8 text-error" aria-hidden />}
-        title="Something went wrong"
-        note="This session hit an error. Head back and try again."
+        title={t("error.title")}
+        note={t("error.note")}
         chip={<PhaseIndicator phase={phase} />}
       />
     );
@@ -116,8 +118,8 @@ export function Session({
   if (PRE_MATERIAL.has(phase ?? "") || materials === null) {
     return (
       <StatePanel
-        title="Materials aren't ready yet"
-        note="They're generated in the background once your plan is approved."
+        title={t("notReady.title")}
+        note={t("notReady.note")}
         subtitle={initialSession.narrowed_goal ?? undefined}
         chip={<PhaseIndicator phase={phase} />}
       />
@@ -131,11 +133,11 @@ export function Session({
         icon={
           <Loader2 className="size-8 animate-spin text-tertiary" aria-hidden />
         }
-        title="Generating materials…"
+        title={t("generating.title")}
         note={
           pollError
-            ? "Can't reach the backend right now — retrying."
-            : "Hang tight — your slides and questions are being prepared."
+            ? t("generating.retryNote")
+            : t("generating.note")
         }
       />
     );
@@ -156,7 +158,7 @@ export function Session({
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-outline-variant bg-surface px-6">
           <span className="truncate text-sm font-medium text-on-surface">
-            {initialSession.narrowed_goal ?? "Learning session"}
+            {initialSession.narrowed_goal ?? t("learningSession")}
           </span>
           <PhaseIndicator phase={phase} />
         </header>
@@ -210,6 +212,7 @@ function StatePanel({
   subtitle?: string;
   chip?: React.ReactNode;
 }) {
+  const t = useTranslations("session");
   return (
     <main className="flex flex-1 items-center justify-center overflow-y-auto">
       <div className="flex flex-col items-center gap-3 p-8 text-center">
@@ -226,7 +229,7 @@ function StatePanel({
           href="/"
           className="mt-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-fixed"
         >
-          Back to my sessions
+          {t("backToSessions")}
         </Link>
       </div>
     </main>

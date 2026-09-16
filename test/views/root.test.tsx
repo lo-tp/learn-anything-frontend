@@ -3,9 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
   fireEvent,
-  render,
   screen,
 } from "@testing-library/react";
+import { renderWithLocale } from "@/test/test-utils";
 import { Root } from "@/views/root";
 import {
   createSession,
@@ -59,7 +59,7 @@ function session(overrides: Partial<SessionListItem> = {}): SessionListItem {
 
 describe("Root (home History)", () => {
   it("hides the 'My Sessions' header and shows the 'Start New Session' button in the empty state", () => {
-    render(<Root initialSessions={[]} />);
+    renderWithLocale(<Root initialSessions={[]} />);
     expect(screen.getByText("No sessions yet")).toBeTruthy();
     // Header hidden ⇒ the only 'Start New Session' button must be the one the
     // empty state renders at the bottom.
@@ -68,14 +68,14 @@ describe("Root (home History)", () => {
   });
 
   it("shows the 'My Sessions' header and session cards, not the empty state, when sessions exist", () => {
-    render(<Root initialSessions={[session()]} />);
+    renderWithLocale(<Root initialSessions={[session()]} />);
     expect(screen.getByText("My Sessions")).toBeTruthy();
     expect(screen.getByText("React Hooks Deep Dive")).toBeTruthy();
     expect(screen.queryByText("No sessions yet")).toBeNull();
   });
 
   it("opens the new-session dialog from the 'Start New Session' CTA", async () => {
-    render(<Root initialSessions={[session()]} />);
+    renderWithLocale(<Root initialSessions={[session()]} />);
     fireEvent.click(
       screen.getByRole("button", { name: /Start New Session/ }),
     );
@@ -85,7 +85,7 @@ describe("Root (home History)", () => {
   });
 
   it("opens the new-session dialog from the empty-state CTA", async () => {
-    render(<Root initialSessions={[]} />);
+    renderWithLocale(<Root initialSessions={[]} />);
     fireEvent.click(
       screen.getByRole("button", { name: /Start New Session/ }),
     );
@@ -134,7 +134,7 @@ describe("Root (home History)", () => {
     // The re-fetch after accept returns the new session on top.
     mockListSessions.mockResolvedValue({ sessions: [fresh, session()] });
 
-    render(<Root initialSessions={[session()]} />);
+    renderWithLocale(<Root initialSessions={[session()]} />);
     fireEvent.click(
       screen.getByRole("button", { name: /Start New Session/ }),
     );
