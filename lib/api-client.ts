@@ -44,6 +44,7 @@ export type ProbeOut = components["schemas"]["ProbeOut"];
 export type SessionList = components["schemas"]["SessionList"];
 export type SessionListItem = components["schemas"]["SessionListItem"];
 export type ProbeQuestionOut = components["schemas"]["ProbeQuestionOut"];
+export type AnswerIn = components["schemas"]["AnswerIn"];
 export type PlanOut = components["schemas"]["PlanOut"];
 export type PlanBody = components["schemas"]["PlanBody"];
 export type StepOut = components["schemas"]["StepOut"];
@@ -118,31 +119,35 @@ export async function getSession(sessionId: string): Promise<SessionState> {
   return data;
 }
 
-/** `POST /sessions/{session_id}/probe` — start the probe: fetch the first question. */
+/**
+ * `POST /sessions/{session_id}/probe` — start the probe: fetch the first
+ * batch of questions. `answers` is `null` to signal the start call (the
+ * backend reads `body.answers is None`).
+ */
 export async function startProbe(sessionId: string): Promise<ProbeOut> {
   const { data, error, response } = await api.POST(
     "/sessions/{session_id}/probe",
-    { params: { path: { session_id: sessionId } }, body: {} },
+    { params: { path: { session_id: sessionId } }, body: { answers: null } },
   );
   if (!data) throw describeError(error, response?.status);
   return data;
 }
 
 /**
- * `POST /sessions/{session_id}/probe` — submit the answer to the active
- * probe question. `selectedIndex` is 0-based, matching the backend's
- * `correct_index` convention (the UI shows 1-based option numbers).
+ * `POST /sessions/{session_id}/probe` — submit the answers for the current
+ * batch. `answers` is one entry per question in batch order; each
+ * `selected_index` is 0-based, matching the backend's `correct_index`
+ * convention (the UI shows 1-based option letters).
  */
 export async function answerProbe(
   sessionId: string,
-  questionId: string,
-  selectedIndex: number,
+  answers: AnswerIn[],
 ): Promise<ProbeOut> {
   const { data, error, response } = await api.POST(
     "/sessions/{session_id}/probe",
     {
       params: { path: { session_id: sessionId } },
-      body: { question_id: questionId, selected_index: selectedIndex },
+      body: { answers },
     },
   );
   if (!data) throw describeError(error, response?.status);

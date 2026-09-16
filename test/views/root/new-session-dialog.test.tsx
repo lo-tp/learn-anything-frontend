@@ -320,7 +320,7 @@ describe("NewSessionDialog", () => {
       phase: "probing",
       narrowed_goal: "Newton's second law of motion",
     });
-    mockStartProbe.mockResolvedValue({ phase: "probing", question: Q1 });
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
     await openDialog(GOAL);
     // A bare Enter in the textarea triggers the same submit path as Send.
     fireEvent.keyDown(screen.getByLabelText(LABEL), { key: "Enter" });
@@ -424,7 +424,7 @@ describe("NewSessionDialog", () => {
       session_id: "s-1",
       phase: "probing",
     });
-    mockStartProbe.mockResolvedValue({ phase: "probing", question: Q1 });
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
     await openDialog(GOAL);
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
     expect(await screen.findByRole("status", { name: /probing/i })).toBeTruthy();

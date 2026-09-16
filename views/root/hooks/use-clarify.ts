@@ -25,7 +25,7 @@ export function useClarifyPhase(ctx: PhaseContext) {
     setPhase,
     setParagraph,
     splitAnswer,
-    recordProbeQuestion,
+    recordProbeBatch,
     recordPlan,
   } = ctx;
 
@@ -73,12 +73,12 @@ export function useClarifyPhase(ctx: PhaseContext) {
       setParagraph("");
       setPhase("probing");
       const probe = await startProbe(result.session_id);
-      if (!probe.question) {
+      if (!probe.questions) {
         setStatus("error");
-        setMessage("No question was received — please try again.");
+        setMessage("No questions were received — please try again.");
         return;
       }
-      recordProbeQuestion(probe.question);
+      recordProbeBatch(probe.questions);
       return;
     }
 

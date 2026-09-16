@@ -60,7 +60,7 @@ export function NewSessionDialog({
     pending,
     phase,
     probing,
-    probeQuestion,
+    probeBatch,
     reviewing,
     awaitingPlan,
     confirming,
@@ -85,8 +85,8 @@ export function NewSessionDialog({
       return "We're updating your plan to match your feedback. This takes a few seconds.";
     }
     if (probing) {
-      return probeQuestion
-        ? "We're checking your answer. Give it a moment."
+      return probeBatch
+        ? "We're checking your answers. Give it a moment."
         : "We're generating questions to check your current level of mastery. Give it a moment.";
     }
     if (phase === "clarifying") {
@@ -295,7 +295,7 @@ export function NewSessionDialog({
                       className="mb-2 block text-base font-medium text-on-surface"
                     >
                       {probing
-                        ? "Which option is right?"
+                        ? "Answer each question below"
                         : reviewing
                           ? "How should we adjust the plan?"
                           : "What would you like to explore or learn?"}
@@ -309,8 +309,15 @@ export function NewSessionDialog({
                         onChange={(e) => setParagraph(e.target.value)}
                         onKeyDown={handleKeyDown}
                         placeholder={
-                          probing && probeQuestion
-                            ? `Type the option letter (A–${String.fromCharCode("A".charCodeAt(0) + probeQuestion.options.length - 1)})`
+                          probing && probeBatch
+                            ? `Type one option letter per question, in order (e.g. ${probeBatch
+                                .map(
+                                  (q) =>
+                                    `A–${String.fromCharCode(
+                                      "A".charCodeAt(0) + q.options.length - 1,
+                                    )}`,
+                                )
+                                .join("  ")})`
                             : reviewing
                               ? "Type 'approve' to approve, or describe how to adjust — press Enter to send"
                               : "Continue the discussion or describe the next query..."

@@ -17,12 +17,14 @@ import {
   createSession,
   generatePlan,
   startProbe,
+  type ProbeQuestionOut,
 } from "@/lib/api-client";
 import {
   GOAL,
   PLAN_OUT,
   Q1,
   Q2,
+  Q3,
   PROBE_LABEL,
   REVIEW_LABEL,
   openDialog,
@@ -47,9 +49,9 @@ const mockGeneratePlan = vi.mocked(generatePlan);
 const mockAdjustPlan = vi.mocked(adjustPlan);
 const mockApprovePlan = vi.mocked(approvePlan);
 
-/** Drive the dialog from intake to its first probe question. */
-async function reachFirstQuestion(
-  paragraph: string = GOAL,
+/** Drive the dialog from intake to its first probe batch. */
+async function reachFirstBatch(
+  batch: ProbeQuestionOut[] = [Q1, Q2],
   onAccept: () => void = () => {},
 ) {
   mockCreateSession.mockResolvedValue({
@@ -57,10 +59,11 @@ async function reachFirstQuestion(
     phase: "probing",
     narrowed_goal: "Newton's second law of motion",
   });
-  mockStartProbe.mockResolvedValue({ phase: "probing", question: Q1 });
-  await openDialog(paragraph, onAccept);
+  mockStartProbe.mockResolvedValue({ phase: "probing", questions: batch });
+  await openDialog(GOAL, onAccept);
   fireEvent.click(screen.getByRole("button", { name: /Send/ }));
-  return screen.findByText(Q1.text);
+  for (const q of batch) await screen.findByText(q.text);
+  return batch;
 }
 
 beforeEach(() => {
@@ -77,96 +80,95 @@ afterEach(() => {
   cleanup();
 });
 
-describe("NewSessionDialog probe loop", () => {
-  it("auto-fetches the first question when clarify lands on probing", async () => {
-    await reachFirstQuestion();
+describe("NewSessionDialog probe loop (batched)", () => {
+  it("auto-fetches the first batch when clarify lands on probing", async () => {
+    await reachFirstBatch();
 
     expect(mockStartProbe).toHaveBeenCalledWith("s-1");
-    // The question bubble carries the numbered options (1..4).
-    const items = screen.getAllByRole("listitem");
-    expect(items).toHaveLength(4);
-    expect(items[1].textContent).toContain("5 m/s²");
-    // The intake adapts to index entry.
+    // Both questions render, each with its lettered options (4 + 4 items).
+    expect(screen.getByText(Q1.text)).toBeTruthy();
+    expect(screen.getByText(Q2.text)).toBeTruthy();
+    expect(screen.getAllByRole("listitem")).toHaveLength(8);
+    // The intake adapts to per-question letter entry.
     expect(screen.getByText(PROBE_LABEL)).toBeTruthy();
-    expect(
-      screen.getByPlaceholderText("Type the option letter (A–D)"),
-    ).toBeTruthy();
+    expect(screen.getByPlaceholderText(/per question/)).toBeTruthy();
     // The footer keeps Send/Cancel — no Confirm until the boundary is set.
     expect(screen.getByRole("button", { name: /Send/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Cancel/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Confirm/ })).toBeNull();
   });
 
-  it("sends the 0-based index, records the pick and verdict, and serves the next question", async () => {
-    await reachFirstQuestion();
-    mockAnswerProbe.mockResolvedValue({ phase: "probing", question: Q2 });
+  it("sends one 0-based index per question and serves the next batch", async () => {
+    await reachFirstBatch();
+    mockAnswerProbe.mockResolvedValue({ phase: "probing", questions: [Q3] });
     fireEvent.change(screen.getByLabelText(PROBE_LABEL), {
-      target: { value: "B" },
+      target: { value: "B B" },
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
-    // "B" goes to the wire as 0-based index 1.
-    expect(mockAnswerProbe).toHaveBeenCalledWith("s-1", "q1", 1);
-    // The verdict names the picked option and carries the explanation.
+    // "B B" goes to the wire as 0-based indices [1, 1] for [q1, q2].
+    expect(mockAnswerProbe).toHaveBeenCalledWith("s-1", [
+      { question_id: "q1", selected_index: 1 },
+      { question_id: "q2", selected_index: 1 },
+    ]);
+    // Both picks are correct (Q1 correct = B, Q2 correct = B).
     await screen.findByText(
       "Correct — option B (5 m/s²). a = F/m = 10/2 = 5 m/s².",
     );
-    // The pick renders as a "you" bubble with the selected option's text.
-    // (Scoped to the "you" bubble — the same option text also appears in
-    // Q1's option list.)
-    expect(
-      await screen.findByText("5 m/s²", {
-        selector: ".bg-secondary-container span",
-      }),
-    ).toBeTruthy();
-    // The next question renders with its own numbered options.
-    await screen.findByText(Q2.text);
+    await screen.findByText(
+      "Correct — option B (doubles). a = F/m, so doubling F doubles a.",
+    );
+    // The next (size-1) batch renders with its own options.
+    await screen.findByText(Q3.text);
     // The textarea is cleared for the next answer.
     expect(
       (screen.getByLabelText(PROBE_LABEL) as HTMLTextAreaElement).value,
     ).toBe("");
   });
 
-  it("explains a wrong answer with the correct option", async () => {
-    await reachFirstQuestion();
-    mockAnswerProbe.mockResolvedValue({ phase: "probing", question: Q2 });
+  it("explains a wrong answer within the batch", async () => {
+    await reachFirstBatch();
+    mockAnswerProbe.mockResolvedValue({ phase: "probing", questions: [Q3] });
     fireEvent.change(screen.getByLabelText(PROBE_LABEL), {
-      target: { value: "A" },
+      target: { value: "A B" },
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
+    // Q1 answered "A" is wrong — the verdict names the correct option.
     await screen.findByText(
       "Not quite — the correct answer is option B (5 m/s²). a = F/m = 10/2 = 5 m/s².",
     );
-    // The (wrong) pick is recorded in a "you" bubble.
+    // The (wrong) pick is recorded in a "you" bubble, lettered.
     expect(
-      screen.getAllByText("2 m/s²").some(
-        (el) => el.closest(".bg-secondary-container"),
-      ),
-    ).toBe(true);
-    await screen.findByText(Q2.text);
+      screen.getByText("A: 2 m/s²", {
+        selector: ".bg-secondary-container span",
+      }),
+    ).toBeTruthy();
+    // Q2 answered "B" is still correct.
+    await screen.findByText(
+      "Correct — option B (doubles). a = F/m, so doubling F doubles a.",
+    );
+    await screen.findByText(Q3.text);
   });
 
   it("auto-generates the plan once the boundary map arrives", async () => {
     const onAccept = vi.fn();
-    await reachFirstQuestion(GOAL, onAccept);
+    await reachFirstBatch([Q1, Q2], onAccept);
     mockAnswerProbe.mockResolvedValue({
       phase: "planning",
       boundary_map: { f_ma_relation: { floor: "scalar F = ma", ceiling: null } },
     });
     mockGeneratePlan.mockResolvedValue(PLAN_OUT);
     fireEvent.change(screen.getByLabelText(PROBE_LABEL), {
-      target: { value: "B" },
+      target: { value: "B B" },
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
-    // The verdict lands, plus a highlighted completion message.
+    // The completion message lands with a plural count (2 questions answered).
     await screen.findByText(
-      "Boundary established after 1 question. Your learning plan is ready.",
+      "Boundary established after 2 questions. Your learning plan is ready.",
     );
-    // The plan auto-generates and lands in a highlighted plan bubble; the
-    // review step keeps Cancel + Send (no Confirm) — approval is a typed
-    // command, not a button.
+    // The plan auto-generates and lands in a highlighted plan bubble.
     expect(mockGeneratePlan).toHaveBeenCalledWith("s-1");
     const summary = await screen.findByText(PLAN_OUT.plan.prose_summary);
     expect(summary.closest('[class*="bg-primary/10"]')).toBeTruthy();
@@ -186,20 +188,20 @@ describe("NewSessionDialog probe loop", () => {
   });
 
   it("disables the buttons while the boundary-triggered plan generation is in flight", async () => {
-    await reachFirstQuestion();
+    await reachFirstBatch();
     mockAnswerProbe.mockResolvedValue({
       phase: "planning",
       boundary_map: { f_ma_relation: { floor: "scalar F = ma", ceiling: null } },
     });
     mockGeneratePlan.mockReturnValue(new Promise(() => {}));
     fireEvent.change(screen.getByLabelText(PROBE_LABEL), {
-      target: { value: "B" },
+      target: { value: "B B" },
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
     // The completion message lands while generatePlan is still in flight.
     await screen.findByText(
-      "Boundary established after 1 question. Your learning plan is ready.",
+      "Boundary established after 2 questions. Your learning plan is ready.",
     );
     // Send and Cancel stay disabled until the plan arrives.
     expect(
@@ -212,10 +214,10 @@ describe("NewSessionDialog probe loop", () => {
     ).toBe(true);
   });
 
-  it("completes the loop after the final question with a plural count", async () => {
-    await reachFirstQuestion();
+  it("completes the loop across multiple batches with a running count", async () => {
+    await reachFirstBatch([Q1, Q2]);
     mockAnswerProbe
-      .mockResolvedValueOnce({ phase: "probing", question: Q2 })
+      .mockResolvedValueOnce({ phase: "probing", questions: [Q3] })
       .mockResolvedValueOnce({
         phase: "planning",
         boundary_map: {
@@ -223,36 +225,39 @@ describe("NewSessionDialog probe loop", () => {
         },
       });
 
-    // Q1 → Q2.
+    // Batch 1 ([Q1, Q2]) → batch 2 ([Q3]).
+    mockGeneratePlan.mockResolvedValue(PLAN_OUT);
     fireEvent.change(screen.getByLabelText(PROBE_LABEL), {
-      target: { value: "B" },
+      target: { value: "B B" },
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
-    await screen.findByText(Q2.text);
+    await screen.findByText(Q3.text);
 
-    // Q2 → boundary map.
-    mockGeneratePlan.mockResolvedValue(PLAN_OUT);
+    // Batch 2 ([Q3], size 1) → boundary map.
     fireEvent.change(screen.getByLabelText(PROBE_LABEL), {
       target: { value: "B" },
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
     await screen.findByText(
-      "Boundary established after 2 questions. Your learning plan is ready.",
+      "Boundary established after 3 questions. Your learning plan is ready.",
     );
     // The plan bubble lands and the review step takes over.
     expect(await screen.findByText(PLAN_OUT.plan.prose_summary)).toBeTruthy();
     expect(screen.getByText(REVIEW_LABEL)).toBeTruthy();
   });
 
-  it("validates the answer index client-side before any request", async () => {
-    await reachFirstQuestion();
+  it("validates the batch client-side before any request", async () => {
+    await reachFirstBatch();
     const textarea = () =>
       screen.getByLabelText(PROBE_LABEL) as HTMLTextAreaElement;
-    for (const bad of ["", "E", "0", "ab"]) {
+    // Too few, too many, and out-of-range letters are all rejected.
+    for (const bad of ["", "B", "B B C", "E F", "B 5"]) {
       fireEvent.change(textarea(), { target: { value: bad } });
       fireEvent.click(screen.getByRole("button", { name: /Send/ }));
-      await screen.findByText("Enter the letter of your answer (A–D).");
-      // No request goes out for an invalid index.
+      await screen.findByText(
+        "Type one letter per question, in order — 2 total.",
+      );
+      // No request goes out for an invalid batch.
       expect(mockAnswerProbe).not.toHaveBeenCalled();
       // The text is preserved for a corrected attempt.
       expect(textarea().value).toBe(bad);
@@ -260,25 +265,26 @@ describe("NewSessionDialog probe loop", () => {
   });
 
   it("shows a backend error and preserves the text on a failed answer", async () => {
-    await reachFirstQuestion();
+    await reachFirstBatch();
     mockAnswerProbe.mockRejectedValue(
       new ApiError("selected_index out of range", 422),
     );
-    // "B" passes client-side validation, so the 422 comes from the backend.
+    // "B B" passes client-side validation, so the 422 comes from the backend.
     fireEvent.change(screen.getByLabelText(PROBE_LABEL), {
-      target: { value: "B" },
+      target: { value: "B B" },
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
     await screen.findByText("selected_index out of range");
-    // The text is preserved and the question is still active.
+    // The text is preserved and the batch is still active.
     expect(
       (screen.getByLabelText(PROBE_LABEL) as HTMLTextAreaElement).value,
-    ).toBe("B");
+    ).toBe("B B");
     expect(screen.getByText(Q1.text)).toBeTruthy();
+    expect(screen.getByText(Q2.text)).toBeTruthy();
   });
 
-  it("retries the first question fetch when it fails", async () => {
+  it("retries the first batch fetch when it fails", async () => {
     mockCreateSession.mockResolvedValue({
       session_id: "s-1",
       phase: "probing",
@@ -289,14 +295,15 @@ describe("NewSessionDialog probe loop", () => {
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
     // The failed auto-fetch surfaces as an inline error; the dialog stays
-    // open with the intake adapted to index entry.
+    // open with the intake adapted to per-question entry.
     await screen.findByText(/went wrong|try again/i);
     expect(screen.getByText(PROBE_LABEL)).toBeTruthy();
 
     // An empty submit retries the first fetch.
-    mockStartProbe.mockResolvedValue({ phase: "probing", question: Q1 });
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1, Q2] });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
     await screen.findByText(Q1.text);
+    await screen.findByText(Q2.text);
     expect(mockStartProbe).toHaveBeenCalledTimes(2);
   });
 });

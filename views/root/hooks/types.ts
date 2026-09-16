@@ -19,7 +19,7 @@ export interface PhaseContext {
   paragraph: string;
   sessionId: string | null;
   phase: Phase | null;
-  probeQuestion: ProbeQuestionOut | null;
+  probeBatch: ProbeQuestionOut[] | null;
   probeCount: number;
   plan: PlanBody | null;
 
@@ -30,7 +30,7 @@ export interface PhaseContext {
   setMessages: (fn: (prev: RecentMessage[]) => RecentMessage[]) => void;
   setSessionId: (id: string | null) => void;
   setPhase: (p: Phase | null) => void;
-  setProbeQuestion: (q: ProbeQuestionOut | null) => void;
+  setProbeBatch: (q: ProbeQuestionOut[] | null) => void;
   setProbeCount: (n: number | ((prev: number) => number)) => void;
   setPlan: (p: PlanBody | null) => void;
 
@@ -43,6 +43,6 @@ export interface PhaseContext {
   optionLetter: (index: number) => string;
 
   // ── Cross-phase record functions (owned by the orchestrator) ──────
-  recordProbeQuestion: (question: ProbeQuestionOut) => void;
+  recordProbeBatch: (questions: ProbeQuestionOut[]) => void;
   recordPlan: (result: PlanOut) => void;
 }

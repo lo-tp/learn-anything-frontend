@@ -79,7 +79,7 @@ export interface paths {
         put?: never;
         /**
          * Probe Session
-         * @description Start the probe or submit the next answer (combined endpoint).
+         * @description Start the probe or submit the answers for the current batch (combined endpoint).
          */
         post: operations["probe_session_sessions__session_id__probe_post"];
         delete?: never;
@@ -148,6 +148,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/dev/sessions/{session_id}/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dev Regenerate
+         * @description Dev-only: wipe existing materials and re-run generation.
+         *
+         *     Requires the session to already have a plan and boundary_map
+         *     (i.e. it has passed the planning phase). Skips all upstream phases.
+         */
+        post: operations["dev_regenerate_dev_sessions__session_id__regenerate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sessions/{session_id}/materials": {
         parameters: {
             query?: never;
@@ -168,6 +191,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/slides/{slide_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Slide
+         * @description Fetch raw slide JSX (component source) by globally-unique slide ID (internal).
+         */
+        get: operations["get_slide_slides__slide_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -176,6 +219,16 @@ export interface components {
         AdjustIn: {
             /** Adjustment */
             adjustment: string;
+        };
+        /** AnswerIn */
+        AnswerIn: {
+            /**
+             * Question Id
+             * Format: uuid
+             */
+            question_id: string;
+            /** Selected Index */
+            selected_index: number;
         };
         /** ApproveOut */
         ApproveOut: {
@@ -246,15 +299,14 @@ export interface components {
         };
         /** ProbeIn */
         ProbeIn: {
-            /** Question Id */
-            question_id?: string | null;
-            /** Selected Index */
-            selected_index?: number | null;
+            /** Answers */
+            answers?: components["schemas"]["AnswerIn"][] | null;
         };
         /** ProbeOut */
         ProbeOut: {
             phase: components["schemas"]["Phase"];
-            question?: components["schemas"]["ProbeQuestionOut"] | null;
+            /** Questions */
+            questions?: components["schemas"]["ProbeQuestionOut"][] | null;
             /** Boundary Map */
             boundary_map?: {
                 [key: string]: {
@@ -348,6 +400,13 @@ export interface components {
             type: "slide";
             /** Slide Id */
             slide_id: string;
+        };
+        /** SlideOut */
+        SlideOut: {
+            /** Slide Id */
+            slide_id: string;
+            /** Content */
+            content: string;
         };
         /** StepOut */
         StepOut: {
@@ -655,6 +714,37 @@ export interface operations {
             };
         };
     };
+    dev_regenerate_dev_sessions__session_id__regenerate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApproveOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_materials_sessions__session_id__materials_get: {
         parameters: {
             query?: never;
@@ -673,6 +763,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MaterialsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_slide_slides__slide_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slide_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlideOut"];
                 };
             };
             /** @description Validation Error */

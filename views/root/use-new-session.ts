@@ -87,8 +87,7 @@ export function useNewSession({
   ]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase | null>(null);
-  const [probeQuestion, setProbeQuestion] =
-    useState<ProbeQuestionOut | null>(null);
+  const [probeBatch, setProbeBatch] = useState<ProbeQuestionOut[] | null>(null);
   const [probeCount, setProbeCount] = useState(0);
   const [plan, setPlan] = useState<PlanBody | null>(null);
 
@@ -146,19 +145,22 @@ export function useNewSession({
 
   // ── Cross-phase record functions ────────────────────────────────────────
   /**
-   * Record a freshly served probe question: append its bubble (text +
-   * numbered options), track the count, and clear the textarea.
+   * Record a freshly served batch of probe questions: append one bubble per
+   * question (text + lettered options), track the running question count by
+   * the batch size, and clear the textarea.
    */
-  function recordProbeQuestion(question: ProbeQuestionOut) {
+  function recordProbeBatch(questions: ProbeQuestionOut[]) {
     setStatus("idle");
     setPhase("probing");
-    setProbeQuestion(question);
-    setProbeCount((count) => count + 1);
+    setProbeBatch(questions);
+    setProbeCount((count) => count + questions.length);
     setParagraph("");
-    setMessages((prev) => [
-      ...prev,
-      { role: "ai", text: question.text, options: question.options },
-    ]);
+    const bubbles: RecentMessage[] = questions.map((q) => ({
+      role: "ai",
+      text: q.text,
+      options: q.options,
+    }));
+    setMessages((prev) => [...prev, ...bubbles]);
   }
 
   /**
@@ -189,7 +191,7 @@ export function useNewSession({
     setMessages([OPENING_PROMPT]);
     setSessionId(null);
     setPhase(null);
-    setProbeQuestion(null);
+    setProbeBatch(null);
     setProbeCount(0);
     setPlan(null);
     onOpenChange(false);
@@ -208,7 +210,7 @@ export function useNewSession({
     paragraph,
     sessionId,
     phase,
-    probeQuestion,
+    probeBatch,
     probeCount,
     plan,
     setParagraph,
@@ -217,14 +219,14 @@ export function useNewSession({
     setMessages,
     setSessionId,
     setPhase,
-    setProbeQuestion,
+    setProbeBatch,
     setProbeCount,
     setPlan,
     onAccept,
     close,
     splitAnswer,
     optionLetter,
-    recordProbeQuestion,
+    recordProbeBatch,
     recordPlan,
   };
 
@@ -279,7 +281,7 @@ export function useNewSession({
     pending,
     phase,
     probing,
-    probeQuestion,
+    probeBatch,
     plan,
     reviewing,
     awaitingPlan,

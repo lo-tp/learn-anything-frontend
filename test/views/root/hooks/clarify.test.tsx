@@ -73,7 +73,7 @@ describe("NewSessionDialog clarify phase", () => {
       phase: "probing",
       narrowed_goal: "Newton's second law of motion",
     });
-    mockStartProbe.mockResolvedValue({ phase: "probing", question: Q1 });
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
     // Messy on purpose: padded lines and a blank line — the bubble shows
     // the trimmed lines only, while the raw answer goes to the backend.
     const ANSWER =
