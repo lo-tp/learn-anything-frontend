@@ -19,7 +19,14 @@ export interface PhaseContext {
   paragraph: string;
   sessionId: string | null;
   phase: Phase | null;
+  /** The current batch of probe questions being worked through. */
   probeBatch: ProbeQuestionOut[] | null;
+  /**
+   * The 0-based selected indices collected so far for the current batch, in
+   * batch order. Its length is the index of the active (next-to-answer)
+   * question: `probeBatch[probeAnswers.length]`.
+   */
+  probeAnswers: number[];
   probeCount: number;
   plan: PlanBody | null;
 
@@ -31,6 +38,7 @@ export interface PhaseContext {
   setSessionId: (id: string | null) => void;
   setPhase: (p: Phase | null) => void;
   setProbeBatch: (q: ProbeQuestionOut[] | null) => void;
+  setProbeAnswers: (n: number[] | ((prev: number[]) => number[])) => void;
   setProbeCount: (n: number | ((prev: number) => number)) => void;
   setPlan: (p: PlanBody | null) => void;
 

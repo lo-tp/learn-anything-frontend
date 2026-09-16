@@ -10,12 +10,15 @@ import type { RecentMessage } from "../use-new-session";
 
 /**
  * The Probing phase: runs the batched probe loop against the combined
- * `POST /sessions/{id}/probe` endpoint. Each round the backend serves a
- * **batch** of questions (`startProbe` fetches the first; `answerProbe`
- * submits the answers for the current batch and returns the next batch or
- * the boundary map). The learner answers by typing one option letter per
- * question, in batch order, which is client-validated and sent as a list of
- * 0-based `selected_index` values. Within a batch the questions are
+ * `POST /sessions/{id}/probe` endpoint, but presents questions **one at a
+ * time**. The backend serves a whole batch per round (`startProbe` fetches
+ * the first; `answerProbe` submits the combined answers for a batch and
+ * returns the next batch or the boundary map). The learner, however, is
+ * shown one question at a time and answers each by typing its option's
+ * letter (A, B, C, …), which is client-validated. Within a batch the next
+ * question is drawn from the batch locally (no round-trip); only when the
+ * batch's last question is answered are all of its answers combined and
+ * sent to the backend in a single call. Within a batch the questions are
  * independent; adaptivity between batches comes from the backend's updated
  * boundary map. When the boundary is established the plan is auto-generated.
  */
@@ -24,6 +27,7 @@ export function useProbePhase(ctx: PhaseContext) {
     paragraph,
     sessionId,
     probeBatch,
+    probeAnswers,
     probeCount,
     setStatus,
     setMessage,
@@ -31,6 +35,7 @@ export function useProbePhase(ctx: PhaseContext) {
     setPhase,
     setParagraph,
     setProbeBatch,
+    setProbeAnswers,
     setProbeCount,
     optionLetter,
     recordPlan,
@@ -38,104 +43,50 @@ export function useProbePhase(ctx: PhaseContext) {
   } = ctx;
 
   /**
-   * Parse the learner's input into one 0-based index per question in the
-   * current batch. The learner types one option letter per question, in
-   * order, separated by whitespace (e.g. "B C A" for a 3-question batch).
-   * Returns null when the token count or any letter is out of range for its
-   * question — partial answers are rejected here, before any request.
+   * The 0-based option index for the learner's typed letter (A, B, C, …),
+   * matching the backend's `correct_index` / `selected_index` convention
+   * (the UI shows 1-based option letters). Returns null when the text is not
+   * a single letter within range.
    */
-  function parseBatchAnswers(
-    text: string,
-    batch: ProbeQuestionOut[],
-  ): number[] | null {
-    const tokens = text.split(/\s+/).filter((t) => t.length > 0);
-    if (tokens.length !== batch.length) return null;
-    const indices: number[] = [];
-    for (let i = 0; i < batch.length; i += 1) {
-      const token = tokens[i].toUpperCase();
-      const index = token.charCodeAt(0) - "A".charCodeAt(0) + 1;
-      if (token.length !== 1 || index < 1 || index > batch[i].options.length) {
-        return null;
-      }
-      indices.push(index - 1);
-    }
-    return indices;
+  function parseOptionIndex(text: string, count: number): number | null {
+    const trimmed = text.trim().toUpperCase();
+    if (trimmed.length !== 1) return null;
+    const index = trimmed.charCodeAt(0) - "A".charCodeAt(0);
+    if (index < 0 || index >= count) return null;
+    return index;
   }
 
   /**
-   * Record the outcome of an answered batch: a "you" pick and an AI verdict
-   * per question, then either the next batch of questions or the highlighted
-   * completion message (which leaves the status pending so the buttons stay
-   * disabled while the plan auto-generates).
+   * The "you" pick and the AI verdict for one answered question, computed
+   * client-side from the question's known `correct_index` + `explanation`.
    */
-  function recordResult(
-    indices: number[],
-    result: { phase: Phase; questions?: ProbeQuestionOut[] | null },
-  ) {
-    if (!probeBatch) return;
-
-    const additions: RecentMessage[] = [];
-    probeBatch.forEach((q, i) => {
-      const selected = indices[i];
-      const isCorrect = selected === q.correct_index;
-      additions.push({
+  function pickAndVerdict(
+    question: ProbeQuestionOut,
+    selected: number,
+  ): RecentMessage[] {
+    const isCorrect = selected === question.correct_index;
+    return [
+      {
         role: "you",
-        text: `${optionLetter(selected + 1)}: ${q.options[selected]}`,
-      });
-      additions.push({
+        text: `${optionLetter(selected + 1)}: ${question.options[selected]}`,
+      },
+      {
         role: "ai",
         text: isCorrect
-          ? `Correct — option ${optionLetter(selected + 1)} (${q.options[selected]}). ${q.explanation}`
+          ? `Correct — option ${optionLetter(selected + 1)} (${question.options[selected]}). ${question.explanation}`
           : `Not quite — the correct answer is option ${optionLetter(
-              q.correct_index + 1,
-            )} (${q.options[q.correct_index]}). ${q.explanation}`,
-      });
-    });
-
-    if (result.questions) {
-      const next = result.questions;
-      additions.push({
-        role: "ai",
-        text:
-          next.length === 1
-            ? "Here's your next question:"
-            : `Here are your next ${next.length} questions:`,
-      });
-      setProbeBatch(next);
-      setProbeCount((count) => count + next.length);
-      const bubbles: RecentMessage[] = next.map((q) => ({
-        role: "ai",
-        text: q.text,
-        options: q.options,
-      }));
-      setMessages((prev) => [...prev, ...additions, ...bubbles]);
-      setPhase(result.phase);
-      setParagraph("");
-      // A next batch is owed answers — reopen the intake.
-      setStatus("idle");
-      return;
-    }
-
-    additions.push({
-      role: "ai",
-      text: `Boundary established after ${probeCount} question${
-        probeCount === 1 ? "" : "s"
-      }. Your learning plan is ready.`,
-      highlighted: true,
-    });
-    setProbeBatch(null);
-    // No next batch: the boundary is set and the plan auto-generates right
-    // after this. Keep the status pending so Send/Cancel stay disabled while
-    // that generation is in flight (recordPlan settles it on success; the
-    // error path settles it for a retry).
-    setPhase(result.phase);
-    setParagraph("");
-    setMessages((prev) => [...prev, ...additions]);
+              question.correct_index + 1,
+            )} (${question.options[question.correct_index]}). ${question.explanation}`,
+      },
+    ];
   }
 
   /**
-   * Handle a submit during the probing phase: retry a failed first fetch, or
-   * answer the current batch with one typed letter per question.
+   * Handle a submit during the probing phase:
+   * - fetch the first batch (or retry a failed fetch) when none is active;
+   * - otherwise answer the ACTIVE question (one at a time). When that was
+   *   the batch's last question, all of its answers are combined and
+   *   submitted to the backend in a single call.
    */
   async function submit() {
     if (sessionId === null) {
@@ -147,7 +98,7 @@ export function useProbePhase(ctx: PhaseContext) {
     }
 
     if (probeBatch === null) {
-      // First fetch (or its retry) — no batch is owed answers yet.
+      // First fetch (or its retry) — no batch is active yet.
       const result = await startProbe(sessionId);
       if (!result.questions) {
         setStatus("error");
@@ -158,27 +109,90 @@ export function useProbePhase(ctx: PhaseContext) {
       return;
     }
 
-    const indices = parseBatchAnswers(paragraph, probeBatch);
-    if (indices === null) {
+    // The active question is the first one in the batch not yet answered.
+    const activeIndex = probeAnswers.length;
+    if (activeIndex >= probeBatch.length) return; // exhausted — no active q
+    const question = probeBatch[activeIndex];
+
+    const selected = parseOptionIndex(paragraph, question.options.length);
+    if (selected === null) {
       setStatus("error");
       setMessage(
-        `Type one letter per question, in order — ${probeBatch.length} total.`,
+        `Enter the letter of your answer (A–${optionLetter(
+          question.options.length,
+        )}).`,
       );
       return;
     }
 
-    const answers = probeBatch.map((q, i) => ({
-      question_id: q.id,
-      selected_index: indices[i],
-    }));
-    const result = await answerProbe(sessionId, answers);
-    recordResult(indices, result);
+    // Combine this answer with the ones collected earlier in the batch.
+    const answers = [...probeAnswers, selected];
+    const isLast = activeIndex === probeBatch.length - 1;
 
-    if (!result.questions) {
-      // Boundary established — auto-generate the plan.
-      const generated = await generatePlan(sessionId);
-      recordPlan(generated);
+    // Record the pick + verdict for this question and count it.
+    setProbeAnswers(answers);
+    setProbeCount((count) => count + 1);
+    setMessages((prev) => [...prev, ...pickAndVerdict(question, selected)]);
+
+    if (!isLast) {
+      // Surface the next question from the batch — no backend round-trip.
+      const next = probeBatch[activeIndex + 1];
+      setMessages((prev) => [
+        ...prev,
+        { role: "ai", text: next.text, options: next.options },
+      ]);
+      setParagraph("");
+      setStatus("idle");
+      return;
     }
+
+    // Last question in the batch: submit the combined answers to the backend.
+    const payload = probeBatch.map((q, i) => ({
+      question_id: q.id,
+      selected_index: answers[i],
+    }));
+    const result: { phase: Phase; questions?: ProbeQuestionOut[] | null } =
+      await answerProbe(sessionId, payload);
+    // The submit succeeded — clear the text now (a failure preserves it for
+    // a retry).
+    setParagraph("");
+
+    if (result.questions) {
+      // Next batch: surface its first question and reset the collected
+      // answers. The rest of the batch is drawn locally as the learner goes.
+      const bubbles: RecentMessage[] = result.questions.map((q) => ({
+        role: "ai",
+        text: q.text,
+        options: q.options,
+      }));
+      setProbeBatch(result.questions);
+      setProbeAnswers([]);
+      setMessages((prev) => [...prev, ...bubbles]);
+      setPhase(result.phase);
+      setStatus("idle");
+      return;
+    }
+
+    // Boundary established — the whole probe is done. Auto-generate the plan.
+    setProbeBatch(null);
+    setProbeAnswers([]);
+    setPhase(result.phase);
+    const total = probeCount + 1;
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "ai",
+        text: `Boundary established after ${total} question${
+          total === 1 ? "" : "s"
+        }. Your learning plan is ready.`,
+        highlighted: true,
+      },
+    ]);
+    // Keep the status pending so Send/Cancel stay disabled while generation is
+    // in flight (recordPlan settles it on success; the error path settles it
+    // for a retry).
+    const generated = await generatePlan(sessionId);
+    recordPlan(generated);
   }
 
   return { submit };

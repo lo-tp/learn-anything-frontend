@@ -10,7 +10,7 @@ import type { PlanBody, PlanOut } from "@/lib/api-client";
 
 export const TITLE = "Start New Session";
 export const LABEL = "What would you like to explore or learn?";
-export const PROBE_LABEL = "Answer each question below";
+export const PROBE_LABEL = "Which option is right?";
 export const REVIEW_LABEL = "How should we adjust the plan?";
 export const SHORT = "Too short.";
 export const GOAL = "I want to master Newton's second law of motion.";

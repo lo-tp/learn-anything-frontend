@@ -88,10 +88,21 @@ export function useNewSession({
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase | null>(null);
   const [probeBatch, setProbeBatch] = useState<ProbeQuestionOut[] | null>(null);
+  const [probeAnswers, setProbeAnswers] = useState<number[]>([]);
   const [probeCount, setProbeCount] = useState(0);
   const [plan, setPlan] = useState<PlanBody | null>(null);
 
-  // ── Derived booleans ─────────────────────────────────────────────────────
+  // ── Derived values ───────────────────────────────────────────────────────
+  /**
+   * The active question the learner must answer next: the first question in
+   * the current batch not yet answered, or null while the batch is exhausted
+   * (its combined answers are being submitted) or no batch is active.
+   */
+  const probeQuestion =
+    probeBatch && probeAnswers.length < probeBatch.length
+      ? probeBatch[probeAnswers.length]
+      : null;
+
   const pending = status === "pending";
   const probing = phase === "probing";
   const reviewing = plan !== null;
@@ -145,22 +156,21 @@ export function useNewSession({
 
   // ── Cross-phase record functions ────────────────────────────────────────
   /**
-   * Record a freshly served batch of probe questions: append one bubble per
-   * question (text + lettered options), track the running question count by
-   * the batch size, and clear the textarea.
+   * Start a fresh batch of probe questions: surface only its FIRST question
+   * (the learner answers the rest of the batch one at a time, locally),
+   * reset the collected answers, and clear the textarea. Questions are
+   * counted as they are answered, not when the batch is served.
    */
   function recordProbeBatch(questions: ProbeQuestionOut[]) {
     setStatus("idle");
     setPhase("probing");
     setProbeBatch(questions);
-    setProbeCount((count) => count + questions.length);
+    setProbeAnswers([]);
     setParagraph("");
-    const bubbles: RecentMessage[] = questions.map((q) => ({
-      role: "ai",
-      text: q.text,
-      options: q.options,
-    }));
-    setMessages((prev) => [...prev, ...bubbles]);
+    setMessages((prev) => [
+      ...prev,
+      { role: "ai", text: questions[0].text, options: questions[0].options },
+    ]);
   }
 
   /**
@@ -192,6 +202,7 @@ export function useNewSession({
     setSessionId(null);
     setPhase(null);
     setProbeBatch(null);
+    setProbeAnswers([]);
     setProbeCount(0);
     setPlan(null);
     onOpenChange(false);
@@ -211,6 +222,7 @@ export function useNewSession({
     sessionId,
     phase,
     probeBatch,
+    probeAnswers,
     probeCount,
     plan,
     setParagraph,
@@ -220,6 +232,7 @@ export function useNewSession({
     setSessionId,
     setPhase,
     setProbeBatch,
+    setProbeAnswers,
     setProbeCount,
     setPlan,
     onAccept,
@@ -281,7 +294,7 @@ export function useNewSession({
     pending,
     phase,
     probing,
-    probeBatch,
+    probeQuestion,
     plan,
     reviewing,
     awaitingPlan,
