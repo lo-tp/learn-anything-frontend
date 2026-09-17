@@ -412,6 +412,11 @@ export interface components {
         StepOut: {
             /** Id */
             id: string;
+            /**
+             * Letter
+             * @default
+             */
+            letter: string;
             /** Title */
             title: string;
             /** Description */

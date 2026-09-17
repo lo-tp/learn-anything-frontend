@@ -70,6 +70,7 @@ export const PLAN: PlanBody = {
   steps: [
     {
       id: "step-1",
+      letter: "A",
       title: "Scalar F = ma",
       description: "One-dimensional force, mass, and acceleration.",
       depends_on: [],
@@ -77,6 +78,7 @@ export const PLAN: PlanBody = {
     },
     {
       id: "step-2",
+      letter: "B",
       title: "Vector form",
       description: "Forces and accelerations as vectors.",
       depends_on: ["step-1"],
@@ -84,6 +86,7 @@ export const PLAN: PlanBody = {
     },
     {
       id: "step-3",
+      letter: "C",
       title: "Combining forces",
       description: "Summing several forces into a net force.",
       depends_on: ["step-2"],

@@ -119,6 +119,7 @@ describe("Root (home History)", () => {
         steps: [
           {
             id: "step-1",
+            letter: "A",
             title: "Scalar F = ma",
             description: "One-dimensional force, mass, and acceleration.",
             depends_on: [],

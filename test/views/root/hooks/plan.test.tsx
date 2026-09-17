@@ -75,13 +75,13 @@ afterEach(() => {
 });
 
 describe("NewSessionDialog plan review", () => {
-  it("renders the plan bubble with its numbered steps and builds-on notes", async () => {
+  it("renders the plan bubble with its lettered steps and builds-on notes", async () => {
     await reachReviewStep();
 
     // The prose summary is the bubble body (highlighted).
     const summary = screen.getByText(PLAN.prose_summary);
     expect(summary.closest('[class*="bg-primary/10"]')).toBeTruthy();
-    // Three numbered steps render in backend order, each
+    // Three lettered steps render in backend order, each
     // "title — description", with dependencies resolved to titles.
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
     expect(
@@ -99,10 +99,10 @@ describe("NewSessionDialog plan review", () => {
         "Combining forces — Summing several forces into a net force. · builds on: Vector form",
       ),
     ).toBeTruthy();
-    // Each step carries its number marker (1., 2., 3.).
+    // Each step carries its letter marker (A., B., C.).
     expect(
-      screen.getAllByText(/^\d+\.$/).map((marker) => marker.textContent),
-    ).toEqual(["1.", "2.", "3."]);
+      screen.getAllByText(/^[A-Z]\.$/).map((marker) => marker.textContent),
+    ).toEqual(["A.", "B.", "C."]);
   });
 
   it("adjusts the plan with free text: Enter sends adjustPlan and appends a new plan bubble", async () => {

@@ -2,6 +2,7 @@
 
 import { CircleHelp, Settings } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { Link } from "@/i18n/navigation";
 
 /**
@@ -25,6 +26,7 @@ export function TopBar() {
         >
           <Settings className="size-5" />
         </button>
+        <LanguageSwitcher />
         <button
           type="button"
           aria-label={t("help")}

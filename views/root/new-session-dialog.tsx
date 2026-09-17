@@ -217,13 +217,13 @@ export function NewSessionDialog({
                           )}
                           {plan && (
                             <ul className="mt-2.5 space-y-1.5">
-                              {plan.steps.map((step, i) => (
+                              {plan.steps.map((step) => (
                                 <li key={step.id} className="flex items-start gap-2">
                                   <span
                                     aria-hidden
                                     className="mt-0.5 font-mono text-xs font-semibold text-primary"
                                   >
-                                    {i + 1}.
+                                    {step.letter}.
                                   </span>
                                   <span>
                                     {step.title} — {step.description}

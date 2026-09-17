@@ -5,7 +5,8 @@
   },
   "topbar": {
     "settings": "Settings",
-    "help": "Help"
+    "help": "Help",
+    "chooseLanguage": "Choose language"
   },
   "home": {
     "title": "My Sessions",
