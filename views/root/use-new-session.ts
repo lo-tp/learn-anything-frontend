@@ -13,7 +13,9 @@ import {
   usePlanPhase,
   useProbePhase,
   type PhaseContext,
+  type ShuffledProbeQuestion,
   type Status,
+  withDisplayOrder,
 } from "./hooks";
 
 /** One turn of the conversation shown above the intake box. */
@@ -26,9 +28,11 @@ export type RecentMessage = {
    */
   text: string | string[];
   /**
-   * Probe-question options rendered as a numbered list under the bubble
+   * Probe-question options rendered as a lettered list under the bubble
    * body (the active question the learner must answer by typing its
-   * option's number).
+   * option's letter). Probe questions carry their options in a
+   * per-question shuffled display order, so the correct answer is never
+   * stuck on one letter (#74).
    */
   options?: string[];
   /**
@@ -87,7 +91,9 @@ export function useNewSession({
   const [messages, setMessages] = useState<RecentMessage[]>([openingPrompt]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase | null>(null);
-  const [probeBatch, setProbeBatch] = useState<ProbeQuestionOut[] | null>(null);
+  const [probeBatch, setProbeBatch] = useState<ShuffledProbeQuestion[] | null>(
+    null,
+  );
   const [probeAnswers, setProbeAnswers] = useState<number[]>([]);
   const [probeCount, setProbeCount] = useState(0);
   const [plan, setPlan] = useState<PlanBody | null>(null);
@@ -162,14 +168,21 @@ export function useNewSession({
    * counted as they are answered, not when the batch is served.
    */
   function recordProbeBatch(questions: ProbeQuestionOut[]) {
+    // Each question gets a fresh display order (shuffled option indices),
+    // generated once here so it is stable for the rest of the session.
+    const batch = withDisplayOrder(questions);
     setStatus("idle");
     setPhase("probing");
-    setProbeBatch(questions);
+    setProbeBatch(batch);
     setProbeAnswers([]);
     setParagraph("");
     setMessages((prev) => [
       ...prev,
-      { role: "ai", text: questions[0].text, options: questions[0].options },
+      {
+        role: "ai",
+        text: batch[0].text,
+        options: batch[0].order.map((i) => batch[0].options[i]),
+      },
     ]);
   }
 

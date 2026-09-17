@@ -1,4 +1,5 @@
-export type { PhaseContext, Status } from "./types";
+export type { PhaseContext, ShuffledProbeQuestion, Status } from "./types";
+export { withDisplayOrder } from "./types";
 export { useClarifyPhase } from "./use-clarify";
 export { useProbePhase } from "./use-probe";
 export { usePlanPhase } from "./use-plan";

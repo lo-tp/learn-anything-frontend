@@ -4,9 +4,31 @@ import type {
   PlanOut,
   ProbeQuestionOut,
 } from "@/lib/api-client";
+import { shuffleIndices } from "@/lib/utils";
 import type { RecentMessage } from "../use-new-session";
 
 export type Status = "idle" | "pending" | "error";
+
+/**
+ * A probe question as the client holds it: the backend payload plus its
+ * display order. `order` is a permutation of the option indices where
+ * `order[i]` is the **backend** index of the option rendered at display
+ * position `i`. It is generated once when the batch is served — so the
+ * correct answer is never stuck on one letter (#74) — and stays stable for
+ * the rest of the session; a typed answer letter is mapped through it back
+ * to a backend index before submission.
+ */
+export type ShuffledProbeQuestion = ProbeQuestionOut & { order: number[] };
+
+/** Attach a fresh per-question display order to a batch of raw questions. */
+export function withDisplayOrder(
+  questions: ProbeQuestionOut[],
+): ShuffledProbeQuestion[] {
+  return questions.map((question) => ({
+    ...question,
+    order: shuffleIndices(question.options.length),
+  }));
+}
 
 /**
  * The shared state, dispatchers, and cross-phase callbacks every phase
@@ -19,12 +41,13 @@ export interface PhaseContext {
   paragraph: string;
   sessionId: string | null;
   phase: Phase | null;
-  /** The current batch of probe questions being worked through. */
-  probeBatch: ProbeQuestionOut[] | null;
+  /** The current batch of probe questions, with their display orders. */
+  probeBatch: ShuffledProbeQuestion[] | null;
   /**
-   * The 0-based selected indices collected so far for the current batch, in
-   * batch order. Its length is the index of the active (next-to-answer)
-   * question: `probeBatch[probeAnswers.length]`.
+   * The 0-based **backend** selected indices collected so far for the
+   * current batch, in batch order (display letters are mapped back through
+   * each question's `order`). Its length is the index of the active
+   * (next-to-answer) question: `probeBatch[probeAnswers.length]`.
    */
   probeAnswers: number[];
   probeCount: number;
@@ -37,7 +60,7 @@ export interface PhaseContext {
   setMessages: (fn: (prev: RecentMessage[]) => RecentMessage[]) => void;
   setSessionId: (id: string | null) => void;
   setPhase: (p: Phase | null) => void;
-  setProbeBatch: (q: ProbeQuestionOut[] | null) => void;
+  setProbeBatch: (q: ShuffledProbeQuestion[] | null) => void;
   setProbeAnswers: (n: number[] | ((prev: number[]) => number[])) => void;
   setProbeCount: (n: number | ((prev: number) => number)) => void;
   setPlan: (p: PlanBody | null) => void;

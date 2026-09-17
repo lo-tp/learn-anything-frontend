@@ -5,7 +5,8 @@ import {
   type Phase,
   type ProbeQuestionOut,
 } from "@/lib/api-client";
-import type { PhaseContext } from "./types";
+import type { PhaseContext, ShuffledProbeQuestion } from "./types";
+import { withDisplayOrder } from "./types";
 import type { RecentMessage } from "../use-new-session";
 
 /**
@@ -15,7 +16,11 @@ import type { RecentMessage } from "../use-new-session";
  * the first; `answerProbe` submits the combined answers for a batch and
  * returns the next batch or the boundary map). The learner, however, is
  * shown one question at a time and answers each by typing its option's
- * letter (A, B, C, …), which is client-validated. Within a batch the next
+ * letter (A, B, C, …), which is client-validated. Each question's options
+ * are rendered in a shuffled display order (generated once per batch) so
+ * the correct answer is never stuck on one letter (#74); the typed letter
+ * is mapped back through the question's `order` to the backend index
+ * before it is recorded or submitted. Within a batch the next
  * question is drawn from the batch locally (no round-trip); only when the
  * batch's last question is answered are all of its answers combined and
  * sent to the backend in a single call. Within a batch the questions are
@@ -59,24 +64,29 @@ export function useProbePhase(ctx: PhaseContext) {
   /**
    * The "you" pick and the AI verdict for one answered question, computed
    * client-side from the question's known `correct_index` + `explanation`.
+   * `selected` is the **backend** index; the letters shown are translated
+   * back through the question's display order, so they match what the
+   * learner actually saw and typed.
    */
   function pickAndVerdict(
-    question: ProbeQuestionOut,
+    question: ShuffledProbeQuestion,
     selected: number,
   ): RecentMessage[] {
     const isCorrect = selected === question.correct_index;
+    const chosenLetter = optionLetter(question.order.indexOf(selected) + 1);
+    const correctLetter = optionLetter(
+      question.order.indexOf(question.correct_index) + 1,
+    );
     return [
       {
         role: "you",
-        text: `${optionLetter(selected + 1)}: ${question.options[selected]}`,
+        text: `${chosenLetter}: ${question.options[selected]}`,
       },
       {
         role: "ai",
         text: isCorrect
-          ? `Correct — option ${optionLetter(selected + 1)} (${question.options[selected]}). ${question.explanation}`
-          : `Not quite — the correct answer is option ${optionLetter(
-              question.correct_index + 1,
-            )} (${question.options[question.correct_index]}). ${question.explanation}`,
+          ? `Correct — option ${correctLetter} (${question.options[selected]}). ${question.explanation}`
+          : `Not quite — the correct answer is option ${correctLetter} (${question.options[question.correct_index]}). ${question.explanation}`,
       },
     ];
   }
@@ -114,8 +124,8 @@ export function useProbePhase(ctx: PhaseContext) {
     if (activeIndex >= probeBatch.length) return; // exhausted — no active q
     const question = probeBatch[activeIndex];
 
-    const selected = parseOptionIndex(paragraph, question.options.length);
-    if (selected === null) {
+    const displayIndex = parseOptionIndex(paragraph, question.options.length);
+    if (displayIndex === null) {
       setStatus("error");
       setMessage(
         `Enter the letter of your answer (A–${optionLetter(
@@ -124,6 +134,10 @@ export function useProbePhase(ctx: PhaseContext) {
       );
       return;
     }
+    // The typed letter is a position in the question's shuffled display
+    // order — map it back to the backend index before recording or
+    // submitting (#74).
+    const selected = question.order[displayIndex];
 
     // Combine this answer with the ones collected earlier in the batch.
     const answers = [...probeAnswers, selected];
@@ -139,7 +153,11 @@ export function useProbePhase(ctx: PhaseContext) {
       const next = probeBatch[activeIndex + 1];
       setMessages((prev) => [
         ...prev,
-        { role: "ai", text: next.text, options: next.options },
+        {
+          role: "ai",
+          text: next.text,
+          options: next.order.map((i) => next.options[i]),
+        },
       ]);
       setParagraph("");
       setStatus("idle");
@@ -160,12 +178,18 @@ export function useProbePhase(ctx: PhaseContext) {
     if (result.questions) {
       // Next batch: surface only its FIRST question and reset the collected
       // answers. The rest of the batch is drawn locally as the learner goes.
-      const first = result.questions[0];
-      setProbeBatch(result.questions);
+      // Each question gets a fresh display order, as with the first batch.
+      const batch = withDisplayOrder(result.questions);
+      const first = batch[0];
+      setProbeBatch(batch);
       setProbeAnswers([]);
       setMessages((prev) => [
         ...prev,
-        { role: "ai", text: first.text, options: first.options },
+        {
+          role: "ai",
+          text: first.text,
+          options: first.order.map((i) => first.options[i]),
+        },
       ]);
       setPhase(result.phase);
       setStatus("idle");
