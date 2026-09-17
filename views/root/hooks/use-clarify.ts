@@ -25,6 +25,7 @@ export function useClarifyPhase(ctx: PhaseContext) {
     setPhase,
     setParagraph,
     splitAnswer,
+    t,
     recordProbeBatch,
     recordPlan,
   } = ctx;
@@ -43,7 +44,7 @@ export function useClarifyPhase(ctx: PhaseContext) {
     if (result.phase === "clarifying") {
       const questions = result.clarifying_questions?.length
         ? result.clarifying_questions
-        : ["That's a bit thin — add a little more detail."];
+        : [t("thinFeedback")];
       setStatus("idle");
       setPhase("clarifying");
       setParagraph("");
@@ -62,7 +63,7 @@ export function useClarifyPhase(ctx: PhaseContext) {
     if (result.narrowed_goal) {
       additions.push({
         role: "ai",
-        text: `Your narrowed goal is: ${result.narrowed_goal}`,
+        text: t("yourNarrowedGoal", { goal: result.narrowed_goal }),
         highlighted: true,
       });
     }
@@ -75,7 +76,7 @@ export function useClarifyPhase(ctx: PhaseContext) {
       const probe = await startProbe(result.session_id);
       if (!probe.questions) {
         setStatus("error");
-        setMessage("No questions were received — please try again.");
+        setMessage(t("errorNoQuestions"));
         return;
       }
       recordProbeBatch(probe.questions);

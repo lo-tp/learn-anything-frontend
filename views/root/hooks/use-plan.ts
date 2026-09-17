@@ -26,6 +26,7 @@ export function usePlanPhase(ctx: PhaseContext) {
     onAccept,
     close,
     splitAnswer,
+    t,
     recordPlan,
   } = ctx;
 
@@ -51,15 +52,13 @@ export function usePlanPhase(ctx: PhaseContext) {
 
     if (text === "") {
       setStatus("error");
-      setMessage(
-        "Type 'approve' to approve the plan, or describe how to adjust it.",
-      );
+      setMessage(t("errorApproveHint"));
       return;
     }
 
     if (sessionId === null) {
       setStatus("error");
-      setMessage("Something went wrong with your session. Please try again.");
+      setMessage(t("errorSession"));
       return;
     }
 
@@ -69,9 +68,7 @@ export function usePlanPhase(ctx: PhaseContext) {
       } catch (err) {
         setStatus("error");
         setMessage(
-          err instanceof ApiError
-            ? err.message
-            : "Something went wrong approving your plan. Please try again.",
+          err instanceof ApiError ? err.message : t("errorApprovePlan"),
         );
         return;
       }

@@ -38,7 +38,17 @@
     "cancel": "取消",
     "send": "发送",
     "sending": "发送中…",
-    "errorFallback": "启动会话时出了点问题，请重试。"
+    "errorFallback": "启动会话时出了点问题，请重试。",
+    "yourNarrowedGoal": "你的聚焦目标是：{goal}",
+    "verdictCorrect": "答对了 —— 选项 {letter}（{option}）。{explanation}",
+    "verdictNotQuite": "不太对 —— 正确答案是选项 {letter}（{option}）。{explanation}",
+    "boundaryEstablished": "经过 {n, plural, other {# 道题目}}后，掌握边界已确立。你的学习计划已就绪。",
+    "thinFeedback": "内容有点单薄 —— 请再补充一些细节。",
+    "errorNoQuestions": "没有收到题目，请重试。",
+    "errorEnterLetter": "请输入你的答案对应的字母（A–{last}）。",
+    "errorApproveHint": "输入 'approve' 批准计划，或描述如何调整。",
+    "errorSession": "会话出了点问题，请重试。",
+    "errorApprovePlan": "批准计划时出了点问题，请重试。"
   },
   "session": {
     "notFound": {

@@ -252,6 +252,7 @@ export function useNewSession({
     close,
     splitAnswer,
     optionLetter,
+    t,
     recordProbeBatch,
     recordPlan,
   };

@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import type {
   Phase,
   PlanBody,
@@ -85,6 +86,11 @@ export interface PhaseContext {
   // ── Shared helpers ────────────────────────────────────────────────
   splitAnswer: (text: string) => string | string[];
   optionLetter: (index: number) => string;
+  /**
+   * The `dialog`-namespace translator (ICU message formatting), so the
+   * phase hooks can build their AI-bubble and error strings through i18n.
+   */
+  t: ReturnType<typeof useTranslations<"dialog">>;
 
   // ── Cross-phase record functions (owned by the orchestrator) ──────
   recordProbeBatch: (questions: ProbeQuestionOut[]) => void;

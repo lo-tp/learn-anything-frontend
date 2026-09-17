@@ -43,6 +43,7 @@ export function useProbePhase(ctx: PhaseContext) {
     setProbeAnswers,
     setProbeCount,
     optionLetter,
+    t,
     recordPlan,
     recordProbeBatch,
   } = ctx;
@@ -85,8 +86,16 @@ export function useProbePhase(ctx: PhaseContext) {
       {
         role: "ai",
         text: isCorrect
-          ? `Correct — option ${correctLetter} (${question.options[selected]}). ${question.explanation}`
-          : `Not quite — the correct answer is option ${correctLetter} (${question.options[question.correct_index]}). ${question.explanation}`,
+          ? t("verdictCorrect", {
+              letter: correctLetter,
+              option: question.options[selected],
+              explanation: question.explanation,
+            })
+          : t("verdictNotQuite", {
+              letter: correctLetter,
+              option: question.options[question.correct_index],
+              explanation: question.explanation,
+            }),
       },
     ];
   }
@@ -101,9 +110,7 @@ export function useProbePhase(ctx: PhaseContext) {
   async function submit() {
     if (sessionId === null) {
       setStatus("error");
-      setMessage(
-        "Something went wrong starting your session. Please try again.",
-      );
+      setMessage(t("errorFallback"));
       return;
     }
 
@@ -112,7 +119,7 @@ export function useProbePhase(ctx: PhaseContext) {
       const result = await startProbe(sessionId);
       if (!result.questions) {
         setStatus("error");
-        setMessage("No questions were received — please try again.");
+        setMessage(t("errorNoQuestions"));
         return;
       }
       recordProbeBatch(result.questions);
@@ -128,9 +135,9 @@ export function useProbePhase(ctx: PhaseContext) {
     if (displayIndex === null) {
       setStatus("error");
       setMessage(
-        `Enter the letter of your answer (A–${optionLetter(
-          question.options.length,
-        )}).`,
+        t("errorEnterLetter", {
+          last: optionLetter(question.options.length),
+        }),
       );
       return;
     }
@@ -205,9 +212,7 @@ export function useProbePhase(ctx: PhaseContext) {
       ...prev,
       {
         role: "ai",
-        text: `Boundary established after ${total} question${
-          total === 1 ? "" : "s"
-        }. Your learning plan is ready.`,
+        text: t("boundaryEstablished", { n: total }),
         highlighted: true,
       },
     ]);
