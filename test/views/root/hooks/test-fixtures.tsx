@@ -16,11 +16,18 @@ export const REVIEW_LABEL = "How should we adjust the plan?";
 export const SHORT = "Too short.";
 export const GOAL = "I want to master Newton's second law of motion.";
 
-/** A 4-option probe question (0-based correct index 1). */
+/**
+ * The localized "I don't know" option the backend appends to every
+ * question's `options` — always at the LAST index, and never
+ * `correct_index` (`with_unknown_option()` in the LLM service).
+ */
+export const UNKNOWN_OPTION = "I don't know";
+
+/** A 5-option probe question (4 LLM options + unknown; correct index 1). */
 export const Q1 = {
   id: "q1",
   text: "A 2 kg object experiences a net force of 10 N. What is its acceleration?",
-  options: ["2 m/s²", "5 m/s²", "10 m/s²", "20 m/s²"],
+  options: ["2 m/s²", "5 m/s²", "10 m/s²", "20 m/s²", UNKNOWN_OPTION],
   correct_index: 1,
   explanation: "a = F/m = 10/2 = 5 m/s².",
   strand: "f_ma_relation",
@@ -31,7 +38,13 @@ export const Q1 = {
 export const Q2 = {
   id: "q2",
   text: "If the net force on the object doubles, its acceleration…",
-  options: ["halves", "doubles", "stays the same", "quadruples"],
+  options: [
+    "halves",
+    "doubles",
+    "stays the same",
+    "quadruples",
+    UNKNOWN_OPTION,
+  ],
   correct_index: 1,
   explanation: "a = F/m, so doubling F doubles a.",
   strand: "f_ma_relation",
@@ -42,7 +55,7 @@ export const Q2 = {
 export const Q3 = {
   id: "q3",
   text: "In the vector form F = ma, which quantity is a scalar?",
-  options: ["force", "mass", "acceleration"],
+  options: ["force", "mass", "acceleration", UNKNOWN_OPTION],
   correct_index: 1,
   explanation: "Mass is a scalar; force and acceleration are vectors.",
   strand: "f_ma_relation",

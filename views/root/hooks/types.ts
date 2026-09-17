@@ -17,17 +17,30 @@ export type Status = "idle" | "pending" | "error";
  * correct answer is never stuck on one letter (#74) — and stays stable for
  * the rest of the session; a typed answer letter is mapped through it back
  * to a backend index before submission.
+ *
+ * The backend appends a localized "I don't know" option at the **last**
+ * index of every question's `options` (and it is never `correct_index`);
+ * the display order preserves that invariant by always rendering it last.
  */
 export type ShuffledProbeQuestion = ProbeQuestionOut & { order: number[] };
 
-/** Attach a fresh per-question display order to a batch of raw questions. */
+/**
+ * Attach a fresh per-question display order to a batch of raw questions.
+ * Only the LLM-generated options (all but the last index) are shuffled; the
+ * backend's unknown option — always at the last index — is pinned to the
+ * last display position so it is never shuffled away from the end.
+ */
 export function withDisplayOrder(
   questions: ProbeQuestionOut[],
 ): ShuffledProbeQuestion[] {
-  return questions.map((question) => ({
-    ...question,
-    order: shuffleIndices(question.options.length),
-  }));
+  return questions.map((question) => {
+    const n = question.options.length;
+    return {
+      ...question,
+      // n-1 is the backend's "I don't know" index; shuffle the rest.
+      order: n > 0 ? [...shuffleIndices(n - 1), n - 1] : [],
+    };
+  });
 }
 
 /**

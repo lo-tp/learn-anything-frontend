@@ -19,6 +19,7 @@ import {
   startProbe,
   type ProbeQuestionOut,
 } from "@/lib/api-client";
+import { withDisplayOrder } from "@/views/root/hooks";
 import {
   GOAL,
   PLAN_OUT,
@@ -27,6 +28,7 @@ import {
   Q3,
   PROBE_LABEL,
   REVIEW_LABEL,
+  UNKNOWN_OPTION,
   openDialog,
 } from "./test-fixtures";
 
@@ -115,6 +117,29 @@ afterEach(() => {
   cleanup();
 });
 
+describe("withDisplayOrder", () => {
+  it("shuffles only the LLM options and pins the unknown option last", () => {
+    const n = Q1.options.length;
+    // Across many draws, the last display position is always the
+    // backend's unknown-option index, and the rest is a permutation of
+    // 0..n-2.
+    for (let i = 0; i < 50; i++) {
+      const [shuffled] = withDisplayOrder([Q1]);
+      expect(shuffled.order[shuffled.order.length - 1]).toBe(n - 1);
+      expect([...shuffled.order.slice(0, -1)].sort((a, b) => a - b)).toEqual(
+        Array.from({ length: n - 1 }, (_, j) => j),
+      );
+    }
+  });
+
+  it("handles a question with only the unknown option", () => {
+    const [shuffled] = withDisplayOrder([
+      { ...Q1, options: [UNKNOWN_OPTION] },
+    ]);
+    expect(shuffled.order).toEqual([0]);
+  });
+});
+
 describe("NewSessionDialog probe loop (one at a time)", () => {
   it("auto-fetches the first batch and shows only its first question", async () => {
     await reachFirstBatch([Q1, Q2]);
@@ -123,14 +148,18 @@ describe("NewSessionDialog probe loop (one at a time)", () => {
     // Only the first question of the batch is shown — never the whole batch.
     expect(screen.getByText(Q1.text)).toBeTruthy();
     expect(screen.queryByText(Q2.text)).toBeNull();
-    // The options render (4 items) as a shuffled display of the backend
-    // options — same set, order left to the client (#74).
-    expect(screen.getAllByRole("listitem")).toHaveLength(4);
+    // The options render (5 items) as a shuffled display of the backend
+    // options — same set, order left to the client (#74) — with the
+    // backend's "I don't know" option pinned last.
+    expect(screen.getAllByRole("listitem")).toHaveLength(5);
     expect([...visibleOptions()].sort()).toEqual([...Q1.options].sort());
+    expect(visibleOptions()[visibleOptions().length - 1]).toBe(
+      UNKNOWN_OPTION,
+    );
     // The single-question intake.
     expect(screen.getByText(PROBE_LABEL)).toBeTruthy();
     expect(
-      screen.getByPlaceholderText("Type the option letter (A–D)"),
+      screen.getByPlaceholderText("Type the option letter (A–E)"),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: /Send/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Cancel/ })).toBeTruthy();
@@ -341,15 +370,62 @@ describe("NewSessionDialog probe loop (one at a time)", () => {
     expect(visibleOptions()).toEqual(firstRead);
   });
 
+  it("keeps the unknown option pinned last on every question", async () => {
+    await reachFirstBatch([Q1, Q2]);
+    mockAnswerProbe.mockResolvedValue({ phase: "probing", questions: [Q3] });
+
+    // Q1 (first of batch 1).
+    expect(visibleOptions()[visibleOptions().length - 1]).toBe(UNKNOWN_OPTION);
+    // Q2 (drawn from the batch).
+    answerOption("5 m/s²");
+    await screen.findByText(Q2.text);
+    expect(visibleOptions()[visibleOptions().length - 1]).toBe(UNKNOWN_OPTION);
+    // Q3 (first of the next batch).
+    answerOption("doubles");
+    await screen.findByText(Q3.text);
+    expect(visibleOptions()[visibleOptions().length - 1]).toBe(UNKNOWN_OPTION);
+  });
+
+  it("maps a pick of the unknown option to its last backend index", async () => {
+    await reachFirstBatch([Q1, Q2]);
+    mockAnswerProbe.mockResolvedValue({ phase: "probing", questions: [Q3] });
+
+    // Pick "I don't know" on Q1 — it always sits last. (Capture both
+    // letters before answering: once Q1 is answered, the last list in the
+    // DOM is Q2's options.)
+    const unknownLetter = letterFor(UNKNOWN_OPTION);
+    const q1CorrectLetter = letterFor("5 m/s²");
+    answerOption(UNKNOWN_OPTION);
+    // It is never the correct answer: the verdict names the real one.
+    await screen.findByText(
+      `Not quite — the correct answer is option ${q1CorrectLetter} (5 m/s²). a = F/m = 10/2 = 5 m/s².`,
+    );
+    // The pick is recorded in a "you" bubble under its (last) letter.
+    expect(
+      screen.getByText(`${unknownLetter}: ${UNKNOWN_OPTION}`, {
+        selector: ".bg-secondary-container span",
+      }),
+    ).toBeTruthy();
+
+    // Finish the batch — the combined submit carries the unknown pick as
+    // Q1's last backend index (4) and Q2's correct index (1).
+    answerOption("doubles");
+    expect(mockAnswerProbe).toHaveBeenCalledWith("s-1", [
+      { question_id: "q1", selected_index: 4 },
+      { question_id: "q2", selected_index: 1 },
+    ]);
+  });
+
   it("validates the answer letter client-side before any request", async () => {
     await reachFirstBatch([Q1, Q2]);
     const textarea = () =>
       screen.getByLabelText(PROBE_LABEL) as HTMLTextAreaElement;
-    for (const bad of ["", "E", "0", "ab", "B C"]) {
+    // Q1 has 5 options (4 LLM + unknown), so E is valid and F is not.
+    for (const bad of ["", "F", "0", "ab", "B C"]) {
       fireEvent.change(textarea(), { target: { value: bad } });
       fireEvent.click(screen.getByRole("button", { name: /Send/ }));
       await screen.findByText(
-        "Enter the letter of your answer (A–D).",
+        "Enter the letter of your answer (A–E).",
       );
       // No request goes out for an invalid answer.
       expect(mockAnswerProbe).not.toHaveBeenCalled();
