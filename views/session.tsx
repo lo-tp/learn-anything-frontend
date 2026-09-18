@@ -92,6 +92,45 @@ export function Session({
     }));
   }, [materials]);
 
+  // ── Active item + slide player (hooks must run before any early return) ──
+  const total = deck.length;
+  const clampedIndex = Math.min(activeIndex, total - 1);
+  const active = deck[clampedIndex];
+
+  // The slide player is one persistent iframe whose `src` never changes: it
+  // always loads the session's first slide, and each slide switch is told to
+  // the sandbox harness via `postMessage` (it swaps the rendered slide in its
+  // own React state). Navigating the iframe to a per-slide URL appends a
+  // top-level history entry that swallows the browser Back button (#80) — so
+  // we never change `src`. The sidebar mini previews already use a constant
+  // `src` (one fixed slide each) and are measured not to add history entries.
+  const playerRef = useRef<HTMLIFrameElement>(null);
+  const firstSlideId = useMemo(
+    () => deck.find((d) => d.type === "slide")?.slide_id ?? null,
+    [deck],
+  );
+  const activeSlideId = active?.type === "slide" ? active.slide_id : null;
+
+  // Tell the player which slide to show whenever the active slide changes.
+  useEffect(() => {
+    if (!activeSlideId) return;
+    playerRef.current?.contentWindow?.postMessage(
+      { type: "DEMO_SET_SLIDE", slideId: activeSlideId },
+      "*",
+    );
+  }, [activeSlideId]);
+
+  // The harness may not be listening on first paint — resync on load so the
+  // correct slide shows even when it differs from the iframe's static `src`.
+  // The handler's closure carries the current `activeSlideId`.
+  const handlePlayerLoad = () => {
+    if (!activeSlideId) return;
+    playerRef.current?.contentWindow?.postMessage(
+      { type: "DEMO_SET_SLIDE", slideId: activeSlideId },
+      "*",
+    );
+  };
+
   // ── Render branches, in priority order ──────────────────────────
 
   if (initialSession === null) {
@@ -143,10 +182,6 @@ export function Session({
     );
   }
 
-  const total = deck.length;
-  const clampedIndex = Math.min(activeIndex, total - 1);
-  const active = deck[clampedIndex];
-
   return (
     <div className="flex h-full overflow-hidden">
       <SessionSidebar
@@ -164,11 +199,16 @@ export function Session({
         </header>
 
         <main className="min-h-0 flex-1 overflow-y-auto p-6">
-          {active.type === "slide" ? (
-            <div className="h-full">
-              <SandboxFrame src={sandboxSrc(active.slide_id)} />
+          {firstSlideId && (
+            <div className={active.type === "slide" ? "h-full" : "hidden"}>
+              <SandboxFrame
+                ref={playerRef}
+                src={sandboxSrc(firstSlideId)}
+                onLoad={handlePlayerLoad}
+              />
             </div>
-          ) : (
+          )}
+          {active.type === "question" && (
             <div className="flex min-h-full items-center justify-center">
               <QuizQuestion
                 question={active}

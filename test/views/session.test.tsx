@@ -127,8 +127,12 @@ describe("Session", () => {
     expect(
       screen.getByRole("button", { name: /^a\s*force$/i }),
     ).toBeTruthy();
-    // And the slide frame is gone.
-    expect(screen.queryByTitle("Sandbox")).toBeNull();
+    // The slide player stays mounted but is hidden — its `src` never changes,
+    // slide switches arrive via postMessage (#80), so the frame is never torn
+    // down (which would re-navigate and add history entries).
+    expect(
+      screen.getByTitle("Sandbox").parentElement?.getAttribute("class"),
+    ).toContain("hidden");
   });
 
   it("walks items with prev/next across group boundaries", () => {
