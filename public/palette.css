@@ -2,7 +2,11 @@
  *
  * Ported from app/globals.css (:root). The sandbox loads this via a
  * <link> tag so LLM-authored demos can reference var(--primary), etc.
- * Dark-only; no light mode.
+ *
+ * `:root` is the dark palette — the default for any consumer that never
+ * adds a class (sandbox pages today, no-JS fallback). The `.light` block
+ * below carries the light values for consumers that opt in by adding the
+ * `light` class to <html>.
  */
 
 :root {
@@ -73,4 +77,77 @@
   --chart-3: #bec6e0;
   --chart-4: #8e9193;
   --chart-5: #464554;
+}
+
+/* Light palette — applied when <html> carries the `light` class (set by the
+ * pre-paint theme script in app/[locale]/layout.tsx). Sits after :root so it
+ * wins at equal specificity; covers every token above. */
+.light {
+  /* Background & surface */
+  --background: #f4f6fa;
+  --on-background: #1b1e2e;
+  --surface: #f4f6fa;
+  --surface-dim: #d5dae6;
+  --surface-bright: #f4f6fa;
+  --surface-variant: #e2e5ef;
+  --surface-tint: #494bd6;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #ebedf3;
+  --surface-container: #e4e7f0;
+  --surface-container-high: #dee1ec;
+  --surface-container-highest: #d8dbee;
+  --on-surface: #1b1e2e;
+  --on-surface-variant: #44475a;
+
+  /* Primary (periwinkle/indigo) */
+  --primary: #494bd6;
+  --primary-container: #e1e0ff;
+  --primary-fixed: #e1e0ff;
+  --primary-fixed-dim: #c0c1ff;
+  --on-primary: #ffffff;
+  --on-primary-container: #17165c;
+  --on-primary-fixed: #14165f;
+  --on-primary-fixed-variant: #2f2ebe;
+  --inverse-primary: #c0c1ff;
+
+  /* Secondary (blue-gray) */
+  --secondary: #4c5468;
+  --secondary-container: #dae2fd;
+  --secondary-fixed: #dae2fd;
+  --secondary-fixed-dim: #bec6e0;
+  --on-secondary: #ffffff;
+  --on-secondary-container: #1a2135;
+  --on-secondary-fixed: #131b2e;
+  --on-secondary-fixed-variant: #283044;
+
+  /* Tertiary (cool gray) */
+  --tertiary: #505456;
+  --tertiary-container: #dfe2e4;
+  --tertiary-fixed: #e0e3e5;
+  --tertiary-fixed-dim: #c4c7c9;
+  --on-tertiary: #ffffff;
+  --on-tertiary-container: #171a1c;
+  --on-tertiary-fixed: #191c1e;
+  --on-tertiary-fixed-variant: #2d3133;
+
+  /* Inverse */
+  --inverse-surface: #303344;
+  --inverse-on-surface: #eef0f8;
+
+  /* Outlines & borders */
+  --outline: #747688;
+  --outline-variant: #c5c7d4;
+
+  /* Error */
+  --error: #ba1a1a;
+  --error-container: #ffdad6;
+  --on-error: #ffffff;
+  --on-error-container: #410002;
+
+  /* Chart colors */
+  --chart-1: #494bd6;
+  --chart-2: #8083ff;
+  --chart-3: #6e7799;
+  --chart-4: #8e9193;
+  --chart-5: #c5c7d4;
 }

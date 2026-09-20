@@ -11,4 +11,19 @@ if (typeof HTMLElement !== "undefined") {
     writable: true,
     configurable: true,
   });
+
+  // Node ≥ 26 exposes its own `localStorage` global (disabled unless
+  // --localstorage-file is given), which shadows jsdom's storage before
+  // vitest copies window keys over. Point the global at jsdom's Storage so
+  // tests exercise real storage semantics. `globalThis.jsdom` is set by
+  // vitest's jsdom environment only — node-environment files skip this.
+  const jsdom = (globalThis as { jsdom?: { window: { localStorage: Storage } } })
+    .jsdom;
+  if (jsdom) {
+    Object.defineProperty(globalThis, "localStorage", {
+      value: jsdom.window.localStorage,
+      writable: true,
+      configurable: true,
+    });
+  }
 }

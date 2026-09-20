@@ -54,8 +54,20 @@ export default async function RootLayout({
   return (
     <html
       lang={localeTag(locale)}
-      className={`dark ${geist.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${geist.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        {/* Pre-paint theme script: apply the stored theme (or the OS
+            preference) to <html> before first paint, so there is no flash.
+            `useTheme` reads the same source on mount, so React's initial
+            state always matches the DOM. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("la:theme");if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"}document.documentElement.classList.add(t)}catch(e){document.documentElement.classList.add("dark")}})();`,
+          }}
+        />
+      </head>
       <body className="h-dvh overflow-hidden">
         <NextIntlClientProvider locale={locale} messages={await getMessages()}>
           <Frame>{children}</Frame>

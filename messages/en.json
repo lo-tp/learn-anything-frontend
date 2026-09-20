@@ -6,7 +6,8 @@
   "topbar": {
     "settings": "Settings",
     "help": "Help",
-    "chooseLanguage": "Choose language"
+    "chooseLanguage": "Choose language",
+    "toggleTheme": "Toggle theme"
   },
   "home": {
     "title": "My Sessions",

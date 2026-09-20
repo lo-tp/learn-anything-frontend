@@ -6,7 +6,8 @@
   "topbar": {
     "settings": "设置",
     "help": "帮助",
-    "chooseLanguage": "选择语言"
+    "chooseLanguage": "选择语言",
+    "toggleTheme": "切换主题"
   },
   "home": {
     "title": "我的会话",
