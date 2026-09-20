@@ -40,7 +40,9 @@ describe("ThemeToggle", () => {
     expect(icon?.querySelector("circle")).toBeTruthy();
   });
 
-  it("shows Moon in light mode", () => {
+  it("shows Moon after mount when the DOM says light", () => {
+    // The first render is the SSR theme (Sun); the post-hydration sync
+    // (flushed by render's act) swaps to the DOM's theme (Moon).
     setHtmlClass("light");
     renderWithLocale(<ThemeToggle />);
     const icon = screen
@@ -49,12 +51,17 @@ describe("ThemeToggle", () => {
     expect(icon?.querySelector("circle")).toBeNull();
   });
 
-  it("clicking toggles the html class and persists the choice", () => {
+  it("clicking toggles the html class, the icon, and persists the choice", () => {
     setHtmlClass("dark");
     renderWithLocale(<ThemeToggle />);
     fireEvent.click(screen.getByRole("button", { name: TOGGLE_NAME }));
     expect(document.documentElement.classList.contains("light")).toBe(true);
     expect(document.documentElement.classList.contains("dark")).toBe(false);
     expect(localStorage.getItem("la:theme")).toBe("light");
+    // The icon flips to the theme switched to: Moon (no <circle>).
+    const icon = screen
+      .getByRole("button", { name: TOGGLE_NAME })
+      .querySelector("svg");
+    expect(icon?.querySelector("circle")).toBeNull();
   });
 });

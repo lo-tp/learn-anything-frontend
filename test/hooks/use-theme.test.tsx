@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, renderHook } from "@testing-library/react";
-import { useTheme } from "@/hooks/use-theme";
+import { act, cleanup, render, renderHook } from "@testing-library/react";
+import { useTheme, type Theme } from "@/hooks/use-theme";
 
 const STORAGE_KEY = "la:theme";
 
@@ -33,7 +33,22 @@ afterEach(() => {
 });
 
 describe("useTheme", () => {
-  it("reads the initial theme from documentElement's class", () => {
+  it("first render is the SSR theme (dark), then adopts the DOM class", () => {
+    // The DOM already says light (as the pre-paint script would have set it),
+    // but the first client render must match the server HTML (dark) or the
+    // hydration mismatch regenerates the tree and wipes the class.
+    setHtmlClass("light");
+    const rendered: Theme[] = [];
+    function Recorder() {
+      rendered.push(useTheme().theme);
+      return null;
+    }
+    render(<Recorder />);
+    expect(rendered[0]).toBe("dark");
+    expect(rendered[rendered.length - 1]).toBe("light");
+  });
+
+  it("adopts the DOM class after mount", () => {
     setHtmlClass("light");
     const { result } = renderHook(() => useTheme());
     expect(result.current.theme).toBe("light");
@@ -44,22 +59,26 @@ describe("useTheme", () => {
     expect(dark.current.theme).toBe("dark");
   });
 
-  it("falls back to the OS setting when no class or stored value applies", () => {
-    mockSystemPreference(true);
-    const { result } = renderHook(() => useTheme());
-    expect(result.current.theme).toBe("light");
-
-    cleanup();
-    mockSystemPreference(false);
-    const { result: dark } = renderHook(() => useTheme());
-    expect(dark.current.theme).toBe("dark");
-  });
-
-  it("prefers the stored value over the OS setting on a fresh mount", () => {
+  it("re-applies the class and uses the stored preference when the DOM has none", () => {
     localStorage.setItem(STORAGE_KEY, "light");
     mockSystemPreference(false); // OS says dark — the stored choice must win.
     const { result } = renderHook(() => useTheme());
     expect(result.current.theme).toBe("light");
+    expect(document.documentElement.classList.contains("light")).toBe(true);
+  });
+
+  it("falls back to the OS setting when no class or stored value applies", () => {
+    mockSystemPreference(true);
+    const { result } = renderHook(() => useTheme());
+    expect(result.current.theme).toBe("light");
+    expect(document.documentElement.classList.contains("light")).toBe(true);
+
+    cleanup();
+    setHtmlClass(null);
+    mockSystemPreference(false);
+    const { result: dark } = renderHook(() => useTheme());
+    expect(dark.current.theme).toBe("dark");
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
   });
 
   it("falls back to the OS setting for a corrupt stored value", () => {
@@ -101,8 +120,9 @@ describe("useTheme", () => {
     mockSystemPreference(true);
 
     const { result } = renderHook(() => useTheme());
-    // Read failure falls through to the OS setting.
+    // Mount sync's read failure falls through to the OS setting.
     expect(result.current.theme).toBe("light");
+    expect(document.documentElement.classList.contains("light")).toBe(true);
 
     // Write failure still swaps the class and updates state.
     act(() => result.current.toggle());

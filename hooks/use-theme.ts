@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useLayoutEffect, useState } from "react";
 
 /** The two themes the app supports. */
 export type Theme = "light" | "dark";
@@ -12,16 +12,20 @@ function isTheme(value: string | null): value is Theme {
   return value === "light" || value === "dark";
 }
 
-/**
- * Resolve the current theme, in the same order the pre-paint script in
- * `app/[locale]/layout.tsx` uses: the class already on `<html>`, then the
- * stored preference, then the OS `prefers-color-scheme`, then dark as the
- * last resort (matches the no-class / no-JS fallback).
- */
-function resolveTheme(): Theme {
+/** The theme carried by `<html>`'s class, or `null` if neither is present. */
+function domTheme(): Theme | null {
   const classes = document.documentElement.classList;
   if (classes.contains("light")) return "light";
   if (classes.contains("dark")) return "dark";
+  return null;
+}
+
+/**
+ * Resolve a theme from the stored preference, then the OS
+ * `prefers-color-scheme`, then dark as the last resort — the same fallback
+ * chain the pre-paint script uses when no class is on `<html>` yet.
+ */
+function resolveTheme(): Theme {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (isTheme(stored)) return stored;
@@ -40,15 +44,31 @@ function resolveTheme(): Theme {
 /**
  * App theme state, backed by the `light`/`dark` class on `<html>`.
  *
- * The SSR-safe initial state is `dark`; on the client it reads the actual
- * state from `documentElement`'s class — set by the pre-paint script before
- * hydration — so there is no flash and no mismatch between React's state
- * and the DOM.
+ * The initial state is always `dark` — the SSR theme. It must NOT read the
+ * pre-paint script's DOM state during the first render: that would make the
+ * client's first render differ from the server HTML (e.g. Sun vs Moon icon
+ * in ThemeToggle), a structural hydration mismatch React can't suppress,
+ * which regenerates the whole tree from the root and wipes the script's
+ * class off `<html>`.
+ *
+ * Instead the theme is adopted after hydration, in a `useLayoutEffect` that
+ * runs before paint — no flash, no mismatch. If the class is missing (dev
+ * Strict Mode remounts reset `<html>` to the JSX-managed attributes), it is
+ * re-applied from state so state stays the source of truth.
  */
 export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>(() =>
-    typeof document === "undefined" ? "dark" : resolveTheme(),
-  );
+  const [theme, setThemeState] = useState<Theme>("dark");
+
+  useLayoutEffect(() => {
+    const dom = domTheme();
+    const actual = dom ?? resolveTheme();
+    if (dom === null) {
+      document.documentElement.classList.add(actual);
+    }
+    // Intentional: adopt the pre-paint script's theme once, after hydration.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setThemeState((prev) => (prev === actual ? prev : actual));
+  }, []);
 
   const setTheme = useCallback((next: Theme) => {
     document.documentElement.classList.remove("light", "dark");
