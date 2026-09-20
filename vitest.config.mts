@@ -18,6 +18,7 @@ export default defineConfig({
   },
   test: {
     include: ["test/**/*.test.ts", "test/**/*.test.tsx"],
+    setupFiles: ["./test/setup.ts"],
     server: {
       deps: {
         // Inline next-intl so Vite transforms its `next/*` imports and the

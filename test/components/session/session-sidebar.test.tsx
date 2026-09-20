@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { useState } from "react";
 import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { renderWithLocale } from "@/test/test-utils";import {
   SessionSidebar,
@@ -78,6 +79,29 @@ describe("SessionSidebar", () => {
       screen.getByRole("button", { name: /what does f stand for\?/i }),
     );
     expect(onSelect).toHaveBeenCalledWith(1);
+  });
+
+  it("scrolls the active card into view when activeIndex changes", () => {
+    // The harness owns the active index, as the session view does —
+    // clicking a card navigates, exactly like the bottom-right buttons.
+    const scrollIntoView = vi.mocked(HTMLElement.prototype.scrollIntoView);
+    const Harness = () => {
+      const [i, setI] = useState(0);
+      return <SessionSidebar groups={groups} activeIndex={i} onSelect={setI} />;
+    };
+    renderWithLocale(<Harness />);
+    scrollIntoView.mockClear(); // ignore the mount scroll
+    const questionCard = screen.getByRole("button", {
+      name: /what does f stand for\?/i,
+    });
+    fireEvent.click(questionCard);
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "nearest",
+    });
+    expect(scrollIntoView.mock.instances[0]).toBe(questionCard);
+    scrollIntoView.mockClear();
   });
 
   it("marks the active card with aria-current", () => {

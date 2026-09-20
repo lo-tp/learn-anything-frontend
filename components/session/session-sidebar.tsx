@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { ListChecks, Presentation } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { MaterialOut, QuestionItem, SlideItem } from "@/lib/api-client";
@@ -40,6 +41,11 @@ const sandboxSrc = (slideId: string) =>
  * and `pointer-events-none` so the whole card stays the single click
  * target. The parent (the session view) owns the deck and the active
  * index; cards report clicks through `onSelect`.
+ *
+ * Whenever `activeIndex` changes — including via the bottom-right
+ * prev/next buttons — the active card is scrolled into view
+ * (`scrollIntoView`, `block: "nearest"`, i.e. the minimal scroll that
+ * reveals it) (#81).
  */
 export function SessionSidebar({
   groups,
@@ -51,6 +57,18 @@ export function SessionSidebar({
   onSelect: (index: number) => void;
 }) {
   const t = useTranslations("session");
+
+  // Keep the active card visible (#81): the bottom-right prev/next buttons
+  // change `activeIndex` without touching the sidebar's scroll position,
+  // so the sidebar scrolls the newly-active card into view itself.
+  const cardRefs = useRef(new Map<number, HTMLDivElement>());
+  useEffect(() => {
+    cardRefs.current.get(activeIndex)?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    });
+  }, [activeIndex]);
+
   return (
     <aside className="flex h-full w-80 shrink-0 select-none flex-col border-r border-outline-variant bg-surface">
       <div className="flex-1 overflow-y-auto p-3">
@@ -73,6 +91,10 @@ export function SessionSidebar({
                   return (
                     <li key={item.type === "slide" ? item.slide_id : item.id}>
                       <div
+                        ref={(el) => {
+                          if (el) cardRefs.current.set(index, el);
+                          else cardRefs.current.delete(index);
+                        }}
                         role="button"
                         tabIndex={0}
                         aria-current={active ? "true" : undefined}
