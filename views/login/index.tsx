@@ -4,8 +4,6 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useSearchParams, useRouter } from "next/navigation";
 import { loginAuth, registerAuth, ApiError } from "@/lib/api-client";
-import type { components } from "@/types/api";
-import { Link } from "@/i18n/navigation";
 
 type Tab = "signin" | "register";
 
@@ -182,13 +180,6 @@ export function LoginView() {
                 : t("submitCreateAccount")}
           </button>
         </form>
-
-        {/* App link */}
-        <p className="mt-4 text-center text-sm text-on-surface-variant">
-          <Link href="/" className="text-primary hover:underline">
-            {t("backToApp")}
-          </Link>
-        </p>
       </div>
     </main>
   );

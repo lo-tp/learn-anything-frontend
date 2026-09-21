@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleHelp, Settings } from "lucide-react";
+import { CircleHelp } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { AccountMenu } from "@/components/account-menu";
 import { LanguageSwitcher } from "@/components/language-switcher";
@@ -21,13 +21,6 @@ export function TopBar() {
         Learn Anything
       </Link>
       <nav className="flex items-center gap-2">
-        <button
-          type="button"
-          aria-label={t("settings")}
-          className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-highest"
-        >
-          <Settings className="size-5" />
-        </button>
         <ThemeToggle />
         <LanguageSwitcher />
         <AccountMenu />

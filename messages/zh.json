@@ -143,8 +143,7 @@
     "genericError": "出了点问题，请重试。",
     "submitSignIn": "登录",
     "submitCreateAccount": "创建账号",
-    "submitting": "提交中…",
-    "backToApp": "返回应用"
+    "submitting": "提交中…"
   },
   "time": {
     "justNow": "刚刚",

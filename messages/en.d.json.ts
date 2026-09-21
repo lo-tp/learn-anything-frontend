@@ -146,8 +146,7 @@ declare const messages: {
     "genericError": "Something went wrong. Please try again.",
     "submitSignIn": "Sign in",
     "submitCreateAccount": "Create account",
-    "submitting": "Submitting…",
-    "backToApp": "Back to app"
+    "submitting": "Submitting…"
   },
   "time": {
     "justNow": "just now",

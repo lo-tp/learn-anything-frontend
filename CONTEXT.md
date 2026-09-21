@@ -16,6 +16,10 @@ _Avoid_: account, member, learner
 The fact that a visitor is a signed-in user. Every function of the app requires it; the app has no usable surface without it.
 _Avoid_: session, login session, auth session (in this repo "session" is always a learning Session)
 
+**Service principal**:
+A non-human caller of the backend that is not a signed-in User: the Sandbox, which fetches shared (unscoped) content on its own behalf. It is a distinct principal from the User and is scoped to internal endpoints only.
+_Avoid_: service account, API key, client, bot
+
 **Display name**:
 The short chosen name of a User, shown in the top bar. Defaults to the email's local part.
 _Avoid_: username, handle, nickname
