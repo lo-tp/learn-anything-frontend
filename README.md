@@ -22,30 +22,20 @@ An AI conversation-driven learning assistant. Describe the knowledge you want to
 
 ## Development quickstart
 
-Prereqs: podman (with the `compose` plugin — the Docker daemon stays off) and a local `psql` client.
+Prereqs: a running Learn Anything backend (see the "Backend integration" section below).
 
 ```bash
-# 1. Start the dev Postgres (single service; the app itself is never containerized)
-podman compose up -d
-
-# 2. Create the env file and point the LLM_* vars at your local
-#    OpenAI-compatible server (e.g. llama.cpp)
+# 1. Create the env file and point NEXT_PUBLIC_BACKEND_URL at the backend
 cp .env.example .env
 
-# 3. Install dependencies (needed by the db script: drizzle-kit)
+# 2. Install dependencies
 npm install
 
-# 4. Rebuild the databases (each run WIPES its database — that is the point)
-scripts/setup-db.sh dev     # learn_anything — schema + seed
-scripts/setup-db.sh test    # learn_anything_test — schema only
-
-# 5. Start the app
-npm run dev     # http://localhost:3000 — the design shell (placeholder content)
+# 3. Start the app
+npm run dev     # http://localhost:3000
 ```
 
 `npm test` runs the unit tests (Vitest) without starting the app; `npm run check` runs lint + typecheck + tests in one go (also run automatically by the git `pre-push` hook).
-
-`scripts/setup-db.sh <dev|test>` rebuilds one database from scratch: drop + create, apply the schema from `db/schema.ts` via `drizzle-kit push`, and (for `dev`) apply `db/seed.sql`. Re-running it **wipes that database** — dev data is disposable pre-MVP. It requires the compose Postgres to be running first (`podman compose up -d db` — step 1) and fails fast with a hint otherwise. `podman compose down` stops the db (`podman compose down -v` also wipes its volume).
 
 ## Backend integration
 

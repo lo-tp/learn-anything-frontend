@@ -23,10 +23,6 @@ pnpm-debug.log*
 # Coverage / test artifacts
 coverage/
 
-# drizzle-kit pull output (schema mirror check)
-.drizzle/
-.nyc_output/
-
 # OS
 .DS_Store
 Thumbs.db
