@@ -18,6 +18,10 @@ export function usePathname() {
   return "/";
 }
 
+export function useSearchParams() {
+  return new URLSearchParams();
+}
+
 export function redirect() {
   throw new Error("redirect() called in test");
 }

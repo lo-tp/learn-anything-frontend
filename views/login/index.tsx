@@ -58,10 +58,15 @@ export function LoginView() {
     try {
       if (tab === "signin") {
         await loginAuth(email, password);
+        onSuccess();
       } else {
+        // Registration does not start a session — the Create account flow is
+        // done and the user now needs to sign in to begin one. Move them onto
+        // the Sign in tab: keep the email, clear the (now committed) password.
         await registerAuth(email, password, displayName.trim() || null);
+        setTab("signin");
+        setPassword("");
       }
-      onSuccess();
     } catch (err) {
       setError(toErrorMessage(err));
     } finally {
@@ -76,6 +81,7 @@ export function LoginView() {
         <div className="mb-6 flex rounded-lg bg-surface-variant p-1">
           <button
             type="button"
+            aria-pressed={tab === "signin"}
             onClick={() => { setTab("signin"); setError(null); }}
             className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
               tab === "signin"
@@ -87,6 +93,7 @@ export function LoginView() {
           </button>
           <button
             type="button"
+            aria-pressed={tab === "register"}
             onClick={() => { setTab("register"); setError(null); }}
             className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
               tab === "register"
