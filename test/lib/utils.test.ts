@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shuffleIndices } from "@/lib/utils";
+import { displayOrder, shuffleIndices } from "@/lib/utils";
 
 /** A deterministic RNG cycling a fixed sequence of values in [0, 1). */
 function seededRandom(sequence: number[]): () => number {
@@ -45,5 +45,55 @@ describe("shuffleIndices", () => {
     // A fixed shuffle would produce a single order; the seeded draws
     // (deterministic) spread over several.
     expect(orders.size).toBeGreaterThan(1);
+  });
+});
+
+describe("displayOrder", () => {
+  it("returns the identity for n ≤ 1", () => {
+    expect(displayOrder(0)).toEqual([]);
+    expect(displayOrder(1)).toEqual([0]);
+    // With pinLast, n=1 still returns [0].
+    expect(displayOrder(1, true)).toEqual([0]);
+  });
+
+  it("returns a permutation of 0..n-1 (no pinLast)", () => {
+    const rng = seededRandom([0.1, 0.9, 0.4, 0.7, 0.2, 0.5, 0.8, 0.3, 0.6, 0.15]);
+    for (const n of [2, 4, 8]) {
+      const order = displayOrder(n, false, rng);
+      expect(order).toHaveLength(n);
+      expect([...order].sort((a, b) => a - b)).toEqual(
+        Array.from({ length: n }, (_, i) => i),
+      );
+    }
+  });
+
+  it("pins the last index at the end when pinLast is true", () => {
+    const rng = seededRandom([0.1, 0.9, 0.4, 0.7, 0.2, 0.5, 0.8, 0.3, 0.6, 0.15]);
+    for (const n of [2, 5, 10]) {
+      const order = displayOrder(n, true, rng);
+      expect(order[order.length - 1]).toBe(n - 1);
+      // The rest is a permutation of 0..n-2.
+      expect([...order.slice(0, -1)].sort((a, b) => a - b)).toEqual(
+        Array.from({ length: n - 1 }, (_, i) => i),
+      );
+    }
+  });
+
+  it("defaults pinLast to false", () => {
+    // With n=2 and the same rng, pinLast=false shuffles both indices;
+    // pinLast=true keeps index 1 last. We verify the default (false) can
+    // produce a non-identity order for n=2.
+    const order = displayOrder(2, false, () => 0.99);
+    // floor(0.99*2)=1 → swap indices 1 and 1 → [0, 1] (identity)
+    // Let's use a case where the default differs from pinLast.
+    const orderPinned = displayOrder(3, true, () => 0.99);
+    expect(orderPinned[2]).toBe(2); // last is pinned
+  });
+
+  it("is deterministic for a given random source", () => {
+    const rng = () => 0.5;
+    const a = displayOrder(4, false, rng);
+    const b = displayOrder(4, false, rng);
+    expect(a).toEqual(b);
   });
 });

@@ -21,3 +21,19 @@ export function shuffleIndices(
   }
   return indices;
 }
+
+/**
+ * A display order for one question: a permutation of 0..n-1.
+ * When `pinLast` is true the last index is kept fixed at the end
+ * (the probe's "I don't know" option); all other options are shuffled.
+ */
+export function displayOrder(
+  n: number,
+  pinLast = false,
+  random: () => number = Math.random,
+): number[] {
+  if (n <= 1) return Array.from({ length: n }, (_, i) => i);
+  return pinLast
+    ? [...shuffleIndices(n - 1, random), n - 1]
+    : shuffleIndices(n, random);
+}

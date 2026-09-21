@@ -299,3 +299,119 @@ export async function getMaterials(sessionId: string): Promise<MaterialsOut> {
   if (!data) throw guardUnauthorized(response, error, response?.status);
   return data;
 }
+
+// ── Review (spaced repetition) ──────────────────────────────────────────────
+// Types match the agreed §3.9 shape; once the backend is live and
+// `npm run generate:types` runs, these can be lifted to `components["schemas"]`.
+// The review paths are not yet in the generated OpenAPI spec, so these use
+// raw `fetch` (the same transport `openapi-fetch` wraps).
+
+export type ReviewQuestionIn = {
+  text: string;
+  options: string[];
+  correct_index: number;
+  explanation: string;
+};
+
+export type ReviewCardIn = {
+  source: string;
+  session_id: string;
+  question_id: string;
+  question: ReviewQuestionIn;
+  step_id?: string | null;
+  selected_index?: number | null;
+};
+
+export type ReviewQuestionOut = {
+  text: string;
+  options: string[];
+  correct_index: number;
+  explanation: string;
+};
+
+export type ReviewCardOut = {
+  id: number;
+  source: string;
+  question: ReviewQuestionOut;
+  session_id: string;
+  step_id: string | null;
+  due_at: string;
+  interval_days: number;
+  ease: number;
+  lapses: number;
+};
+
+export type ReviewAnswerIn = {
+  selected_index: number;
+};
+
+export type ReviewAnswerOut = {
+  was_correct: boolean;
+  due_at: string;
+  interval_days: number;
+  ease: number;
+  lapses: number;
+  is_retired: boolean;
+};
+
+export type ReviewSummaryOut = {
+  due_count: number;
+  total_active: number;
+  total_retired: number;
+};
+
+/** Internal: raw fetch against the backend with review-path error handling. */
+async function reviewFetch<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${path}`, {
+    method,
+    credentials: "include",
+    headers: body !== undefined ? { "content-type": "application/json" } : undefined,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const error: unknown = await res.json().catch(() => null);
+    throw guardUnauthorized(res, error, res.status);
+  }
+  return (await res.json()) as T;
+}
+
+/**
+ * `POST /review/cards` — record a missed question.
+ * Material misses are fired from the client (fire-and-forget); probe misses
+ * are recorded server-side.
+ */
+export async function postReviewCard(
+  body: ReviewCardIn,
+): Promise<ReviewCardOut> {
+  return reviewFetch<ReviewCardOut>("POST", "/review/cards", body);
+}
+
+/** `GET /review/due` — the current user's due review cards, ordered by due_at. */
+export async function getReviewDue(limit = 20): Promise<ReviewCardOut[]> {
+  const qs = limit !== 20 ? `?limit=${limit}` : "";
+  return reviewFetch<ReviewCardOut[]>("GET", `/review/due${qs}`);
+}
+
+/**
+ * `POST /review/cards/{card_id}/answer` — submit the canonical picked
+ * index, updating the card's SRS state.
+ */
+export async function answerReviewCard(
+  cardId: number,
+  selectedIndex: number,
+): Promise<ReviewAnswerOut> {
+  return reviewFetch<ReviewAnswerOut>(
+    "POST",
+    `/review/cards/${cardId}/answer`,
+    { selected_index: selectedIndex } satisfies ReviewAnswerIn,
+  );
+}
+
+/** `GET /review/summary` — due/active/retired counts for the badge. */
+export async function getReviewSummary(): Promise<ReviewSummaryOut> {
+  return reviewFetch<ReviewSummaryOut>("GET", "/review/summary");
+}

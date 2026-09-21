@@ -10,7 +10,8 @@ declare const messages: {
     "settings": "Settings",
     "help": "Help",
     "chooseLanguage": "Choose language",
-    "toggleTheme": "Toggle theme"
+    "toggleTheme": "Toggle theme",
+    "reviewDue": "{count} cards due for review"
   },
   "account": {
     "displayName": "Display name",
@@ -153,6 +154,18 @@ declare const messages: {
     "minAgo": "{n, plural, one {# min ago} other {# min ago}}",
     "yesterday": "Yesterday",
     "hrsAgo": "{n, plural, one {# hr ago} other {# hrs ago}}"
+  },
+  "review": {
+    "title": "Review",
+    "progress": "{current} / {total}",
+    "emptyTitle": "All clear",
+    "emptyBody": "No cards are due right now — keep studying!",
+    "loading": "Loading your review deck…",
+    "error": "Can't reach the review service. Please try again.",
+    "backToSessions": "Back to my sessions",
+    "next": "Next",
+    "done": "Done",
+    "confirm": "Confirm"
   }
 };
 export default messages;

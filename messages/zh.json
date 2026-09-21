@@ -7,7 +7,8 @@
     "settings": "设置",
     "help": "帮助",
     "chooseLanguage": "选择语言",
-    "toggleTheme": "切换主题"
+    "toggleTheme": "切换主题",
+    "reviewDue": "{count} 张卡片待复习"
   },
   "account": {
     "displayName": "显示名称",
@@ -150,5 +151,17 @@
     "minAgo": "{n, plural, other {# 分钟前}}",
     "yesterday": "昨天",
     "hrsAgo": "{n, plural, other {# 小时前}}"
+  },
+  "review": {
+    "title": "复习",
+    "progress": "{current} / {total}",
+    "emptyTitle": "全部完成",
+    "emptyBody": "当前没有待复习的卡片 —— 继续加油！",
+    "loading": "正在加载你的复习牌组…",
+    "error": "无法连接复习服务，请重试。",
+    "backToSessions": "返回我的会话",
+    "next": "下一张",
+    "done": "完成",
+    "confirm": "确认"
   }
 }

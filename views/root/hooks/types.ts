@@ -5,7 +5,7 @@ import type {
   PlanOut,
   ProbeQuestionOut,
 } from "@/lib/api-client";
-import { shuffleIndices } from "@/lib/utils";
+import { displayOrder } from "@/lib/utils";
 import type { RecentMessage } from "../use-new-session";
 
 export type Status = "idle" | "pending" | "error";
@@ -34,14 +34,10 @@ export type ShuffledProbeQuestion = ProbeQuestionOut & { order: number[] };
 export function withDisplayOrder(
   questions: ProbeQuestionOut[],
 ): ShuffledProbeQuestion[] {
-  return questions.map((question) => {
-    const n = question.options.length;
-    return {
-      ...question,
-      // n-1 is the backend's "I don't know" index; shuffle the rest.
-      order: n > 0 ? [...shuffleIndices(n - 1), n - 1] : [],
-    };
-  });
+  return questions.map((question) => ({
+    ...question,
+    order: displayOrder(question.options.length, true),
+  }));
 }
 
 /**
