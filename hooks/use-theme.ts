@@ -74,12 +74,22 @@ function getSnapshot(): Theme {
   return theme;
 }
 
+/**
+ * The snapshot React reads during server rendering. Always `dark` — the
+ * SSR theme the first client render must match to avoid a hydration
+ * mismatch. (Required by `useSyncExternalStore` for server-rendered
+ * content; without it React throws during SSR.)
+ */
+function getServerSnapshot(): Theme {
+  return "dark";
+}
+
 function emit() {
   listeners.forEach((listener) => listener());
 }
 
 export function useTheme() {
-  const value = useSyncExternalStore(subscribe, getSnapshot);
+  const value = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   useLayoutEffect(() => {
     const dom = domTheme();

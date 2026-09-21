@@ -8,6 +8,29 @@ import { hasLocale, localeTag, routing } from "@/i18n/routing";
 import "../globals.css";
 import "temml/dist/Temml-Local.css";
 
+/**
+ * Pre-paint theme script: apply the stored theme (or the OS preference)
+ * to <html> before first paint, so there is no flash. `useTheme` reads the
+ * same source on mount, so React's initial state always matches the DOM.
+ *
+ * Rendered only during SSR: the browser executes the script while parsing
+ * the initial HTML, and the client must never render a `<script>` tag of
+ * its own (React 19 warns about client-created scripts, which never
+ * execute). `suppressHydrationWarning` covers the server-script vs
+ * client-null diff.
+ */
+function ThemeInitScript() {
+  if (typeof window !== "undefined") return null;
+  return (
+    <script
+      suppressHydrationWarning
+      dangerouslySetInnerHTML={{
+        __html: `(function(){try{var t=localStorage.getItem("la:theme");if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"}document.documentElement.classList.add(t)}catch(e){document.documentElement.classList.add("dark")}})();`,
+      }}
+    />
+  );
+}
+
 const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
 const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains-mono",
@@ -58,15 +81,7 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        {/* Pre-paint theme script: apply the stored theme (or the OS
-            preference) to <html> before first paint, so there is no flash.
-            `useTheme` reads the same source on mount, so React's initial
-            state always matches the DOM. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem("la:theme");if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"}document.documentElement.classList.add(t)}catch(e){document.documentElement.classList.add("dark")}})();`,
-          }}
-        />
+        <ThemeInitScript />
       </head>
       <body className="h-dvh overflow-hidden">
         <NextIntlClientProvider locale={locale} messages={await getMessages()}>
