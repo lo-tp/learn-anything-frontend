@@ -6,6 +6,7 @@ import { Session } from "@/views/session";
 import {
   getMaterials,
   getSession,
+  postReviewCard,
   type MaterialsOut,
   type SessionState,
 } from "@/lib/api-client";
@@ -13,11 +14,13 @@ import {
 vi.mock("@/lib/api-client", () => ({
   getSession: vi.fn(),
   getMaterials: vi.fn(),
+  postReviewCard: vi.fn(),
   ApiError: class ApiError extends Error {},
 }));
 
 const mockGetSession = vi.mocked(getSession);
 const mockGetMaterials = vi.mocked(getMaterials);
+const mockPostReviewCard = vi.mocked(postReviewCard);
 
 beforeEach(() => {
   mockGetSession
@@ -26,6 +29,9 @@ beforeEach(() => {
   mockGetMaterials
     .mockReset()
     .mockResolvedValue(materials());
+  mockPostReviewCard
+    .mockReset()
+    .mockResolvedValue({ id: 1, source: "material", question: {}, session_id: "s-1", step_id: null, due_at: "", interval_days: 1, ease: 2.5, lapses: 0 } as any);
 });
 
 afterEach(() => {
@@ -221,6 +227,55 @@ describe("Session", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: /^a\s*force$/i }));
     expect(screen.getByText("Correct.")).toBeTruthy();
+  });
+
+  it("fires postReviewCard with source 'material' on a wrong pick", async () => {
+    renderSession();
+    await settle();
+    fireEvent.click(
+      screen.getByRole("button", { name: /what does f stand for\?/i }),
+    );
+    // q-1 correct_index is 0; picking index 1 ("Friction") is wrong.
+    fireEvent.click(screen.getByRole("button", { name: /^b\s*friction$/i }));
+    // Fire-and-forget: assert the call was made (not awaited by the UI).
+    expect(mockPostReviewCard).toHaveBeenCalledWith({
+      source: "material",
+      session_id: "s-1",
+      question_id: "q-1",
+      question: {
+        text: "What does F stand for?",
+        options: ["Force", "Friction"],
+        correct_index: 0,
+        explanation: "F is the net force.",
+      },
+      step_id: "st-1",
+      selected_index: 1,
+    });
+  });
+
+  it("does NOT fire postReviewCard on a correct pick", async () => {
+    renderSession();
+    await settle();
+    fireEvent.click(
+      screen.getByRole("button", { name: /what does f stand for\?/i }),
+    );
+    // q-1 correct_index is 0; picking index 0 ("Force") is correct.
+    fireEvent.click(screen.getByRole("button", { name: /^a\s*force$/i }));
+    expect(mockPostReviewCard).not.toHaveBeenCalled();
+  });
+
+  it("swallows postReviewCard errors (fire-and-forget never blocks)", async () => {
+    mockPostReviewCard.mockRejectedValue(new Error("network down"));
+    renderSession();
+    await settle();
+    fireEvent.click(
+      screen.getByRole("button", { name: /what does f stand for\?/i }),
+    );
+    // q-1 correct_index is 0; picking index 1 is wrong → fires and rejects.
+    fireEvent.click(screen.getByRole("button", { name: /^b\s*friction$/i }));
+    // The rejection must not crash the UI.
+    expect(screen.getByText("Not quite.")).toBeTruthy();
+    expect(mockPostReviewCard).toHaveBeenCalledTimes(1);
   });
 
   it("renders the not-found state when the session does not exist", async () => {

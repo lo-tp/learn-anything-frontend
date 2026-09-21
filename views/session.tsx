@@ -13,6 +13,7 @@ import { useTheme, type Theme } from "@/hooks/use-theme";
 import {
   getMaterials,
   getSession,
+  postReviewCard,
   type MaterialsOut,
   type SessionState,
 } from "@/lib/api-client";
@@ -109,9 +110,11 @@ export function Session({ sessionId }: { sessionId: string }) {
     return () => clearInterval(timer);
   }, [generating, sessionId]);
 
-  /** The flattened deck: every slide/question in step order. */
+  /** The flattened deck: every slide/question in step order, tagged with its parent step_id. */
   const deck = useMemo(
-    () => (materials?.generated_steps ?? []).flatMap((step) => step.items),
+    () => (materials?.generated_steps ?? []).flatMap((step) =>
+      step.items.map((item) => ({ ...item, step_id: step.step_id })),
+    ),
     [materials],
   );
 
@@ -263,9 +266,24 @@ export function Session({ sessionId }: { sessionId: string }) {
               <QuizQuestion
                 question={active}
                 selected={answers[active.id] ?? null}
-                onSelect={(i) =>
-                  setAnswers((prev) => ({ ...prev, [active.id]: i }))
-                }
+                onSelect={(i) => {
+                  setAnswers((prev) => ({ ...prev, [active.id]: i }));
+                  if (i !== active.correct_index) {
+                    postReviewCard({
+                      source: "material",
+                      session_id: sessionId,
+                      question_id: active.id,
+                      question: {
+                        text: active.text,
+                        options: active.options,
+                        correct_index: active.correct_index,
+                        explanation: active.explanation,
+                      },
+                      step_id: active.step_id,
+                      selected_index: i,
+                    }).catch(() => {});
+                  }
+                }}
               />
             </div>
           )}
