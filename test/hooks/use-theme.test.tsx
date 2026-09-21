@@ -107,6 +107,20 @@ describe("useTheme", () => {
     expect(localStorage.getItem(STORAGE_KEY)).toBe("dark");
   });
 
+  it("keeps multiple instances in sync when one changes the theme", () => {
+    setHtmlClass("dark");
+    const { result: a } = renderHook(() => useTheme());
+    const { result: b } = renderHook(() => useTheme());
+    expect(a.current.theme).toBe("dark");
+    expect(b.current.theme).toBe("dark");
+
+    // A toggle in one instance must update the other (and the DOM class).
+    act(() => a.current.toggle());
+    expect(a.current.theme).toBe("light");
+    expect(b.current.theme).toBe("light");
+    expect(document.documentElement.classList.contains("light")).toBe(true);
+  });
+
   it("does not throw when storage read/write fails (session-only preference)", () => {
     // Both access paths can throw (e.g. blocked in private mode).
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {

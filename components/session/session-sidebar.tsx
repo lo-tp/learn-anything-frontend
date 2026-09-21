@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import type { MaterialOut, QuestionItem, SlideItem } from "@/lib/api-client";
 import { QuizQuestion } from "@/components/session/quiz-question";
 import { SandboxFrame } from "@/components/sandbox/sandbox-frame";
+import { useTheme, type Theme } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
 
 /** One item card in the sidebar, addressed by its flat deck index. */
@@ -21,9 +22,14 @@ export interface SidebarGroup {
   items: SidebarItemEntry[];
 }
 
-/** The sandbox URL that serves a slide item's content. */
-const sandboxSrc = (slideId: string) =>
-  `${process.env.NEXT_PUBLIC_SANDBOX_ORIGIN}/slides/${slideId}`;
+/**
+ * The sandbox URL that serves a slide item's content. The app's theme is
+ * passed as a query param so the slide page renders in the same palette
+ * (`?theme=light` sets the `light` class on the page's `<html>`, #78);
+ * absent/dark keeps the page's dark default.
+ */
+const sandboxSrc = (slideId: string, theme: Theme) =>
+  `${process.env.NEXT_PUBLIC_SANDBOX_ORIGIN}/slides/${slideId}?theme=${theme}`;
 
 /**
  * Left item sidebar for `/session/{sessionId}` (#47).
@@ -57,6 +63,7 @@ export function SessionSidebar({
   onSelect: (index: number) => void;
 }) {
   const t = useTranslations("session");
+  const { theme } = useTheme();
 
   // Keep the active card visible (#81): the bottom-right prev/next buttons
   // change `activeIndex` without touching the sidebar's scroll position,
@@ -140,7 +147,7 @@ export function SessionSidebar({
                           /* Mini preview: the slide's sandbox route, scaled down. */
                           <div className="relative h-40 w-full overflow-hidden rounded-lg border border-outline-variant/50 bg-background">
                             <SandboxFrame
-                              src={sandboxSrc(item.slide_id)}
+                              src={sandboxSrc(item.slide_id, theme)}
                               mini
                               className="pointer-events-none absolute top-0 left-0 h-[720px] w-[1280px] origin-top-left scale-[0.22]"
                             />

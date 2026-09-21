@@ -9,6 +9,7 @@ import { PhaseIndicator } from "@/components/phase-indicator";
 import { QuizQuestion } from "@/components/session/quiz-question";
 import { SessionSidebar, type SidebarGroup } from "@/components/session/session-sidebar";
 import { SandboxFrame } from "@/components/sandbox/sandbox-frame";
+import { useTheme, type Theme } from "@/hooks/use-theme";
 import {
   getMaterials,
   type MaterialsOut,
@@ -21,9 +22,14 @@ const POLL_INTERVAL_MS = 3000;
 /** The phases before material generation has begun. */
 const PRE_MATERIAL = new Set(["clarifying", "probing", "planning", "reviewing"]);
 
-/** The sandbox URL that serves a slide item's content. */
-const sandboxSrc = (slideId: string) =>
-  `${process.env.NEXT_PUBLIC_SANDBOX_ORIGIN}/slides/${slideId}`;
+/**
+ * The sandbox URL that serves a slide item's content. The app's theme is
+ * passed as a query param so the slide page renders in the same palette
+ * (`?theme=light` sets the `light` class on the page's `<html>`, #78);
+ * absent/dark keeps the page's dark default.
+ */
+const sandboxSrc = (slideId: string, theme: Theme) =>
+  `${process.env.NEXT_PUBLIC_SANDBOX_ORIGIN}/slides/${slideId}?theme=${theme}`;
 
 /**
  * The `/session/{sessionId}` view (#47). **Client** component — the single
@@ -53,6 +59,7 @@ export function Session({
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const inFlight = useRef(false);
   const t = useTranslations("session");
+  const { theme } = useTheme();
 
   /** The freshest known phase — the polled materials beat the SSR session. */
   const phase = materials?.phase ?? initialSession?.phase ?? null;
@@ -97,13 +104,15 @@ export function Session({
   const clampedIndex = Math.min(activeIndex, total - 1);
   const active = deck[clampedIndex];
 
-  // The slide player is one persistent iframe whose `src` never changes: it
-  // always loads the session's first slide, and each slide switch is told to
-  // the sandbox harness via `postMessage` (it swaps the rendered slide in its
+  // The slide player is one persistent iframe whose `src` changes only when
+  // the theme does (to re-sync the slide page's palette, #78): it always
+  // loads the session's first slide, and each slide switch is told to the
+  // sandbox harness via `postMessage` (it swaps the rendered slide in its
   // own React state). Navigating the iframe to a per-slide URL appends a
   // top-level history entry that swallows the browser Back button (#80) — so
-  // we never change `src`. The sidebar mini previews already use a constant
-  // `src` (one fixed slide each) and are measured not to add history entries.
+  // slide switches never change `src`. The sidebar mini previews already use
+  // a per-theme constant `src` (one fixed slide each) and are measured not
+  // to add history entries.
   const playerRef = useRef<HTMLIFrameElement>(null);
   const firstSlideId = useMemo(
     () => deck.find((d) => d.type === "slide")?.slide_id ?? null,
@@ -203,7 +212,7 @@ export function Session({
             <div className={active.type === "slide" ? "h-full" : "hidden"}>
               <SandboxFrame
                 ref={playerRef}
-                src={sandboxSrc(firstSlideId)}
+                src={sandboxSrc(firstSlideId, theme)}
                 onLoad={handlePlayerLoad}
               />
             </div>

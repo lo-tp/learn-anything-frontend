@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useState } from "react";
+import { useCallback, useLayoutEffect, useSyncExternalStore } from "react";
 
 /** The two themes the app supports. */
 export type Theme = "light" | "dark";
@@ -42,22 +42,44 @@ function resolveTheme(): Theme {
 }
 
 /**
- * App theme state, backed by the `light`/`dark` class on `<html>`.
+ * The app's single theme source of truth, shared by every `useTheme`
+ * consumer (the top-bar toggle, the session's iframe srcs, …).
  *
- * The initial state is always `dark` — the SSR theme. It must NOT read the
- * pre-paint script's DOM state during the first render: that would make the
- * client's first render differ from the server HTML (e.g. Sun vs Moon icon
- * in ThemeToggle), a structural hydration mismatch React can't suppress,
+ * It starts at `dark` — the SSR theme. It must NOT read the pre-paint
+ * script's DOM state during the first render: that would make the client's
+ * first render differ from the server HTML (e.g. Sun vs Moon icon in
+ * ThemeToggle), a structural hydration mismatch React can't suppress,
  * which regenerates the whole tree from the root and wipes the script's
- * class off `<html>`.
+ * class off `<html>`. Instead the theme is adopted after hydration, in a
+ * `useLayoutEffect` that runs before paint — no flash, no mismatch. If the
+ * class is missing (dev Strict Mode remounts reset `<html>` to the
+ * JSX-managed attributes), it is re-applied from state.
  *
- * Instead the theme is adopted after hydration, in a `useLayoutEffect` that
- * runs before paint — no flash, no mismatch. If the class is missing (dev
- * Strict Mode remounts reset `<html>` to the JSX-managed attributes), it is
- * re-applied from state so state stays the source of truth.
+ * State lives in module scope (not `useState`) so that every hook instance
+ * subscribes to the same value: a `setTheme` call in one component
+ * re-renders all others, keeping the DOM class, the state, and every
+ * consumer in sync.
  */
+let theme: Theme = "dark";
+const listeners = new Set<() => void>();
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function getSnapshot(): Theme {
+  return theme;
+}
+
+function emit() {
+  listeners.forEach((listener) => listener());
+}
+
 export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>("dark");
+  const value = useSyncExternalStore(subscribe, getSnapshot);
 
   useLayoutEffect(() => {
     const dom = domTheme();
@@ -65,9 +87,10 @@ export function useTheme() {
     if (dom === null) {
       document.documentElement.classList.add(actual);
     }
-    // Intentional: adopt the pre-paint script's theme once, after hydration.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setThemeState((prev) => (prev === actual ? prev : actual));
+    if (actual !== theme) {
+      theme = actual;
+      emit();
+    }
   }, []);
 
   const setTheme = useCallback((next: Theme) => {
@@ -79,12 +102,15 @@ export function useTheme() {
       // Storage unavailable (e.g. private mode) — the choice degrades to
       // session-only; the class still carries it for the rest of the page.
     }
-    setThemeState(next);
+    if (next !== theme) {
+      theme = next;
+      emit();
+    }
   }, []);
 
   const toggle = useCallback(() => {
     setTheme(theme === "dark" ? "light" : "dark");
-  }, [setTheme, theme]);
+  }, [setTheme]);
 
-  return { theme, setTheme, toggle };
+  return { theme: value, setTheme, toggle };
 }
