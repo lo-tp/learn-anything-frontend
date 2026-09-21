@@ -1,18 +1,31 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, screen } from "@testing-library/react";
-import { renderWithLocale } from "@/test/test-utils";import { Session } from "@/views/session";
-import { getMaterials, type MaterialsOut, type SessionState } from "@/lib/api-client";
+import { renderWithLocale } from "@/test/test-utils";
+import { Session } from "@/views/session";
+import {
+  getMaterials,
+  getSession,
+  type MaterialsOut,
+  type SessionState,
+} from "@/lib/api-client";
 
 vi.mock("@/lib/api-client", () => ({
+  getSession: vi.fn(),
   getMaterials: vi.fn(),
   ApiError: class ApiError extends Error {},
 }));
 
+const mockGetSession = vi.mocked(getSession);
 const mockGetMaterials = vi.mocked(getMaterials);
 
 beforeEach(() => {
-  mockGetMaterials.mockReset();
+  mockGetSession
+    .mockReset()
+    .mockResolvedValue(session());
+  mockGetMaterials
+    .mockReset()
+    .mockResolvedValue(materials());
 });
 
 afterEach(() => {
@@ -76,17 +89,16 @@ function materials(overrides: Partial<MaterialsOut> = {}): MaterialsOut {
   };
 }
 
-function renderSession(
-  props: Partial<React.ComponentProps<typeof Session>> = {},
-) {
-  return renderWithLocale(
-    <Session
-      sessionId="s-1"
-      initialSession={session()}
-      initialMaterials={materials()}
-      {...props}
-    />,
-  );
+function renderSession(props: Partial<React.ComponentProps<typeof Session>> = {}) {
+  return renderWithLocale(<Session sessionId="s-1" {...props} />);
+}
+
+/**
+ * Settle the view's mount fetches (both resolve in microtasks), then assert
+ * the first step's divider rendered — from here the deck state is current.
+ */
+async function settle() {
+  await screen.findByText("Force and mass");
 }
 
 /** The ControlBar counter, labelled `Slide {index} of {total}`. */
@@ -95,8 +107,11 @@ function counterAt(index: number, total: number) {
 }
 
 describe("Session", () => {
-  it("groups the flattened items under step-summary dividers", () => {
+  it("fetches the session and its materials on mount, and groups the flattened items under step-summary dividers", async () => {
     renderSession();
+    await settle();
+    expect(mockGetSession).toHaveBeenCalledWith("s-1");
+    expect(mockGetMaterials).toHaveBeenCalledWith("s-1");
     // Step dividers (number + title).
     expect(screen.getByText("Force and mass")).toBeTruthy();
     expect(screen.getByText("Putting it together")).toBeTruthy();
@@ -112,14 +127,16 @@ describe("Session", () => {
     ).toBeTruthy();
   });
 
-  it("starts on the first item (a slide) and loads it from the sandbox", () => {
+  it("starts on the first item (a slide) and loads it from the sandbox", async () => {
     renderSession();
+    await settle();
     const frame = screen.getByTitle("Sandbox");
     expect(frame.getAttribute("src")).toContain("/slides/slide-1");
   });
 
-  it("activates the clicked item in the main area", () => {
+  it("activates the clicked item in the main area", async () => {
     renderSession();
+    await settle();
     fireEvent.click(
       screen.getByRole("button", { name: /what does f stand for\?/i }),
     );
@@ -135,8 +152,9 @@ describe("Session", () => {
     ).toContain("hidden");
   });
 
-  it("walks items with prev/next across group boundaries", () => {
+  it("walks items with prev/next across group boundaries", async () => {
     renderSession();
+    await settle();
 
     expect(
       (screen.getByRole("button", { name: "Previous slide" }) as HTMLButtonElement)
@@ -172,8 +190,9 @@ describe("Session", () => {
     ).toBe(true);
   });
 
-  it("reveals feedback and locks the question on answer", () => {
+  it("reveals feedback and locks the question on answer", async () => {
     renderSession();
+    await settle();
     fireEvent.click(
       screen.getByRole("button", { name: /what does f stand for\?/i }),
     );
@@ -194,8 +213,9 @@ describe("Session", () => {
     expect(screen.getByText("Not quite.")).toBeTruthy();
   });
 
-  it("shows Correct. when the right option is chosen", () => {
+  it("shows Correct. when the right option is chosen", async () => {
     renderSession();
+    await settle();
     fireEvent.click(
       screen.getByRole("button", { name: /what does f stand for\?/i }),
     );
@@ -203,55 +223,63 @@ describe("Session", () => {
     expect(screen.getByText("Correct.")).toBeTruthy();
   });
 
-  it("renders the not-found state when the session does not exist", () => {
-    renderSession({ initialSession: null });
-    expect(screen.getByText("Session not found")).toBeTruthy();
+  it("renders the not-found state when the session does not exist", async () => {
+    mockGetSession.mockRejectedValue(new Error("nope"));
+    renderSession();
+    expect(await screen.findByText("Session not found")).toBeTruthy();
     expect(
-      screen.getByRole("link", { name: /back to my sessions/i } ).getAttribute("href"),
+      screen.getByRole("link", { name: /back to my sessions/i }).getAttribute("href"),
     ).toBe("/en");
   });
 
-  it("renders the error state when the session errored", () => {
-    renderSession({
-      initialSession: session({ phase: "error" }),
-      initialMaterials: null,
-    });
-    expect(screen.getByText("Something went wrong")).toBeTruthy();
+  it("renders the error state when the session errored", async () => {
+    mockGetSession.mockResolvedValue(session({ phase: "error" }));
+    mockGetMaterials.mockRejectedValue(new Error("nope"));
+    renderSession();
+    expect(await screen.findByText("Something went wrong")).toBeTruthy();
   });
 
-  it("renders the not-ready state for pre-material phases (no polling)", () => {
-    renderSession({
-      initialSession: session({ phase: "planning" }),
-      initialMaterials: null,
-    });
-    expect(screen.getByText("Materials aren't ready yet")).toBeTruthy();
+  it("renders the not-ready state for pre-material phases", async () => {
+    mockGetSession.mockResolvedValue(session({ phase: "planning" }));
+    mockGetMaterials.mockRejectedValue(new Error("nope"));
+    renderSession();
+    expect(await screen.findByText("Materials aren't ready yet")).toBeTruthy();
     expect(screen.getByText("Newton's second law")).toBeTruthy();
-    expect(mockGetMaterials).not.toHaveBeenCalled();
+    // The mount fetch happened once — no polling for pre-material phases.
+    expect(mockGetMaterials).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders the not-ready state when the materials fetch fails for a post-material phase", async () => {
+    // Not the generating spinner: with a non-`generating` phase, a failed
+    // materials fetch degrades to "not ready" (no polling to retry it).
+    mockGetSession.mockResolvedValue(session({ phase: "executing" }));
+    mockGetMaterials.mockRejectedValue(new Error("nope"));
+    renderSession();
+    expect(await screen.findByText("Materials aren't ready yet")).toBeTruthy();
   });
 
   it("polls every 3s while generating, then renders the deck", async () => {
     vi.useFakeTimers();
     try {
-      mockGetMaterials.mockResolvedValue(materials());
-      renderWithLocale(
-        <Session
-          sessionId="s-1"
-          initialSession={session({ phase: "generating" })}
-          initialMaterials={materials({
-            phase: "generating",
-            generated_steps: [],
-          })}
-        />,
-      );
+      mockGetSession.mockResolvedValue(session({ phase: "generating" }));
+      mockGetMaterials
+        .mockResolvedValueOnce(
+          materials({ phase: "generating", generated_steps: [] }),
+        )
+        .mockResolvedValue(materials());
+      renderWithLocale(<Session sessionId="s-1" />);
+      // Let the mount fetches settle (microtasks, not timers).
+      await act(async () => {});
       expect(screen.getByText("Generating materials…")).toBeTruthy();
-      expect(mockGetMaterials).not.toHaveBeenCalled();
 
-      // First tick: fetch lands, the deck renders, polling stops.
+      // First tick: the poll lands with finished materials, the deck renders,
+      // polling stops.
       act(() => {
         vi.advanceTimersByTime(3000);
       });
       await act(async () => {});
-      expect(mockGetMaterials).toHaveBeenCalledTimes(1);
+      // mount fetch (1) + first poll (2)
+      expect(mockGetMaterials).toHaveBeenCalledTimes(2);
       expect(mockGetMaterials).toHaveBeenCalledWith("s-1");
       expect(screen.getByText("Force and mass")).toBeTruthy();
 
@@ -260,7 +288,7 @@ describe("Session", () => {
         vi.advanceTimersByTime(9000);
       });
       await act(async () => {});
-      expect(mockGetMaterials).toHaveBeenCalledTimes(1);
+      expect(mockGetMaterials).toHaveBeenCalledTimes(2);
     } finally {
       vi.useRealTimers();
     }
@@ -269,15 +297,12 @@ describe("Session", () => {
   it("keeps waiting (with a note) when a poll fails", async () => {
     vi.useFakeTimers();
     try {
+      mockGetSession.mockResolvedValue(session({ phase: "generating" }));
       mockGetMaterials.mockRejectedValue(new Error("boom"));
-      renderWithLocale(
-        <Session
-          sessionId="s-1"
-          initialSession={session({ phase: "generating" })}
-          initialMaterials={materials({ phase: "generating", generated_steps: [] })}
-        />,
-      );
-
+      renderWithLocale(<Session sessionId="s-1" />);
+      await act(async () => {});
+      // The mount fetch failed, so the view is still "generating" — the first
+      // tick polls again.
       act(() => {
         vi.advanceTimersByTime(3000);
       });
@@ -288,7 +313,7 @@ describe("Session", () => {
         vi.advanceTimersByTime(3000);
       });
       await act(async () => {});
-      expect(mockGetMaterials).toHaveBeenCalledTimes(2);
+      expect(mockGetMaterials).toHaveBeenCalledTimes(3);
     } finally {
       vi.useRealTimers();
     }

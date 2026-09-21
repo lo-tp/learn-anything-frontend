@@ -12,6 +12,7 @@ import { SandboxFrame } from "@/components/sandbox/sandbox-frame";
 import { useTheme, type Theme } from "@/hooks/use-theme";
 import {
   getMaterials,
+  getSession,
   type MaterialsOut,
   type SessionState,
 } from "@/lib/api-client";
@@ -33,27 +34,24 @@ const sandboxSrc = (slideId: string, theme: Theme) =>
 
 /**
  * The `/session/{sessionId}` view (#47). **Client** component — the single
- * state owner for the materials deck: the polled materials, the active
- * (flattened) item, and the quiz selections.
+ * state owner for the materials deck: the fetched session and materials, the
+ * polled materials, the active (flattened) item, and the quiz selections.
+ * The route is a static shell, so the view owns the initial fetch (session
+ * state + materials in parallel, each tolerating its own failure — the
+ * backend may be unreachable, or the session/materials may not exist yet)
+ * and the refresh polls (#87).
  *
  * The deck is `generated_steps` flattened — one card per slide/question —
  * grouped in the sidebar under step-summary dividers. While the session is
  * in `generating`, the view polls `getMaterials` until content arrives;
- * the polled response's phase beats the SSR session's. Friendly states
- * (not found / error / not ready / generating) render instead of the deck.
- * The shared frame is applied by the root layout.
+ * the polled response's phase beats the session's. Friendly states
+ * (loading / not found / error / not ready / generating) render instead of
+ * the deck. The shared frame is applied by the root layout.
  */
-export function Session({
-  sessionId,
-  initialSession,
-  initialMaterials,
-}: {
-  sessionId: string;
-  initialSession: SessionState | null;
-  initialMaterials: MaterialsOut | null;
-}) {
-  const [materials, setMaterials] =
-    useState<MaterialsOut | null>(initialMaterials);
+export function Session({ sessionId }: { sessionId: string }) {
+  const [session, setSession] = useState<SessionState | null>(null);
+  const [materials, setMaterials] = useState<MaterialsOut | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [pollError, setPollError] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
@@ -61,9 +59,36 @@ export function Session({
   const t = useTranslations("session");
   const { theme } = useTheme();
 
-  /** The freshest known phase — the polled materials beat the SSR session. */
-  const phase = materials?.phase ?? initialSession?.phase ?? null;
+  /** The freshest known phase — the polled materials beat the session. */
+  const phase = materials?.phase ?? session?.phase ?? null;
   const generating = phase === "generating";
+
+  /**
+   * The initial fetch: session state and materials in parallel, each
+   * tolerating its own failure (the backend may be unreachable, or the
+   * session/materials may not exist yet — the view renders the friendly
+   * states, so there is no `notFound()`). #87
+   */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [sessionResult, materialsResult] = await Promise.allSettled([
+        getSession(sessionId),
+        getMaterials(sessionId),
+      ]);
+      if (cancelled) return;
+      setSession(
+        sessionResult.status === "fulfilled" ? sessionResult.value : null,
+      );
+      setMaterials(
+        materialsResult.status === "fulfilled" ? materialsResult.value : null,
+      );
+      setLoaded(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
 
   /** Poll every 3s while generating; the cleanup stops it on phase change. */
   useEffect(() => {
@@ -142,7 +167,19 @@ export function Session({
 
   // ── Render branches, in priority order ──────────────────────────
 
-  if (initialSession === null) {
+  if (!loaded) {
+    return (
+      <StatePanel
+        icon={
+          <Loader2 className="size-8 animate-spin text-tertiary" aria-hidden />
+        }
+        title={t("loading.title")}
+        note={t("loading.note")}
+      />
+    );
+  }
+
+  if (session === null) {
     return (
       <StatePanel
         icon={<TriangleAlert className="size-8 text-error" aria-hidden />}
@@ -163,19 +200,23 @@ export function Session({
     );
   }
 
-  if (PRE_MATERIAL.has(phase ?? "") || materials === null) {
+  // Pre-material phases show "not ready"; a null `materials` for a
+  // post-material phase (the materials fetch failed) does too — the
+  // generating panel is only honest while the phase is `generating`.
+  if (PRE_MATERIAL.has(phase ?? "") || (materials === null && phase !== "generating")) {
     return (
       <StatePanel
         title={t("notReady.title")}
         note={t("notReady.note")}
-        subtitle={initialSession.narrowed_goal ?? undefined}
+        subtitle={session.narrowed_goal ?? undefined}
         chip={<PhaseIndicator phase={phase} />}
       />
     );
   }
 
   if (deck.length === 0) {
-    // Reaching here means the phase is `generating` (with no items yet).
+    // Reaching here means the phase is `generating` (with no items yet —
+    // `materials` null or empty steps both flatten to an empty deck).
     return (
       <StatePanel
         icon={
@@ -202,7 +243,7 @@ export function Session({
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-outline-variant bg-surface px-6">
           <span className="truncate text-sm font-medium text-on-surface">
-            {initialSession.narrowed_goal ?? t("learningSession")}
+            {session.narrowed_goal ?? t("learningSession")}
           </span>
           <PhaseIndicator phase={phase} />
         </header>

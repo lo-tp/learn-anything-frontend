@@ -58,24 +58,36 @@ function session(overrides: Partial<SessionListItem> = {}): SessionListItem {
 }
 
 describe("Root (home History)", () => {
-  it("hides the 'My Sessions' header and shows the 'Start New Session' button in the empty state", () => {
-    renderWithLocale(<Root initialSessions={[]} />);
-    expect(screen.getByText("No sessions yet")).toBeTruthy();
+  it("shows the 'Start New Session' button in the empty state", async () => {
+    mockListSessions.mockResolvedValue({ sessions: [] });
+    renderWithLocale(<Root />);
+    expect(await screen.findByText("No sessions yet")).toBeTruthy();
     // Header hidden ⇒ the only 'Start New Session' button must be the one the
     // empty state renders at the bottom.
     expect(screen.queryByText("My Sessions")).toBeNull();
     expect(screen.getByRole("button", { name: /Start New Session/ })).toBeTruthy();
   });
 
-  it("shows the 'My Sessions' header and session cards, not the empty state, when sessions exist", () => {
-    renderWithLocale(<Root initialSessions={[session()]} />);
-    expect(screen.getByText("My Sessions")).toBeTruthy();
+  it("fetches the History on mount and shows the 'My Sessions' header with session cards", async () => {
+    mockListSessions.mockResolvedValue({ sessions: [session()] });
+    renderWithLocale(<Root />);
+    expect(await screen.findByText("My Sessions")).toBeTruthy();
     expect(screen.getByText("React Hooks Deep Dive")).toBeTruthy();
     expect(screen.queryByText("No sessions yet")).toBeNull();
+    expect(mockListSessions).toHaveBeenCalledWith(); // no phase filter — History shows all phases
+  });
+
+  it("degrades to the empty state when the backend is unreachable", async () => {
+    mockListSessions.mockRejectedValue(new Error("boom"));
+    renderWithLocale(<Root />);
+    expect(await screen.findByText("No sessions yet")).toBeTruthy();
   });
 
   it("opens the new-session dialog from the 'Start New Session' CTA", async () => {
-    renderWithLocale(<Root initialSessions={[session()]} />);
+    mockListSessions.mockResolvedValue({ sessions: [session()] });
+    renderWithLocale(<Root />);
+    // Let the mount fetch settle so the header CTA is the one under test.
+    await screen.findByText("My Sessions");
     fireEvent.click(
       screen.getByRole("button", { name: /Start New Session/ }),
     );
@@ -85,7 +97,9 @@ describe("Root (home History)", () => {
   });
 
   it("opens the new-session dialog from the empty-state CTA", async () => {
-    renderWithLocale(<Root initialSessions={[]} />);
+    mockListSessions.mockResolvedValue({ sessions: [] });
+    renderWithLocale(<Root />);
+    await screen.findByText("No sessions yet");
     fireEvent.click(
       screen.getByRole("button", { name: /Start New Session/ }),
     );
@@ -132,10 +146,14 @@ describe("Root (home History)", () => {
       phase: "generating",
       message: "Plan approved.",
     });
-    // The re-fetch after accept returns the new session on top.
-    mockListSessions.mockResolvedValue({ sessions: [fresh, session()] });
+    // The mount fetch returns the old list; the re-fetch after accept
+    // returns the new session on top.
+    mockListSessions
+      .mockResolvedValueOnce({ sessions: [session()] })
+      .mockResolvedValueOnce({ sessions: [fresh, session()] });
 
-    renderWithLocale(<Root initialSessions={[session()]} />);
+    renderWithLocale(<Root />);
+    await screen.findByText("My Sessions");
     fireEvent.click(
       screen.getByRole("button", { name: /Start New Session/ }),
     );
@@ -160,9 +178,8 @@ describe("Root (home History)", () => {
     fireEvent.keyDown(review, { key: "Enter" });
 
     // The accepted session appears at the top — only possible through the
-    // re-fetch, since it was not in initialSessions.
+    // re-fetch, since it was not in the mount fetch's list.
     expect(await screen.findByText("Newton's second law of motion")).toBeTruthy();
-    expect(mockListSessions).toHaveBeenCalledTimes(1); // createSession goes through the stubbed client
-    expect(mockListSessions).toHaveBeenCalledWith(); // no phase filter — History shows all phases
+    expect(mockListSessions).toHaveBeenCalledTimes(2); // mount fetch + re-fetch
   });
 });

@@ -78,7 +78,11 @@
     "notQuite": "不太对。",
     "slideOf": "第 {n} / {total} 张",
     "prevSlide": "上一张",
-    "nextSlide": "下一张"
+    "nextSlide": "下一张",
+    "loading": {
+      "title": "正在加载会话…",
+      "note": "请稍候 — 你的会话正在加载。"
+    }
   },
   "phases": {
     "ready": {

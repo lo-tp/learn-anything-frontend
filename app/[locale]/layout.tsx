@@ -38,8 +38,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 /**
- * The served locales — one static layout shell per locale. The pages under
- * this layout are `force-dynamic` and resolve their data at request time.
+ * The served locales — one static shell per locale. The pages under this
+ * layout are static shells: they render the view and resolve no data; the
+ * views own their fetches in the browser (#87).
  */
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));

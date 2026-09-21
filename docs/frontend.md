@@ -19,8 +19,8 @@ Every page splits into three layers, and each has a job it shouldn't cross:
 
 | Layer | Where | Role | Server/Client |
 |---|---|---|---|
-| **Route entry** | `app/<route>/page.tsx` | Thin. Resolves data (if any) → passes it as `initial*` props. Default-exports the page. | Server (default) |
-| **View** | `views/<name>.tsx` | The interactive "page". Owns state, wires handlers, composes leaf components. | `"use client"` |
+| **Route entry** | `app/<route>/page.tsx` | Thin. Renders the view — no data resolution. Default-exports the page. | Server (default) |
+| **View** | `views/<name>.tsx` | The interactive "page". Owns state, **owns its data fetches** (initial on mount + refresh), wires handlers, composes leaf components. | `"use client"` |
 | **Leaves** | `components/<kebab-name>.tsx` | Pure, props-driven, no state. Reusable. | Either |
 
 Two ground rules that make this work:
@@ -34,10 +34,10 @@ Two ground rules that make this work:
 Pure, props-in, named export, kebab-case filename, design tokens, no state. This is your presentational unit: it receives props, renders one visual thing, and owns nothing.
 
 ### 2. View — `views/<name>.tsx`
-This is the actual interactive page. Mark it `"use client"`, have it own the state, compose the leaves, and use the **standard content frame** — copy the outer `main`/`div` wrapper structure from `views/root.tsx`. Seed any state from the `initial*` prop the route passes in.
+This is the actual interactive page. Mark it `"use client"`, have it own the state, compose the leaves, and use the **standard content frame** — copy the outer `main`/`div` wrapper structure from `views/root.tsx`. Fetch its own data on mount (via `lib/api-client`) and refresh as needed — the route is a static shell that passes no data.
 
 ### 3. Route entry — `app/<route>/page.tsx`
-A server component. Resolve the data here (for the current learner, per request), then hand it down to the view as an `initial*` prop. If the data changes per request, add the `force-dynamic` export (as `app/page.tsx` does). Default-export the page.
+A server component. It renders the view and nothing else — the app is a pure client-side frontend (#87): every page is a static shell pre-rendered per locale, and all data fetching happens in the browser (the view fetches on mount and refreshes as needed). Default-export the page.
 
 Navigate to the new route — the frame/top bar come free from the layout.
 
@@ -48,14 +48,15 @@ Navigate to the new route — the frame/top bar come free from the layout.
 - **`"use client"`**: only on the view and any leaf that uses state/hooks/events. Pure leaves stay server-compatible.
 - **Content frame**: reuse the standard wrapper verbatim — a scrollable `main` holding a centered, max-width, padded `div` (see `views/root.tsx`).
 - **Styling**: use the design tokens, not raw hex — `text-on-surface`, `text-on-surface-variant`, `bg-surface-container`, `bg-surface-container-high`, `text-primary`, `border-outline-variant`, `text-error`, `font-display`, `font-mono`. (Full list in `app/globals.css`.)
-- **Data flow**: the view is the **single state owner**; leaves receive props and report back via callbacks (see `NewSessionDialog` → `onAccept` → parent `refresh()`).
+- **Data flow**: the view is the **single state owner** — and the single **fetcher**; leaves receive props and report back via callbacks (see `NewSessionDialog` → `onAccept` → parent `refresh()`).
 - **Docs/comments**: each file opens with a short doc block; reference the design doc and ticket (e.g. `per design/progress/card` or `(#31)`) — matching the style of the existing files.
 
 ## Do / Don't
 
 - ✅ Add `app/<route>/page.tsx`; let the layout supply the frame.
-- ✅ Keep data resolution in the server route, interactivity in the `views/` client component.
+- ✅ Keep route entries thin (render the view), and interactivity **plus data fetching** in the `views/` client component.
 - ✅ Make leaves pure and reusable.
 - ❌ Don't re-wrap in `<Frame>`/`<TopBar>` in the page.
+- ❌ Don't fetch data in a route entry — views own their fetches (#87).
 - ❌ Don't put state in a leaf, or data-fetching in a component that isn't the view.
 - ✅ Session data comes from the typed backend client (`lib/api-client`); `types/api.d.ts` is generated (`npm run generate:types`), never hand-edited.

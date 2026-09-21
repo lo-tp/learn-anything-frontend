@@ -78,7 +78,11 @@
     "notQuite": "Not quite.",
     "slideOf": "Slide {n} of {total}",
     "prevSlide": "Previous slide",
-    "nextSlide": "Next slide"
+    "nextSlide": "Next slide",
+    "loading": {
+      "title": "Loading session…",
+      "note": "Hang tight — your session is loading."
+    }
   },
   "phases": {
     "ready": {
