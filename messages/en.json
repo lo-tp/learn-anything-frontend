@@ -122,6 +122,22 @@
       "hint": "Something went wrong"
     }
   },
+  "auth": {
+    "tabSignIn": "Sign in",
+    "tabCreateAccount": "Create account",
+    "email": "Email",
+    "password": "Password",
+    "displayName": "Display name",
+    "displayNamePlaceholder": "Your name (optional)",
+    "passwordTooShort": "Password must be at least 8 characters.",
+    "invalidCredentials": "Invalid email or password.",
+    "emailAlreadyInUse": "Email already in use.",
+    "genericError": "Something went wrong. Please try again.",
+    "submitSignIn": "Sign in",
+    "submitCreateAccount": "Create account",
+    "submitting": "Submitting…",
+    "backToApp": "Back to app"
+  },
   "time": {
     "justNow": "just now",
     "minAgo": "{n, plural, one {# min ago} other {# min ago}}",

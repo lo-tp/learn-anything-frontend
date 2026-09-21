@@ -56,19 +56,122 @@ function describeError(
   error: unknown,
   status?: number,
 ): ApiError {
-  const detail = (error as { detail?: { msg: string }[] } | undefined)?.detail;
+  const raw = (error as { detail?: unknown } | undefined)?.detail;
+  let message: string;
+  if (Array.isArray(raw)) {
+    message = raw
+      .map((d) => (d as { msg?: string }).msg)
+      .filter(Boolean)
+      .join(" ");
+  } else if (typeof raw === "string") {
+    message = raw;
+  } else {
+    message = "";
+  }
   return new ApiError(
-    detail?.map((d) => d.msg).join(" ") ?? `Request failed (${status ?? "unknown"})`,
+    message || `Request failed (${status ?? "unknown"})`,
     status,
   );
+}
+
+/** `POST /auth/register` — create an account. 409 = email already in use. */
+export async function registerAuth(
+  email: string,
+  password: string,
+  displayName?: string | null,
+): Promise<components["schemas"]["UserOut"]> {
+  const { data, error, response } = await api.POST("/auth/register", {
+    body: { email, password, display_name: displayName ?? null },
+    credentials: "include",
+  });
+  if (!data) {
+    if (response?.status === 401) handleUnauthorized();
+    throw describeError(error, response?.status);
+  }
+  return data;
+}
+
+/** `POST /auth/login` — sign in. 401 = invalid credentials. */
+export async function loginAuth(
+  email: string,
+  password: string,
+): Promise<void> {
+  const { data, error, response } = await api.POST("/auth/login", {
+    body: { email, password },
+    credentials: "include",
+  });
+  if (!data) {
+    throw describeError(error, response?.status);
+  }
+}
+
+/** `GET /auth/me` — current user's profile. */
+export async function getMe(): Promise<components["schemas"]["UserOut"]> {
+  const { data, error, response } = await api.GET("/auth/me", {
+    credentials: "include",
+  });
+  if (!data) {
+    if (response?.status === 401) handleUnauthorized();
+    throw describeError(error, response?.status);
+  }
+  return data;
+}
+
+/** `PATCH /auth/me` — update display name. */
+export async function updateMe(
+  displayName: string,
+): Promise<components["schemas"]["UserOut"]> {
+  const { data, error, response } = await api.PATCH("/auth/me", {
+    body: { display_name: displayName },
+    credentials: "include",
+  });
+  if (!data) {
+    if (response?.status === 401) handleUnauthorized();
+    throw describeError(error, response?.status);
+  }
+  return data;
+}
+
+/** `POST /auth/logout` — sign out the current session. */
+export async function logoutAuth(): Promise<void> {
+  const { data, error, response } = await api.POST("/auth/logout", {
+    credentials: "include",
+  });
+  if (!data) throw describeError(error, response?.status);
+}
+
+/**
+ * Redirect to the login page, preserving the originally requested path as
+ * the `next` query param. Called on any 401 response from an auth-gated
+ * endpoint.
+ */
+export function handleUnauthorized(): void {
+  if (typeof window === "undefined") return;
+  const path = window.location.pathname;
+  // Only redirect if we're not already on the login page.
+  if (path.endsWith("/login")) return;
+  const localePrefix = path.match(/^\/([a-z]{2})/)?.[1] ?? "en";
+  const next = encodeURIComponent(path);
+  window.location.href = `/${localePrefix}/login?next=${next}`;
+}
+
+/**
+ * Internal: handle a 401 from an auth-gated endpoint by redirecting to the
+ * login page, then re-throw the original error so the caller's catch block
+ * still runs (and the redirect takes over the tab).
+ */
+function guardUnauthorized(response: Response | undefined, error: unknown, status?: number): ApiError {
+  if (response?.status === 401) handleUnauthorized();
+  return describeError(error, status);
 }
 
 /** `GET /sessions` — list sessions (newest first), optionally filtered by phase(s). */
 export async function listSessions(phases?: Phase[]): Promise<SessionList> {
   const { data, error, response } = await api.GET("/sessions", {
     params: { query: { phase: phases } },
+    credentials: "include",
   });
-  if (!data) throw describeError(error, response?.status);
+  if (!data) throw guardUnauthorized(response, error, response?.status);
   return data;
 }
 
@@ -76,8 +179,9 @@ export async function listSessions(phases?: Phase[]): Promise<SessionList> {
 export async function createSession(goal: string): Promise<ClarifyResult> {
   const { data, error, response } = await api.POST("/sessions", {
     body: { goal },
+    credentials: "include",
   });
-  if (!data) throw describeError(error, response?.status);
+  if (!data) throw guardUnauthorized(response, error, response?.status);
   return data;
 }
 
@@ -88,9 +192,9 @@ export async function clarifySession(
 ): Promise<ClarifyResult> {
   const { data, error, response } = await api.POST(
     "/sessions/{session_id}/clarify",
-    { params: { path: { session_id: sessionId } }, body: { answer } },
+    { params: { path: { session_id: sessionId } }, body: { answer }, credentials: "include" },
   );
-  if (!data) throw describeError(error, response?.status);
+  if (!data) throw guardUnauthorized(response, error, response?.status);
   return data;
 }
 
@@ -98,8 +202,9 @@ export async function clarifySession(
 export async function getSession(sessionId: string): Promise<SessionState> {
   const { data, error, response } = await api.GET("/sessions/{session_id}", {
     params: { path: { session_id: sessionId } },
+    credentials: "include",
   });
-  if (!data) throw describeError(error, response?.status);
+  if (!data) throw guardUnauthorized(response, error, response?.status);
   return data;
 }
 
@@ -111,9 +216,9 @@ export async function getSession(sessionId: string): Promise<SessionState> {
 export async function startProbe(sessionId: string): Promise<ProbeOut> {
   const { data, error, response } = await api.POST(
     "/sessions/{session_id}/probe",
-    { params: { path: { session_id: sessionId } }, body: { answers: null } },
+    { params: { path: { session_id: sessionId } }, body: { answers: null }, credentials: "include" },
   );
-  if (!data) throw describeError(error, response?.status);
+  if (!data) throw guardUnauthorized(response, error, response?.status);
   return data;
 }
 
@@ -132,9 +237,10 @@ export async function answerProbe(
     {
       params: { path: { session_id: sessionId } },
       body: { answers },
+      credentials: "include",
     },
   );
-  if (!data) throw describeError(error, response?.status);
+  if (!data) throw guardUnauthorized(response, error, response?.status);
   return data;
 }
 
@@ -142,9 +248,9 @@ export async function answerProbe(
 export async function generatePlan(sessionId: string): Promise<PlanOut> {
   const { data, error, response } = await api.POST(
     "/sessions/{session_id}/plan/generate",
-    { params: { path: { session_id: sessionId } } },
+    { params: { path: { session_id: sessionId } }, credentials: "include" },
   );
-  if (!data) throw describeError(error, response?.status);
+  if (!data) throw guardUnauthorized(response, error, response?.status);
   return data;
 }
 
@@ -161,9 +267,10 @@ export async function adjustPlan(
     {
       params: { path: { session_id: sessionId } },
       body: { adjustment },
+      credentials: "include",
     },
   );
-  if (!data) throw describeError(error, response?.status);
+  if (!data) throw guardUnauthorized(response, error, response?.status);
   return data;
 }
 
@@ -174,9 +281,9 @@ export async function adjustPlan(
 export async function approvePlan(sessionId: string): Promise<ApproveOut> {
   const { data, error, response } = await api.POST(
     "/sessions/{session_id}/plan/approve",
-    { params: { path: { session_id: sessionId } } },
+    { params: { path: { session_id: sessionId } }, credentials: "include" },
   );
-  if (!data) throw describeError(error, response?.status);
+  if (!data) throw guardUnauthorized(response, error, response?.status);
   return data;
 }
 
@@ -187,8 +294,8 @@ export async function approvePlan(sessionId: string): Promise<ApproveOut> {
 export async function getMaterials(sessionId: string): Promise<MaterialsOut> {
   const { data, error, response } = await api.GET(
     "/sessions/{session_id}/materials",
-    { params: { path: { session_id: sessionId } } },
+    { params: { path: { session_id: sessionId } }, credentials: "include" },
   );
-  if (!data) throw describeError(error, response?.status);
+  if (!data) throw guardUnauthorized(response, error, response?.status);
   return data;
 }

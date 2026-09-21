@@ -3,7 +3,6 @@ import { Geist, JetBrains_Mono } from "next/font/google";
 import { notFound } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
-import { Frame } from "@/components/frame";
 import { hasLocale, localeTag, routing } from "@/i18n/routing";
 import "../globals.css";
 import "temml/dist/Temml-Local.css";
@@ -48,7 +47,9 @@ export function generateStaticParams() {
 
 export async function generateMetadata({
   params,
-}: LayoutProps<"/[locale]">): Promise<Metadata> {
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({
     locale: hasLocale(locale) ? locale : routing.defaultLocale,
@@ -70,7 +71,10 @@ export async function generateMetadata({
 export default async function RootLayout({
   children,
   params,
-}: LayoutProps<"/[locale]">) {
+}: {
+  children: React.ReactNode;
+  params: Promise<{ locale: string }>;
+}) {
   const { locale } = await params;
   if (!hasLocale(locale)) notFound();
   setRequestLocale(locale);
@@ -86,7 +90,7 @@ export default async function RootLayout({
       </head>
       <body className="h-dvh overflow-hidden">
         <NextIntlClientProvider locale={locale} messages={await getMessages()}>
-          <Frame>{children}</Frame>
+          {children}
         </NextIntlClientProvider>
       </body>
     </html>

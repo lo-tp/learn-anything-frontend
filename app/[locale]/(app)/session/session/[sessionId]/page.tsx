@@ -11,7 +11,9 @@ import { hasLocale, routing } from "@/i18n/routing";
  */
 export default async function SessionPage({
   params,
-}: PageProps<"/[locale]/session/[sessionId]">) {
+}: {
+  params: Promise<{ locale: string; sessionId: string }>;
+}) {
   const { locale, sessionId } = await params;
   setRequestLocale(hasLocale(locale) ? locale : routing.defaultLocale);
   return <Session sessionId={sessionId} />;

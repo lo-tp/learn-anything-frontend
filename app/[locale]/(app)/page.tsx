@@ -8,7 +8,11 @@ import { hasLocale, routing } from "@/i18n/routing";
  * refresh) in the browser (#87). The shared frame is applied by the root
  * layout.
  */
-export default async function Home({ params }: PageProps<"/[locale]">) {
+export default async function Home({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
   const { locale } = await params;
   setRequestLocale(hasLocale(locale) ? locale : routing.defaultLocale);
   return <Root />;

@@ -122,6 +122,22 @@
       "hint": "出了点问题"
     }
   },
+  "auth": {
+    "tabSignIn": "登录",
+    "tabCreateAccount": "创建账号",
+    "email": "邮箱",
+    "password": "密码",
+    "displayName": "显示名称",
+    "displayNamePlaceholder": "你的名字（可选）",
+    "passwordTooShort": "密码至少需要 8 个字符。",
+    "invalidCredentials": "邮箱或密码无效。",
+    "emailAlreadyInUse": "邮箱已被使用。",
+    "genericError": "出了点问题，请重试。",
+    "submitSignIn": "登录",
+    "submitCreateAccount": "创建账号",
+    "submitting": "提交中…",
+    "backToApp": "返回应用"
+  },
   "time": {
     "justNow": "刚刚",
     "minAgo": "{n, plural, other {# 分钟前}}",
