@@ -148,34 +148,34 @@
  * the light palette tokens it pairs with live in public/palette.css. */
 .light {
   color-scheme: light;
-  --foreground: #1b1e2e;
+  --foreground: #131b2e;
   --card: #ffffff;
-  --card-foreground: #1b1e2e;
+  --card-foreground: #131b2e;
   --popover: #ffffff;
-  --popover-foreground: #1b1e2e;
+  --popover-foreground: #131b2e;
   --primary-foreground: #ffffff;
-  --secondary-foreground: #1a2135;
-  --muted: #ebedf3;
-  --muted-foreground: #62657a;
-  --accent: #e4e7f0;
-  --accent-foreground: #1b1e2e;
+  --secondary-foreground: #ffffff;
+  --muted: #f2f3ff;
+  --muted-foreground: #434655;
+  --accent: #eaedff;
+  --accent-foreground: #131b2e;
   --destructive: #ba1a1a;
-  --border: #c5c7d4;
-  --input: #c5c7d4;
-  --ring: #494bd6;
-  --chart-1: #494bd6;
-  --chart-2: #8083ff;
-  --chart-3: #6e7799;
-  --chart-4: #8e9193;
-  --chart-5: #c5c7d4;
-  --sidebar: #f4f6fa;
-  --sidebar-foreground: #1b1e2e;
-  --sidebar-primary: #494bd6;
+  --border: #c3c6d7;
+  --input: #c3c6d7;
+  --ring: #004ac6;
+  --chart-1: #004ac6;
+  --chart-2: #2563eb;
+  --chart-3: #00687a;
+  --chart-4: #7d4ce7;
+  --chart-5: #c3c6d7;
+  --sidebar: #f2f3ff;
+  --sidebar-foreground: #131b2e;
+  --sidebar-primary: #004ac6;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e4e7f0;
-  --sidebar-accent-foreground: #1b1e2e;
-  --sidebar-border: #c5c7d4;
-  --sidebar-ring: #494bd6;
+  --sidebar-accent: #eaedff;
+  --sidebar-accent-foreground: #131b2e;
+  --sidebar-border: #c3c6d7;
+  --sidebar-ring: #004ac6;
 }
 
 @layer base {
