@@ -2,6 +2,7 @@
 
 import { CircleHelp, Settings } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { AccountMenu } from "@/components/account-menu";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Link } from "@/i18n/navigation";
@@ -29,6 +30,7 @@ export function TopBar() {
         </button>
         <ThemeToggle />
         <LanguageSwitcher />
+        <AccountMenu />
         <button
           type="button"
           aria-label={t("help")}

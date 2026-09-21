@@ -9,6 +9,14 @@
     "chooseLanguage": "选择语言",
     "toggleTheme": "切换主题"
   },
+  "account": {
+    "displayName": "显示名称",
+    "editName": "编辑显示名称",
+    "signOut": "退出登录",
+    "save": "保存",
+    "namePlaceholder": "你的名字",
+    "error": "出了点问题，请重试。"
+  },
   "home": {
     "title": "我的会话",
     "subtitle": "继续你的深度探索，或发起一次新的学习探究。",
