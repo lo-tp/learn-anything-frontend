@@ -4,6 +4,7 @@ import {
   cleanup,
   fireEvent,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import { renderWithLocale } from "@/test/test-utils";
 import { Root } from "@/views/root";
@@ -12,12 +13,14 @@ import {
   generatePlan,
   approvePlan,
   listSessions,
+  ApiError,
   type SessionListItem,
 } from "@/lib/api-client";
 
 // The new-session dialog creates sessions through the typed backend client;
 // stub that module (openapi-fetch binds `fetch` at client-creation time, so
 // stubbing the global fetch after import never intercepts it).
+// `ApiError` keeps its `status` field so the view's 401 check is exercised.
 vi.mock("@/lib/api-client", () => ({
   createSession: vi.fn(),
   clarifySession: vi.fn(),
@@ -27,7 +30,15 @@ vi.mock("@/lib/api-client", () => ({
   adjustPlan: vi.fn(),
   approvePlan: vi.fn(),
   listSessions: vi.fn(),
-  ApiError: class ApiError extends Error {},
+  ApiError: class ApiError extends Error {
+    constructor(
+      message: string,
+      readonly status?: number,
+    ) {
+      super(message);
+      this.name = "ApiError";
+    }
+  },
 }));
 
 const mockCreateSession = vi.mocked(createSession);
@@ -81,6 +92,16 @@ describe("Root (home History)", () => {
     mockListSessions.mockRejectedValue(new Error("boom"));
     renderWithLocale(<Root />);
     expect(await screen.findByText("No sessions yet")).toBeTruthy();
+  });
+
+  it("does not show the empty state when the fetch fails with 401", async () => {
+    // The API client redirects to login on a 401 (handleUnauthorized); while
+    // the redirect takes over the tab, the page must not claim there are no
+    // sessions.
+    mockListSessions.mockRejectedValue(new ApiError("unauthorized", 401));
+    renderWithLocale(<Root />);
+    await waitFor(() => expect(mockListSessions).toHaveBeenCalled());
+    expect(screen.queryByText("No sessions yet")).toBeNull();
   });
 
   it("opens the new-session dialog from the 'Start New Session' CTA", async () => {

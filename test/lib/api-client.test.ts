@@ -14,6 +14,7 @@ const { ApiError, getMaterials, listSessions } = await import("@/lib/api-client"
 afterEach(() => {
   fetchMock.mockReset();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 function json(body: unknown, status = 200): Response {
@@ -59,6 +60,14 @@ describe("listSessions", () => {
     const err = await listSessions(["executing"]).catch((e) => e);
     expect(err).toBeInstanceOf(ApiError);
     expect(err.message).toBe("phase: bad and this");
+  });
+
+  it("redirects to login on a 401 (and still throws)", async () => {
+    vi.stubGlobal("window", { location: { pathname: "/en", href: "" } });
+    fetchMock.mockResolvedValue(json({ detail: "Not authenticated" }, 401));
+    const err = await listSessions().catch((e) => e);
+    expect(window.location.href).toBe("/en/login?next=%2Fen");
+    expect(err).toBeInstanceOf(ApiError);
   });
 });
 

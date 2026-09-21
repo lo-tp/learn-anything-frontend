@@ -12,6 +12,14 @@ declare const messages: {
     "chooseLanguage": "Choose language",
     "toggleTheme": "Toggle theme"
   },
+  "account": {
+    "displayName": "Display name",
+    "editName": "Edit display name",
+    "signOut": "Sign out",
+    "save": "Save",
+    "namePlaceholder": "Your name",
+    "error": "Something went wrong. Please try again."
+  },
   "home": {
     "title": "My Sessions",
     "subtitle": "Resume your deep dives or launch a new contextual inquiry.",
@@ -124,14 +132,6 @@ declare const messages: {
       "label": "Error",
       "hint": "Something went wrong"
     }
-  },
-  "account": {
-    "displayName": "Display name",
-    "editName": "Edit display name",
-    "signOut": "Sign out",
-    "save": "Save",
-    "namePlaceholder": "Your name",
-    "error": "Something went wrong. Please try again."
   },
   "auth": {
     "tabSignIn": "Sign in",

@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/empty-state";
 import { NewSessionDialog } from "./new-session-dialog";
 import { SessionCard } from "@/components/session-card";
 import { StartSessionButton } from "@/components/start-session-button";
-import { listSessions, type SessionListItem } from "@/lib/api-client";
+import { ApiError, listSessions, type SessionListItem } from "@/lib/api-client";
 
 /**
  * The home page: the learner's History. Owns the list state, the initial
@@ -26,13 +26,26 @@ export function Root() {
   const t = useTranslations("home");
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  // A 401 means the API client already redirected to login
+  // (`handleUnauthorized`); suppress the empty state while the tab hands
+  // over (#94).
+  const [unauthorized, setUnauthorized] = useState(false);
+
+  /** A 401 from `listSessions` — the API client already redirected to
+   *  login (`handleUnauthorized`), so suppress the empty state while the
+   *  tab hands over (#94). */
+  const onFetchError = (err: unknown) => {
+    if (err instanceof ApiError && err.status === 401) setUnauthorized(true);
+  };
 
   /** Re-fetch the History from the backend and swap the list in place. */
   const refresh = useCallback(async () => {
     try {
       const { sessions } = await listSessions();
       setSessions(sessions);
-    } catch {
+      setUnauthorized(false);
+    } catch (err) {
+      onFetchError(err);
       /* keep the current list */
     }
   }, []);
@@ -44,8 +57,12 @@ export function Root() {
     (async () => {
       try {
         const { sessions } = await listSessions();
-        if (!cancelled) setSessions(sessions);
-      } catch {
+        if (!cancelled) {
+          setSessions(sessions);
+          setUnauthorized(false);
+        }
+      } catch (err) {
+        if (!cancelled) onFetchError(err);
         /* keep the current list */
       }
     })();
@@ -57,7 +74,7 @@ export function Root() {
   return (
     <main className="flex-1 overflow-y-auto">
       <div className="mx-auto w-full max-w-[1200px] p-8 md:p-margin-page">
-        {sessions.length === 0 ? (
+        {unauthorized ? null : sessions.length === 0 ? (
           <EmptyState>
             <StartSessionButton onClick={() => setDialogOpen(true)} />
           </EmptyState>
