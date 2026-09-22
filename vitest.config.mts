@@ -17,6 +17,21 @@ export default defineConfig({
     },
   },
   test: {
+    coverage: {
+      /**
+       * The UT coverage floor: 90% on all four metrics for EVERY measured
+       * file (per-file, not aggregate) — `npm run test:coverage` fails the
+       * run while any file is below it. Glob keys can raise the bar for
+       * specific paths, e.g. `'lib/api-client.ts': { lines: 95 }`.
+       */
+      thresholds: {
+        perFile: true,
+        statements: 90,
+        lines: 90,
+        functions: 90,
+        branches: 90,
+      },
+    },
     include: ["test/**/*.test.ts", "test/**/*.test.tsx"],
     setupFiles: ["./test/setup.ts"],
     server: {
