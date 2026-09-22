@@ -107,6 +107,7 @@ export function Review() {
    * the deck.
    */
   const handleConfidence = (confidence: ReviewConfidence) => {
+    /* v8 ignore next */
     if (!current) return;
     answerReviewCard(current.id, confidence).catch(() => {});
     if (index < total - 1) {

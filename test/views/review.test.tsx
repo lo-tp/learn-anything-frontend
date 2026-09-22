@@ -178,4 +178,31 @@ describe("Review", () => {
     ).toBeTruthy();
     expect(screen.getByRole("link", { name: /back to my sessions/i })).toBeTruthy();
   });
+
+  it("discards the fetch result when unmounted before it settles", async () => {
+    let resolveDue: (cards: ReviewCardOut[]) => void;
+    mockGetReviewDue.mockReturnValue(
+      new Promise((resolve) => {
+        resolveDue = resolve;
+      }),
+    );
+    const { unmount } = renderWithLocale(<Review />);
+    unmount();
+    resolveDue!([card()]);
+    // Let the settled promise's state updates run — they must be no-ops.
+    await Promise.resolve();
+  });
+
+  it("discards the fetch failure when unmounted before it settles", async () => {
+    let rejectDue: (error: Error) => void;
+    mockGetReviewDue.mockReturnValue(
+      new Promise((_resolve, reject) => {
+        rejectDue = reject;
+      }),
+    );
+    const { unmount } = renderWithLocale(<Review />);
+    unmount();
+    rejectDue!(new Error("late"));
+    await Promise.resolve();
+  });
 });

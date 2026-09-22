@@ -18,13 +18,19 @@ async function makeToken(sub = "test@example.com", expOffsetSec = 86400): Promis
     .sign(encoder.encode(SECRET));
 }
 
-/** Build a NextRequest with the given path and optional cookie. */
-function makeRequest(path: string, cookie?: string): NextRequest {
+/** Build a NextRequest with the given path, optional cookie, and headers. */
+function makeRequest(
+  path: string,
+  cookie?: string,
+  extraHeaders: Record<string, string> = {},
+): NextRequest {
   const headers: Record<string, string> = {};
   if (cookie) {
     headers["cookie"] = `${COOKIE_NAME}=${cookie}`;
   }
-  return new NextRequest(`${ORIGIN}${path}`, { headers });
+  return new NextRequest(`${ORIGIN}${path}`, {
+    headers: { ...headers, ...extraHeaders },
+  });
 }
 
 describe("proxy (sign-in gate)", () => {
@@ -103,6 +109,38 @@ describe("proxy (sign-in gate)", () => {
     // NOT to the login page.
     const location = res.headers.get("Location");
     expect(location).toBe(`${ORIGIN}/en/sessions`);
+  });
+
+  // --- Locale resolution (Accept-Language, odd prefixes) ---
+
+  it("resolves the locale from Accept-Language when the path is locale-less", async () => {
+    const req = makeRequest("/sessions", undefined, {
+      "accept-language": "zh-CN,zh;q=0.9",
+    });
+    const res = await proxy(req);
+    // No path prefix → the header wins: a zh* tag redirects to the zh login.
+    expect(res.headers.get("Location")).toBe(
+      `${ORIGIN}/zh/login?next=${encodeURIComponent("/sessions")}`,
+    );
+  });
+
+  it("ignores unknown 2-letter prefixes and falls back to the header", async () => {
+    const req = makeRequest("/ff/sessions", undefined, {
+      "accept-language": "zh",
+    });
+    const res = await proxy(req);
+    // "/ff" matches the prefix shape but is not a locale — the header wins.
+    expect(res.headers.get("Location")).toBe(
+      `${ORIGIN}/zh/login?next=${encodeURIComponent("/ff/sessions")}`,
+    );
+  });
+
+  it("treats the bare locale path (no trailing slash) as gated", async () => {
+    const req = makeRequest("/en");
+    const res = await proxy(req);
+    expect(res.headers.get("Location")).toBe(
+      `${ORIGIN}/en/login?next=${encodeURIComponent("/en")}`,
+    );
   });
 
   // --- Login route is never gated ---

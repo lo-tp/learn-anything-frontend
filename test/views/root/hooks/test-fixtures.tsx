@@ -2,10 +2,16 @@
 // Import this from each per-phase test file. The `vi.mock` call must still
 // live in each test file (Vitest hoists it to the top of the module).
 
-import { fireEvent, screen } from "@testing-library/react";
+import { vi } from "vitest";
+import { fireEvent, renderHook, screen } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
 import { renderWithLocale, type TestLocale } from "@/test/test-utils";
 import { NewSessionDialog } from "@/views/root/new-session-dialog";
+import { useNewSession } from "@/views/root/use-new-session";
 import type { PlanBody, PlanOut } from "@/lib/api-client";
+import type { PhaseContext } from "@/views/root/hooks";
+import type { useTranslations } from "next-intl";
+import en from "@/messages/en.json";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -133,4 +139,74 @@ export async function openDialog(
  */
 export function clickSend() {
   fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+}
+
+// ── Direct phase-hook harness ────────────────────────────────────────────
+// The dialog can't reach a phase hook's defensive guards (the Send button and
+// textarea are disabled while pending, and each phase is only routed to with
+// valid shared state), so the guards are exercised by driving the phase hook
+// directly with a hand-built context.
+
+/**
+ * A `PhaseContext` whose dispatchers are spies and whose `t` echoes its key
+ * (the defensive guards only assert the key they pass to `setMessage`), so the
+ * hook renders without an intl provider. Spread `overrides` on top to set the
+ * read state a guard needs (e.g. `sessionId: null`).
+ */
+export function makePhaseContext(
+  overrides: Partial<PhaseContext> = {},
+): PhaseContext {
+  const noop = vi.fn();
+  return {
+    paragraph: "",
+    sessionId: null,
+    phase: null,
+    probeBatch: null,
+    probeAnswers: [],
+    probeCount: 0,
+    plan: null,
+    setParagraph: noop,
+    setStatus: noop,
+    setMessage: noop,
+    setMessages: noop,
+    setSessionId: noop,
+    setPhase: noop,
+    setProbeBatch: noop,
+    setProbeAnswers: noop,
+    setProbeCount: noop,
+    setPlan: noop,
+    onAccept: noop,
+    close: noop,
+    splitAnswer: (text: string) => text,
+    t: vi.fn((key: string) => key) as ReturnType<
+      typeof useTranslations<"dialog">
+    >,
+    recordProbeBatch: noop,
+    recordPlan: noop,
+    ...overrides,
+  };
+}
+
+/** Render a phase hook against a hand-built context (spy dispatchers). */
+export function renderPhaseHook(
+  hook: (ctx: PhaseContext) => unknown,
+  ctx: PhaseContext,
+) {
+  return renderHook(() => hook(ctx));
+}
+
+/**
+ * Render the `useNewSession` orchestrator (unlike the phase hooks it calls
+ * `useTranslations` itself), wrapped in the intl provider it needs.
+ */
+export function renderUseNewSession(
+  props: Parameters<typeof useNewSession>[0],
+) {
+  return renderHook(() => useNewSession(props), {
+    wrapper: ({ children }) => (
+      <NextIntlClientProvider locale="en" messages={en}>
+        {children}
+      </NextIntlClientProvider>
+    ),
+  });
 }

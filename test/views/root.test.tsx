@@ -94,6 +94,23 @@ describe("Root (home History)", () => {
     expect(await screen.findByText("No sessions yet")).toBeTruthy();
   });
 
+  it("does not update state when unmounted before the initial fetch settles", async () => {
+    let resolveFetch: (value: { sessions: [] }) => void;
+    mockListSessions.mockReturnValue(
+      new Promise((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+    const { unmount } = renderWithLocale(<Root />);
+    unmount();
+
+    // The in-flight fetch resolves after unmount; the cancelled guard skips
+    // the state update. Let the resolution run.
+    resolveFetch!({ sessions: [] });
+    await Promise.resolve();
+    expect(screen.queryByText("No sessions yet")).toBeNull();
+  });
+
   it("does not show the empty state when the fetch fails with 401", async () => {
     // The API client redirects to login on a 401 (handleUnauthorized); while
     // the redirect takes over the tab, the page must not claim there are no

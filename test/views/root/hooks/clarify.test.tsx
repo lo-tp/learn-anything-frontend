@@ -175,6 +175,22 @@ describe("NewSessionDialog clarify phase", () => {
     ).toBe("");
   });
 
+  it("falls back to the thin-feedback hint when no clarifying questions are returned", async () => {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: null,
+    });
+    await openDialog(SHORT);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    // The missing questions collapse to the localized nudge, rendered as a
+    // single-line AI bubble (not an inline error below the textarea).
+    await screen.findByText(
+      "That's a bit thin — add a little more detail.",
+    );
+  });
+
   it("records the learner's input and the clarifying questions as recent messages", async () => {
     mockCreateSession.mockResolvedValue({
       session_id: "s-1",

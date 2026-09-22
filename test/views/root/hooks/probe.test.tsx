@@ -7,7 +7,7 @@ import {
   it,
   vi,
 } from "vitest";
-import { cleanup, fireEvent, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen } from "@testing-library/react";
 import {
   ApiError,
   adjustPlan,
@@ -19,7 +19,7 @@ import {
   startProbe,
   type ProbeQuestionOut,
 } from "@/lib/api-client";
-import { withDisplayOrder } from "@/views/root/hooks";
+import { useProbePhase, withDisplayOrder } from "@/views/root/hooks";
 import {
   GOAL,
   PLAN_OUT,
@@ -29,7 +29,9 @@ import {
   PROBE_LABEL,
   REVIEW_LABEL,
   UNKNOWN_OPTION,
+  makePhaseContext,
   openDialog,
+  renderPhaseHook,
 } from "./test-fixtures";
 
 vi.mock("@/lib/api-client", () => ({
@@ -444,6 +446,22 @@ describe("NewSessionDialog probe loop (one at a time, click to answer)", () => {
     expect(mockAnswerProbe).toHaveBeenCalledTimes(2);
   });
 
+  it("falls back to the generic error when a failed submit is not an ApiError", async () => {
+    await reachFirstBatch([Q1, Q2]);
+    mockAnswerProbe.mockRejectedValue(new Error("network down"));
+
+    // Answer Q1 (local — no submit), then Q2 (last) → the combined submit
+    // rejects with a non-ApiError, so the inline message is the fallback.
+    clickOption(Q1.text, "5 m/s²");
+    await screen.findByText(Q2.text);
+    clickOption(Q2.text, "doubles");
+
+    // The generic dialog fallback (not the raw network message) is shown.
+    await screen.findByText(
+      "Something went wrong starting your session. Please try again.",
+    );
+  });
+
   it("retries the first batch fetch when it fails", async () => {
     mockCreateSession.mockResolvedValue({
       session_id: "s-1",
@@ -464,5 +482,103 @@ describe("NewSessionDialog probe loop (one at a time, click to answer)", () => {
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
     await screen.findByText(Q1.text);
     expect(mockStartProbe).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("useProbePhase submit guards", () => {
+  it("ignores the submit while a probe card is already on screen", async () => {
+    const ctx = makePhaseContext({ probeBatch: [Q1], sessionId: "s-1" });
+    const { result } = renderPhaseHook(useProbePhase, ctx);
+
+    await act(async () => {
+      await result.current.submit();
+    });
+
+    expect(mockStartProbe).not.toHaveBeenCalled();
+    expect(ctx.setStatus).not.toHaveBeenCalled();
+  });
+
+  it("surfaces the fallback error when there is no session", async () => {
+    const ctx = makePhaseContext({ probeBatch: null, sessionId: null });
+    const { result } = renderPhaseHook(useProbePhase, ctx);
+
+    await act(async () => {
+      await result.current.submit();
+    });
+
+    expect(ctx.setStatus).toHaveBeenCalledWith("error");
+    expect(ctx.setMessage).toHaveBeenCalledWith("errorFallback");
+    expect(mockStartProbe).not.toHaveBeenCalled();
+  });
+
+  it("surfaces the no-questions error when the start call yields no questions", async () => {
+    const ctx = makePhaseContext({ probeBatch: null, sessionId: "s-1" });
+    const { result } = renderPhaseHook(useProbePhase, ctx);
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: null });
+
+    await act(async () => {
+      await result.current.submit();
+    });
+
+    expect(ctx.setStatus).toHaveBeenCalledWith("error");
+    expect(ctx.setMessage).toHaveBeenCalledWith("errorNoQuestions");
+  });
+});
+
+describe("useProbePhase selectOption guards", () => {
+  it("ignores a click when there is no batch", async () => {
+    const ctx = makePhaseContext({ probeBatch: null, sessionId: "s-1" });
+    const { result } = renderPhaseHook(useProbePhase, ctx);
+
+    await act(async () => {
+      await result.current.selectOption(0);
+    });
+
+    expect(mockAnswerProbe).not.toHaveBeenCalled();
+    expect(ctx.setProbeAnswers).not.toHaveBeenCalled();
+  });
+
+  it("ignores a click when there is no session", async () => {
+    const ctx = makePhaseContext({ probeBatch: withDisplayOrder([Q1]), sessionId: null });
+    const { result } = renderPhaseHook(useProbePhase, ctx);
+
+    await act(async () => {
+      await result.current.selectOption(0);
+    });
+
+    expect(mockAnswerProbe).not.toHaveBeenCalled();
+    expect(ctx.setProbeAnswers).not.toHaveBeenCalled();
+  });
+
+  it("ignores a click once the batch is fully answered", async () => {
+    const ctx = makePhaseContext({
+      probeBatch: withDisplayOrder([Q1]),
+      sessionId: "s-1",
+      probeAnswers: [1],
+    });
+    const { result } = renderPhaseHook(useProbePhase, ctx);
+
+    await act(async () => {
+      await result.current.selectOption(0);
+    });
+
+    expect(mockAnswerProbe).not.toHaveBeenCalled();
+    expect(ctx.setProbeAnswers).not.toHaveBeenCalled();
+  });
+
+  it("ignores out-of-range display indices", async () => {
+    const ctx = makePhaseContext({
+      probeBatch: withDisplayOrder([Q1]),
+      sessionId: "s-1",
+    });
+    const { result } = renderPhaseHook(useProbePhase, ctx);
+
+    await act(async () => {
+      await result.current.selectOption(-1);
+      await result.current.selectOption(Q1.options.length);
+    });
+
+    expect(mockAnswerProbe).not.toHaveBeenCalled();
+    expect(ctx.setProbeAnswers).not.toHaveBeenCalled();
   });
 });

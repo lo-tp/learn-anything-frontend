@@ -312,6 +312,26 @@ describe("Session", () => {
     expect(mockGetMaterials).toHaveBeenCalledTimes(1);
   });
 
+  it("omits the goal subtitle when the session has no narrowed goal", async () => {
+    mockGetSession.mockResolvedValue(
+      session({ phase: "planning", narrowed_goal: null }),
+    );
+    mockGetMaterials.mockRejectedValue(new Error("nope"));
+    renderSession();
+    expect(await screen.findByText("Materials aren't ready yet")).toBeTruthy();
+    // The subtitle is omitted for a goal-less session (the `?? undefined`).
+    expect(screen.queryByText("Newton's second law")).toBeNull();
+  });
+
+  it("labels a goal-less deck with the generic learning-session header", async () => {
+    mockGetSession.mockResolvedValue(session({ narrowed_goal: null }));
+    renderSession();
+    await settle();
+    // The deck's header falls back to the generic label, not the goal.
+    expect(screen.getByText("Learning session")).toBeTruthy();
+    expect(screen.queryByText("Newton's second law")).toBeNull();
+  });
+
   it("renders the not-ready state when the materials fetch fails for a post-material phase", async () => {
     // Not the generating spinner: with a non-`generating` phase, a failed
     // materials fetch degrades to "not ready" (no polling to retry it).

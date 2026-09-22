@@ -55,7 +55,8 @@ export function timeAgo(
       ? label
       : `${label}, ${then.getFullYear()}`;
   }
-  // Same calendar day, at least an hour ago.
+  // Same calendar day, at least an hour ago (minutes >= 60 here, so
+  // hours >= 1).
   const hours = Math.floor(minutes / 60);
-  return hours >= 1 ? t("hrsAgo", { n: hours }) : t("justNow");
+  return t("hrsAgo", { n: hours });
 }

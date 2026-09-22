@@ -25,6 +25,7 @@ import {
   generatePlan,
   startProbe,
 } from "@/lib/api-client";
+import { act } from "@testing-library/react";
 import {
   GOAL,
   LABEL,
@@ -33,6 +34,7 @@ import {
   SHORT,
   TITLE,
   openDialog,
+  renderUseNewSession,
 } from "./hooks/test-fixtures";
 
 vi.mock("@/lib/api-client", () => ({
@@ -455,5 +457,42 @@ describe("NewSessionDialog", () => {
       )!,
     );
     expect(await screen.findByRole("status", { name: /reviewing/i })).toBeTruthy();
+  });
+
+  it("closes via the header Close button, notifying the parent of the change", async () => {
+    const onOpenChange = vi.fn();
+    renderWithLocale(
+      <NewSessionDialog open onOpenChange={onOpenChange} onAccept={() => {}} />,
+    );
+    await screen.findByRole("heading", { name: TITLE });
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+    // Radix reports the close as `onOpenChange(false)`; the hook's guard
+    // routes it to `close()` (the request is idle, so it proceeds).
+    await vi.waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+  });
+});
+
+describe("useNewSession guards", () => {
+  it("ignores a re-submit while a request is already in flight", async () => {
+    mockCreateSession.mockReturnValue(new Promise(() => {})); // in flight
+    const { result } = renderUseNewSession({
+      open: true,
+      onAccept: vi.fn(),
+      onOpenChange: vi.fn(),
+    });
+
+    // The first submit starts the (never-resolving) request → pending.
+    await act(async () => {
+      result.current.submit();
+    });
+    // The second submit hits the pending guard and returns early — the
+    // request was not re-issued.
+    await act(async () => {
+      result.current.submit();
+    });
+
+    expect(mockCreateSession).toHaveBeenCalledTimes(1);
   });
 });

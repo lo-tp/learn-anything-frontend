@@ -7,7 +7,7 @@ import {
   it,
   vi,
 } from "vitest";
-import { cleanup, fireEvent, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen } from "@testing-library/react";
 import {
   ApiError,
   adjustPlan,
@@ -25,8 +25,11 @@ import {
   PLAN_OUT_REVISED,
   REVIEW_LABEL,
   TITLE,
+  makePhaseContext,
   openDialog,
+  renderPhaseHook,
 } from "./test-fixtures";
+import { usePlanPhase } from "@/views/root/hooks";
 
 vi.mock("@/lib/api-client", () => ({
   createSession: vi.fn(),
@@ -202,6 +205,21 @@ describe("NewSessionDialog plan review", () => {
     expect(screen.getByText(REVIEW_LABEL)).toBeTruthy();
   });
 
+  it("shows the generic approval error when the approval command throws a non-ApiError", async () => {
+    const onAccept = vi.fn();
+    mockApprovePlan.mockRejectedValue(new Error("network down"));
+    await reachReviewStep(onAccept);
+
+    const review = screen.getByLabelText(REVIEW_LABEL);
+    fireEvent.change(review, { target: { value: "approve" } });
+    fireEvent.keyDown(review, { key: "Enter" });
+
+    await screen.findByText(
+      "Something went wrong approving your plan. Please try again.",
+    );
+    expect(onAccept).not.toHaveBeenCalled();
+  });
+
   it("shows an inline error when plan generation fails, and Send retries", async () => {
     mockCreateSession.mockResolvedValue({
       session_id: "s-1",
@@ -244,5 +262,19 @@ describe("NewSessionDialog plan review", () => {
     await screen.findByText(PLAN.prose_summary);
     // The review step's textarea is visible + enabled, so focus returns.
     expect(document.activeElement).toBe(screen.getByLabelText(REVIEW_LABEL));
+  });
+});
+
+describe("usePlanPhase defensive guards", () => {
+  it("surfaces the session error when submitting a review with no session", async () => {
+    const ctx = makePhaseContext({ paragraph: "approve" });
+    const { result } = renderPhaseHook(usePlanPhase, ctx);
+
+    await act(async () => {
+      await result.current.submit();
+    });
+
+    expect(ctx.setStatus).toHaveBeenCalledWith("error");
+    expect(ctx.setMessage).toHaveBeenCalledWith("errorSession");
   });
 });

@@ -69,4 +69,12 @@ describe("timeAgo", () => {
       timeAgo(iso(new Date("2025-10-25T10:00:00")), "zh", zh.time, NOW),
     ).toBe("2 小时前");
   });
+
+  it("renders the zh-CN calendar date with a non-matching year", () => {
+    // The calendar bucket is the only one that runs `localeTag` (zh →
+    // zh-CN), and the year suffix exercises the not-this-year branch.
+    expect(
+      timeAgo(iso(new Date("2024-10-24T12:00:00")), "zh", zh.time, NOW),
+    ).toBe("10月24日, 2024");
+  });
 });
