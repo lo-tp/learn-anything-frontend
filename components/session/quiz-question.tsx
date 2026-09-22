@@ -4,11 +4,7 @@ import { Check, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { QuestionItem } from "@/lib/api-client";
 import { MathText } from "@/components/math-text";
-import { cn } from "@/lib/utils";
-
-/** The letter badge shown next to each option (A, B, C, …). */
-const optionLetter = (index: number) =>
-  String.fromCharCode("A".charCodeAt(0) + index);
+import { cn, optionLetter } from "@/lib/utils";
 
 /**
  * One material quiz question (#47): the prompt, lettered options, and —

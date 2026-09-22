@@ -340,28 +340,27 @@ export type ReviewCardOut = {
   session_id: string;
   step_id: string | null;
   due_at: string;
-  interval_days: number;
-  ease: number;
-  lapses: number;
 };
 
+/**
+ * The learner's self-rated confidence in having known the answer. Maps
+ * 1:1 onto the FSRS ratings the scheduler is driven by (#115/#116).
+ */
+export type ReviewConfidence = "again" | "hard" | "good" | "easy";
+
 export type ReviewAnswerIn = {
-  selected_index: number;
+  confidence: ReviewConfidence;
 };
 
 export type ReviewAnswerOut = {
-  was_correct: boolean;
   due_at: string;
   interval_days: number;
-  ease: number;
   lapses: number;
-  is_retired: boolean;
 };
 
 export type ReviewSummaryOut = {
   due_count: number;
   total_active: number;
-  total_retired: number;
 };
 
 /** Internal: raw fetch against the backend with review-path error handling. */
@@ -401,17 +400,18 @@ export async function getReviewDue(limit = 20): Promise<ReviewCardOut[]> {
 }
 
 /**
- * `POST /review/cards/{card_id}/answer` — submit the canonical picked
- * index, updating the card's SRS state.
+ * `POST /review/cards/{card_id}/answer` — record the learner's confidence
+ * (again/hard/good/easy), updating the card's FSRS state. Returns the new
+ * due date, the derived interval, and the lapse count.
  */
 export async function answerReviewCard(
   cardId: number,
-  selectedIndex: number,
+  confidence: ReviewConfidence,
 ): Promise<ReviewAnswerOut> {
   return reviewFetch<ReviewAnswerOut>(
     "POST",
     `/review/cards/${cardId}/answer`,
-    { selected_index: selectedIndex } satisfies ReviewAnswerIn,
+    { confidence } satisfies ReviewAnswerIn,
   );
 }
 

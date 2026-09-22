@@ -13,7 +13,7 @@ import {
 // Deterministic display order: the reverse permutation, so display position
 // `i` maps to canonical index `n-1-i`. Lets the tests assert the exact
 // display→canonical mapping without driving the RNG. `cn` is left real —
-// `QuizQuestion` relies on it.
+// the card panel relies on it.
 vi.mock("@/lib/utils", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/utils")>();
   return {
@@ -44,9 +44,6 @@ function card(overrides: Partial<ReviewCardOut> = {}): ReviewCardOut {
       explanation: "F is the net force.",
     },
     due_at: "",
-    interval_days: 1,
-    ease: 2.5,
-    lapses: 0,
     ...overrides,
   };
 }
@@ -69,12 +66,9 @@ beforeEach(() => {
   mockAnswerReviewCard
     .mockReset()
     .mockResolvedValue({
-      was_correct: true,
       due_at: "",
       interval_days: 2,
-      ease: 2.5,
       lapses: 0,
-      is_retired: false,
     } satisfies ReviewAnswerOut);
 });
 
@@ -87,15 +81,20 @@ function progressAt(index: number, total: number) {
   return screen.getByLabelText(new RegExp(`^${index} / ${total}$`, "i"));
 }
 
-/** The option button whose accessible name is `letter + option text`. */
+/** The option whose letter badge reads `letter` followed by `word`. */
 function option(letter: string, word: string) {
   return screen.getByRole("button", {
     name: new RegExp(`^${letter}\\s*${word}$`, "i"),
   });
 }
 
+/** The confidence control whose accessible name matches `name`. */
+function confidence(name: RegExp) {
+  return screen.getByRole("button", { name });
+}
+
 describe("Review", () => {
-  it("fetches due cards on mount and shows the first card in display order", async () => {
+  it("fetches due cards on mount and shows the first card without grading a pick", async () => {
     renderWithLocale(<Review />);
     expect(await screen.findByText("What does F stand for?")).toBeTruthy();
     expect(mockGetReviewDue).toHaveBeenCalled();
@@ -104,57 +103,63 @@ describe("Review", () => {
     // Display order is reversed for n=2: position A = "Friction", B = "Force".
     expect(option("a", "friction")).toBeTruthy();
     expect(option("b", "force")).toBeTruthy();
+    // No Reveal yet — the explanation is hidden and nothing is recorded.
+    expect(screen.queryByText("F is the net force.")).toBeNull();
+    expect(mockAnswerReviewCard).not.toHaveBeenCalled();
   });
 
-  it("reveals the answer on pick and records the canonical index", async () => {
+  it("shows the question and options without a pick: tapping an option does nothing", async () => {
     renderWithLocale(<Review />);
     await screen.findByText("What does F stand for?");
-    // Pick the correct option: canonical 0 sits at display position B
-    // (reverse order). The reveal shows "Correct."
     fireEvent.click(option("b", "force"));
-    expect(screen.getByText("Correct.")).toBeTruthy();
+    // The options carry no pick — the card is untouched, nothing recorded.
+    expect(screen.queryByText("F is the net force.")).toBeNull();
+    expect(mockAnswerReviewCard).not.toHaveBeenCalled();
+    // The Reveal control is the only way to uncover the answer.
+    expect(confidence(/reveal/i)).toBeTruthy();
+  });
+
+  it("reveals the correct answer and explanation before any confidence is recorded", async () => {
+    renderWithLocale(<Review />);
+    await screen.findByText("What does F stand for?");
+    fireEvent.click(confidence(/reveal/i));
+    // The explanation is uncovered…
     expect(screen.getByText("F is the net force.")).toBeTruthy();
-    expect(mockAnswerReviewCard).toHaveBeenCalledWith(1, 0);
+    // …and the four confidence controls appear — nothing recorded yet.
+    expect(confidence(/^again$/i)).toBeTruthy();
+    expect(confidence(/^hard$/i)).toBeTruthy();
+    expect(confidence(/^good$/i)).toBeTruthy();
+    expect(confidence(/^easy$/i)).toBeTruthy();
+    expect(mockAnswerReviewCard).not.toHaveBeenCalled();
   });
 
-  it("records the canonical index for a wrong pick and reveals 'Not quite.'", async () => {
+  it("records the tapped confidence and advances to the next due card", async () => {
     renderWithLocale(<Review />);
     await screen.findByText("What does F stand for?");
-    // Position A = canonical 1 ("Friction") — the wrong answer.
-    fireEvent.click(option("a", "friction"));
-    expect(screen.getByText("Not quite.")).toBeTruthy();
-    expect(mockAnswerReviewCard).toHaveBeenCalledWith(1, 1);
-  });
-
-  it("advances to the next card on Next", async () => {
-    renderWithLocale(<Review />);
-    await screen.findByText("What does F stand for?");
-    fireEvent.click(option("b", "force"));
-    fireEvent.click(screen.getByRole("button", { name: /next/i }));
-    // Second card, position 2/2.
+    fireEvent.click(confidence(/reveal/i));
+    fireEvent.click(confidence(/^hard$/i));
+    expect(mockAnswerReviewCard).toHaveBeenCalledWith(1, "hard");
+    // Advanced to the second card, fresh unrevealed state.
     expect(screen.getByText("What does a stand for?")).toBeTruthy();
     expect(progressAt(2, 2)).toBeTruthy();
+    expect(screen.queryByText("a is the acceleration.")).toBeNull();
+    // Reveal control is back; no confidence controls.
+    expect(confidence(/reveal/i)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^good$/i })).toBeNull();
   });
 
-  it("offers Done on the last card and finishes the deck", async () => {
+  it("finishes the deck on the last card's confidence", async () => {
     renderWithLocale(<Review />);
     await screen.findByText("What does F stand for?");
-    fireEvent.click(option("b", "force"));
-    fireEvent.click(screen.getByRole("button", { name: /next/i }));
+    fireEvent.click(confidence(/reveal/i));
+    fireEvent.click(confidence(/^good$/i));
     await screen.findByText("What does a stand for?");
-    // Last card: the control reads Done.
-    fireEvent.click(option("b", "acceleration"));
-    fireEvent.click(screen.getByRole("button", { name: /done/i }));
+    // Last card: reveal, then a confidence — the deck completes.
+    fireEvent.click(confidence(/reveal/i));
+    fireEvent.click(confidence(/^easy$/i));
+    expect(mockAnswerReviewCard).toHaveBeenLastCalledWith(2, "easy");
     // Deck complete → all-clear state.
     expect(screen.getByText("All clear")).toBeTruthy();
-  });
-
-  it("hides the advance control until an option is picked", async () => {
-    renderWithLocale(<Review />);
-    await screen.findByText("What does F stand for?");
-    expect(
-      screen.queryByRole("button", { name: /next|done/i }),
-    ).toBeNull();
   });
 
   it("shows the empty state with a home link when there are no due cards", async () => {

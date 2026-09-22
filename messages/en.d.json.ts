@@ -163,8 +163,12 @@ declare const messages: {
     "loading": "Loading your review deck…",
     "error": "Can't reach the review service. Please try again.",
     "backToSessions": "Back to my sessions",
-    "next": "Next",
-    "done": "Done",
+    "reveal": "Reveal answer",
+    "confidence": "How confident were you?",
+    "again": "Again",
+    "hard": "Hard",
+    "good": "Good",
+    "easy": "Easy",
     "confirm": "Confirm"
   }
 };

@@ -23,6 +23,13 @@ export function shuffleIndices(
 }
 
 /**
+ * The letter badge shown next to a lettered option (A, B, C, …).
+ */
+export function optionLetter(index: number): string {
+  return String.fromCharCode("A".charCodeAt(0) + index);
+}
+
+/**
  * A display order for one question: a permutation of 0..n-1.
  * When `pinLast` is true the last index is kept fixed at the end
  * (the probe's "I don't know" option); all other options are shuffled.

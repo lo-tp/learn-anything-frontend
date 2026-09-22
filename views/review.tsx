@@ -1,28 +1,35 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronRight, Loader2, TriangleAlert } from "lucide-react";
+import { Check, Eye, Loader2, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { QuizQuestion } from "@/components/session/quiz-question";
-import { displayOrder } from "@/lib/utils";
+import { MathText } from "@/components/math-text";
+import { cn, displayOrder, optionLetter } from "@/lib/utils";
 import {
   answerReviewCard,
   getReviewDue,
   type QuestionItem,
   type ReviewCardOut,
+  type ReviewConfidence,
 } from "@/lib/api-client";
 
+/** The four confidence levels, in FSRS order (harsh → easy). */
+const CONFIDENCES: ReviewConfidence[] = ["again", "hard", "good", "easy"];
+
 /**
- * The `/review` surface (#111): the learner's due spaced-repetition cards,
- * answered one at a time. **Client** component — the route is a static
- * shell, so the view owns the initial `getReviewDue` fetch (#87) and the
- * card flow. Each card's options are served in a fresh `displayOrder`
- * (no pinning — review cards carry no "I don't know" option); the learner
- * picks an option, the `QuizQuestion` leaf reveals correct/wrong and the
- * explanation, and a Next/Done control advances. A pick records the
- * canonical index via `answerReviewCard` (fire-and-forget, mirroring the
- * material-miss path). The shared frame is applied by the root layout.
+ * The `/review` surface (#111, reworked in #117): the learner's due
+ * spaced-repetition cards, reviewed one at a time. **Client** component —
+ * the route is a static shell, so the view owns the initial `getReviewDue`
+ * fetch (#87) and the card flow. Each card's options are served in a fresh
+ * `displayOrder` (no pinning — review cards carry no "I don't know" option).
+ *
+ * The flow is **reveal → confidence**: the learner first sees the question
+ * and options, taps **Reveal** to uncover the correct answer and the
+ * explanation, then records a confidence (again / hard / good / easy).
+ * Recording the confidence schedules the card via `answerReviewCard`
+ * (fire-and-forget, mirroring the material-miss path) and advances the
+ * deck. The shared frame is applied by the root layout.
  */
 export function Review() {
   const t = useTranslations("review");
@@ -30,7 +37,7 @@ export function Review() {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
   const [index, setIndex] = useState(0);
-  const [selected, setSelected] = useState<number | null>(null);
+  const [revealed, setRevealed] = useState(false);
   const [finished, setFinished] = useState(false);
 
   // The initial fetch: the view owns its data (static shell, #87).
@@ -58,10 +65,10 @@ export function Review() {
   const current = finished ? null : (cards?.[index] ?? null);
 
   /**
-   * The current card's display order (no pinning). `order[i]` is the
-   * **canonical** index of the option rendered at display position `i` —
-   * generated once per card so it is stable across the pick and reveal,
-   * and never reshuffles while the card is on screen.
+   * The current card's display order. `order[i]` is the **canonical**
+   * index of the option rendered at display position `i` — generated once
+   * per card so it is stable across the reveal, and never reshuffles
+   * while the card is on screen.
    */
   const order = useMemo<number[]>(() => {
     if (!current) return [];
@@ -69,9 +76,9 @@ export function Review() {
   }, [current]);
 
   /**
-   * The current card's question as a `QuestionItem` for the `QuizQuestion`
-   * leaf: options permuted into display order, `correct_index` remapped to
-   * that display position (the leaf compares `selected` against it).
+   * The current card's question as a `QuestionItem` for the card panel:
+   * options permuted into display order, `correct_index` remapped to that
+   * display position (the panel highlights it on reveal).
    */
   const question = useMemo<QuestionItem | null>(() => {
     if (!current) return null;
@@ -86,19 +93,22 @@ export function Review() {
     };
   }, [current, order]);
 
-  /** A pick: record the canonical index, then reveal the answer. */
-  const handlePick = (displayIndex: number) => {
-    if (!current) return;
-    const canonical = order[displayIndex];
-    answerReviewCard(current.id, canonical).catch(() => {});
-    setSelected(displayIndex);
+  /** Reveal the answer — nothing is recorded until a confidence is. */
+  const handleReveal = () => {
+    setRevealed(true);
   };
 
-  /** Advance: next card (fresh order, no selection) or finish the deck. */
-  const handleNext = () => {
+  /**
+   * A confidence: record it (fire-and-forget, mirroring the material-miss
+   * path) and advance — next card (fresh order, not revealed) or finish
+   * the deck.
+   */
+  const handleConfidence = (confidence: ReviewConfidence) => {
+    if (!current) return;
+    answerReviewCard(current.id, confidence).catch(() => {});
     if (index < total - 1) {
       setIndex((i) => i + 1);
-      setSelected(null);
+      setRevealed(false);
     } else {
       setFinished(true);
     }
@@ -157,24 +167,89 @@ export function Review() {
 
       <main className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-6">
         {question && (
-          <QuizQuestion
-            question={question}
-            selected={selected}
-            onSelect={handlePick}
-          />
+          <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+            <h2 className="font-display text-xl font-medium text-on-surface">
+              <MathText content={question.text} />
+            </h2>
+
+            <div className="flex flex-col gap-2">
+              {question.options.map((option, i) => {
+                const isCorrect = i === question.correct_index;
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    disabled
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors",
+                      revealed &&
+                        isCorrect &&
+                        "border-primary/60 bg-primary/10",
+                      revealed &&
+                        !isCorrect &&
+                        "border-outline-variant/30 bg-surface-container-low/50 opacity-60",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "flex size-6 shrink-0 items-center justify-center rounded-full font-mono text-xs font-semibold",
+                        revealed && isCorrect
+                          ? "bg-primary text-on-primary"
+                          : "border border-outline-variant/60 text-on-surface-variant",
+                      )}
+                    >
+                      {optionLetter(i)}
+                    </span>
+                    <span className="flex-1 text-sm text-on-surface">
+                      <MathText content={option} />
+                    </span>
+                    {revealed && isCorrect && (
+                      <Check className="size-4 shrink-0 text-primary" aria-hidden />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {revealed && (
+              <div className="rounded-xl border border-outline-variant/50 bg-surface-container p-4">
+                <p className="text-sm text-on-surface-variant">
+                  <MathText content={question.explanation} />
+                </p>
+              </div>
+            )}
+          </div>
         )}
       </main>
 
-      <footer className="flex h-16 shrink-0 items-center justify-end border-t border-outline-variant bg-surface px-6">
-        {selected !== null && (
+      <footer className="flex shrink-0 items-center justify-center gap-3 border-t border-outline-variant bg-surface px-6 py-3">
+        {!revealed ? (
           <button
             type="button"
-            onClick={handleNext}
-            className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-fixed"
+            onClick={handleReveal}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-fixed"
           >
-            {index < total - 1 ? t("next") : t("done")}
-            <ChevronRight className="size-4" aria-hidden />
+            <Eye className="size-4" aria-hidden />
+            {t("reveal")}
           </button>
+        ) : (
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-xs text-on-surface-variant">
+              {t("confidence")}
+            </p>
+            <div className="flex items-center gap-2">
+              {CONFIDENCES.map((confidence) => (
+                <button
+                  key={confidence}
+                  type="button"
+                  onClick={() => handleConfidence(confidence)}
+                  className="rounded-lg border border-outline-variant/60 bg-surface-container-low px-4 py-2 text-sm font-semibold text-on-surface transition-colors hover:border-outline-variant hover:bg-surface-container"
+                >
+                  {t(confidence)}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
       </footer>
     </div>

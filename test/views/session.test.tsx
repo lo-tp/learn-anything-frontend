@@ -39,9 +39,6 @@ beforeEach(() => {
       session_id: "s-1",
       step_id: null,
       due_at: "",
-      interval_days: 1,
-      ease: 2.5,
-      lapses: 0,
     } satisfies ReviewCardOut);
 });
 
