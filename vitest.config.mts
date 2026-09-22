@@ -19,6 +19,19 @@ export default defineConfig({
   test: {
     coverage: {
       /**
+       * Test-support code (stubs, fixtures, helpers) runs inside the test
+       * suite but is not application code — vitest's default excludes only
+       * cover `*.test.*` file patterns, not our custom `test/` directory, so
+       * keep the defaults plus the directory itself.
+       */
+      exclude: [
+        "coverage/**",
+        "**/*.d.ts",
+        "**/__tests__/**",
+        "test/**",
+        "**/*.{test,spec}.?(c|m)[jt]s?(x)",
+      ],
+      /**
        * The UT coverage floor: 90% on all four metrics for EVERY measured
        * file (per-file, not aggregate) — `npm run test:coverage` fails the
        * run while any file is below it. Glob keys can raise the bar for
