@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { LoginView } from "@/views/login";
 import { setRequestLocale } from "next-intl/server";
 import { hasLocale, routing } from "@/i18n/routing";
@@ -14,5 +15,9 @@ export default async function LoginPage({
 }) {
   const { locale } = await params;
   setRequestLocale(hasLocale(locale) ? locale : routing.defaultLocale);
-  return <LoginView />;
+  return (
+    <Suspense>
+      <LoginView />
+    </Suspense>
+  );
 }
