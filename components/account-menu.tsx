@@ -52,8 +52,9 @@ export function AccountMenu() {
   }
 
   async function handleSave() {
+    // A blank name can't reach here — the Save button is disabled while
+    // the input is blank (`!inputValue.trim()` in `disabled`).
     const name = inputValue.trim();
-    if (!name) return;
     setSaving(true);
     setError(null);
     try {

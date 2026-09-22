@@ -104,6 +104,31 @@ describe("SessionSidebar", () => {
     scrollIntoView.mockClear();
   });
 
+  it("selects the card on Enter, Space, and ignores other keys", () => {
+    const onSelect = vi.fn();
+    renderWithLocale(<SessionSidebar groups={groups} activeIndex={0} onSelect={onSelect} />);
+    const card = screen.getByRole("button", { name: /what does f stand for\?/i });
+
+    fireEvent.keyDown(card, { key: "Enter" });
+    expect(onSelect).toHaveBeenCalledWith(1);
+    onSelect.mockClear();
+
+    fireEvent.keyDown(card, { key: " " });
+    expect(onSelect).toHaveBeenCalledWith(1);
+    onSelect.mockClear();
+
+    fireEvent.keyDown(card, { key: "Escape" });
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("routes a preview option click to the quiz preview's onSelect", () => {
+    renderWithLocale(<SessionSidebar groups={groups} activeIndex={0} onSelect={() => {}} />);
+    // The preview's option buttons are aria-hidden, so reach them by text.
+    const option = screen.getByText("Friction").closest("button")!;
+    expect(option).toBeTruthy();
+    fireEvent.click(option);
+  });
+
   it("marks the active card with aria-current", () => {
     renderWithLocale(<SessionSidebar groups={groups} activeIndex={1} onSelect={() => {}} />);
     expect(

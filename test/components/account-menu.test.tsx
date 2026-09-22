@@ -91,6 +91,42 @@ describe("AccountMenu", () => {
     });
   });
 
+  it("shows an inline error when updateMe fails", async () => {
+    getMe.mockResolvedValue(USER);
+    updateMe.mockRejectedValue(new Error("boom"));
+    renderWithLocale(<AccountMenu />);
+
+    const trigger = await screen.findByRole("button", { name: "Alice" });
+    fireEvent.pointerDown(trigger, { button: 0 });
+
+    fireEvent.click(screen.getByRole("menuitem", { name: "Edit display name" }));
+
+    const dialog = await screen.findByRole("dialog");
+    const input = dialog.querySelector("input")!;
+    fireEvent.change(input, { target: { value: "Bob" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toBe("Something went wrong. Please try again.");
+  });
+
+  it("does not call updateMe when the name is blank", async () => {
+    getMe.mockResolvedValue(USER);
+    renderWithLocale(<AccountMenu />);
+
+    const trigger = await screen.findByRole("button", { name: "Alice" });
+    fireEvent.pointerDown(trigger, { button: 0 });
+
+    fireEvent.click(screen.getByRole("menuitem", { name: "Edit display name" }));
+
+    const dialog = await screen.findByRole("dialog");
+    const input = dialog.querySelector("input")!;
+    fireEvent.change(input, { target: { value: "   " } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(updateMe).not.toHaveBeenCalled();
+  });
+
   it("signs out via logoutAuth and navigates to login", async () => {
     getMe.mockResolvedValue(USER);
     logoutAuth.mockResolvedValue(undefined);
