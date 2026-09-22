@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "@/messages/en.json";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import type { Locale } from "@/i18n/routing";
 
 // The switcher falls back to the raw locale string for locales without a
 // native label (the `??` fallbacks). No app locale is missing one, so
@@ -15,7 +16,9 @@ vi.mock("@/i18n/routing", () => ({
 
 function renderWithUnknownLocale() {
   return render(
-    <NextIntlClientProvider locale="fr" messages={en}>
+    // "fr" is deliberately outside the app's Locale union — that is the
+    // unknown-locale case under test.
+    <NextIntlClientProvider locale={"fr" as unknown as Locale} messages={en}>
       <LanguageSwitcher />
     </NextIntlClientProvider>,
   );

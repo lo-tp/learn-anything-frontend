@@ -16,12 +16,12 @@ describe("Button", () => {
   it("renders the child as the element when asChild is set", () => {
     render(
       <Button asChild>
-        <a href="/review">Review</a>
+        <a href="https://example.com">Review</a>
       </Button>,
     );
     // The link (not a button) carries the button's styles.
     const link = screen.getByRole("link", { name: "Review" });
-    expect(link.getAttribute("href")).toBe("/review");
+    expect(link.getAttribute("href")).toBe("https://example.com");
     expect(screen.queryByRole("button")).toBeNull();
   });
 });
