@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ReviewCardIn } from "@/lib/api-client";
 
 // `openapi-fetch` binds `fetch` at client-creation time, so stub the global
 // fetch *before* the dynamic import below. Likewise the client reads
@@ -219,14 +220,12 @@ describe("session endpoints", () => {
     );
     errors.forEach((err) => {
       expect(err).toBeInstanceOf(ApiError);
-      expect(err.message).toBe("boom");
+      expect((err as { message: string }).message).toBe("boom");
     });
   });
 });
 
 describe("auth endpoints", () => {
-  const USER = { id: 1, email: "a@b.c", display_name: "Alice" };
-
   it("registerAuth redirects to login on a 401 (and still throws)", async () => {
     vi.stubGlobal("window", { location: { pathname: "/en", href: "" } });
     fetchMock.mockResolvedValue(json({ detail: "invalid" }, 401));
@@ -266,11 +265,12 @@ describe("auth endpoints", () => {
 });
 
 describe("review endpoints", () => {
-  const CARD = {
+  const CARD: ReviewCardIn & { id: number; due_at: string } = {
     id: 1,
     source: "material",
     session_id: "s-1",
     step_id: null,
+    question_id: "q-1",
     question: { text: "t", options: ["a"], correct_index: 0, explanation: "e" },
     due_at: "2025-10-25T00:00:00Z",
   };

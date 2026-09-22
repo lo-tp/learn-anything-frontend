@@ -487,7 +487,7 @@ describe("NewSessionDialog probe loop (one at a time, click to answer)", () => {
 
 describe("useProbePhase submit guards", () => {
   it("ignores the submit while a probe card is already on screen", async () => {
-    const ctx = makePhaseContext({ probeBatch: [Q1], sessionId: "s-1" });
+    const ctx = makePhaseContext({ probeBatch: withDisplayOrder([Q1]), sessionId: "s-1" });
     const { result } = renderPhaseHook(useProbePhase, ctx);
 
     await act(async () => {

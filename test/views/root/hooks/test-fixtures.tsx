@@ -178,7 +178,7 @@ export function makePhaseContext(
     onAccept: noop,
     close: noop,
     splitAnswer: (text: string) => text,
-    t: vi.fn((key: string) => key) as ReturnType<
+    t: vi.fn((key: string) => key) as unknown as ReturnType<
       typeof useTranslations<"dialog">
     >,
     recordProbeBatch: noop,
@@ -188,8 +188,8 @@ export function makePhaseContext(
 }
 
 /** Render a phase hook against a hand-built context (spy dispatchers). */
-export function renderPhaseHook(
-  hook: (ctx: PhaseContext) => unknown,
+export function renderPhaseHook<T>(
+  hook: (ctx: PhaseContext) => T,
   ctx: PhaseContext,
 ) {
   return renderHook(() => hook(ctx));
