@@ -6,7 +6,10 @@
   "topbar": {
     "chooseLanguage": "选择语言",
     "toggleTheme": "切换主题",
-    "reviewDue": "{count} 张卡片待复习"
+    "reviewDue": "{count} 张卡片待复习",
+    "project": "项目",
+    "history": "历史",
+    "export": "导出"
   },
   "account": {
     "displayName": "显示名称",

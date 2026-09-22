@@ -9,7 +9,10 @@ declare const messages: {
   "topbar": {
     "chooseLanguage": "Choose language",
     "toggleTheme": "Toggle theme",
-    "reviewDue": "{count} cards due for review"
+    "reviewDue": "{count} cards due for review",
+    "project": "Project",
+    "history": "History",
+    "export": "Export"
   },
   "account": {
     "displayName": "Display name",
