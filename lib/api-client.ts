@@ -152,6 +152,10 @@ export function handleUnauthorized(): void {
   if (path.endsWith("/login")) return;
   const localePrefix = path.match(/^\/([a-z]{2})/)?.[1] ?? "en";
   const next = encodeURIComponent(path);
+  // Full-page navigation is deliberate: this runs in a non-component lib
+  // function (no `useRouter()`), and a hard redirect guarantees the client
+  // re-runs the locale-less path resolution.
+  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
   window.location.href = `/${localePrefix}/login?next=${next}`;
 }
 

@@ -80,12 +80,7 @@ describe("displayOrder", () => {
   });
 
   it("defaults pinLast to false", () => {
-    // With n=2 and the same rng, pinLast=false shuffles both indices;
-    // pinLast=true keeps index 1 last. We verify the default (false) can
-    // produce a non-identity order for n=2.
-    const order = displayOrder(2, false, () => 0.99);
-    // floor(0.99*2)=1 → swap indices 1 and 1 → [0, 1] (identity)
-    // Let's use a case where the default differs from pinLast.
+    // pinLast keeps the last index at the end (verify the pinned case).
     const orderPinned = displayOrder(3, true, () => 0.99);
     expect(orderPinned[2]).toBe(2); // last is pinned
   });

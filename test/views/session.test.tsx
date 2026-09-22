@@ -8,6 +8,7 @@ import {
   getSession,
   postReviewCard,
   type MaterialsOut,
+  type ReviewCardOut,
   type SessionState,
 } from "@/lib/api-client";
 
@@ -31,7 +32,17 @@ beforeEach(() => {
     .mockResolvedValue(materials());
   mockPostReviewCard
     .mockReset()
-    .mockResolvedValue({ id: 1, source: "material", question: {}, session_id: "s-1", step_id: null, due_at: "", interval_days: 1, ease: 2.5, lapses: 0 } as any);
+    .mockResolvedValue({
+      id: 1,
+      source: "material",
+      question: { text: "", options: [], correct_index: 0, explanation: "" },
+      session_id: "s-1",
+      step_id: null,
+      due_at: "",
+      interval_days: 1,
+      ease: 2.5,
+      lapses: 0,
+    } satisfies ReviewCardOut);
 });
 
 afterEach(() => {

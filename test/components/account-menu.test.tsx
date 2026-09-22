@@ -48,7 +48,7 @@ describe("AccountMenu", () => {
     const trigger = await screen.findByRole("button", { name: "Alice" });
     fireEvent.pointerDown(trigger, { button: 0 });
 
-    const menu = await screen.findByRole("menu");
+    await screen.findByRole("menu");
     expect(screen.getByText("Alice")).toBeTruthy();
     expect(screen.getByRole("menuitem", { name: "Edit display name" })).toBeTruthy();
     expect(screen.getByRole("menuitem", { name: "Sign out" })).toBeTruthy();
