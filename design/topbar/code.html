@@ -1,0 +1,174 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Lumina Editor - Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-background": "#d8e3fb",
+                        "on-error": "#690005",
+                        "primary": "#c0c1ff",
+                        "surface-container-highest": "#2a3548",
+                        "tertiary-fixed": "#e0e3e5",
+                        "secondary-container": "#3f465c",
+                        "primary-fixed-dim": "#c0c1ff",
+                        "on-secondary-container": "#adb4ce",
+                        "outline": "#908fa0",
+                        "error": "#ffb4ab",
+                        "secondary-fixed-dim": "#bec6e0",
+                        "surface-container-high": "#1f2a3c",
+                        "on-tertiary": "#2d3133",
+                        "on-primary-fixed-variant": "#2f2ebe",
+                        "background": "#081425",
+                        "on-tertiary-container": "#272a2c",
+                        "error-container": "#93000a",
+                        "outline-variant": "#464554",
+                        "inverse-primary": "#494bd6",
+                        "tertiary": "#c4c7c9",
+                        "surface-tint": "#c0c1ff",
+                        "on-tertiary-fixed-variant": "#444749",
+                        "on-error-container": "#ffdad6",
+                        "on-primary-fixed": "#07006c",
+                        "secondary-fixed": "#dae2fd",
+                        "surface-container": "#152031",
+                        "primary-fixed": "#e1e0ff",
+                        "inverse-surface": "#d8e3fb",
+                        "on-secondary-fixed": "#131b2e",
+                        "surface-container-lowest": "#040e1f",
+                        "surface-bright": "#2f3a4c",
+                        "on-secondary-fixed-variant": "#3f465c",
+                        "surface": "#081425",
+                        "on-primary-container": "#0d0096",
+                        "secondary": "#bec6e0",
+                        "on-tertiary-fixed": "#191c1e",
+                        "tertiary-container": "#8e9193",
+                        "on-secondary": "#283044",
+                        "primary-container": "#8083ff",
+                        "on-surface-variant": "#c7c4d7",
+                        "surface-container-low": "#111c2d",
+                        "tertiary-fixed-dim": "#c4c7c9",
+                        "inverse-on-surface": "#263143",
+                        "on-primary": "#1000a9",
+                        "surface-variant": "#2a3548",
+                        "on-surface": "#d8e3fb",
+                        "surface-dim": "#081425"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "1.5rem",
+                        "margin-page": "2rem",
+                        "base": "4px",
+                        "editor_max_width": "840px",
+                        "sidebar_width": "320px"
+                    },
+                    "fontFamily": {
+                        "label-sm": ["JetBrains Mono"],
+                        "display": ["Geist"],
+                        "body-md": ["Geist"],
+                        "body-lg": ["Geist"],
+                        "code-md": ["JetBrains Mono"],
+                        "headline-lg": ["Geist"],
+                        "headline-md": ["Geist"]
+                    },
+                    "fontSize": {
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "display": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "code-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }],
+                        "headline-lg": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "500" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.surface');
+            color: theme('colors.on-surface');
+            font-family: theme('fontFamily.body-md');
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-surface text-on-surface antialiased selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopAppBar -->
+<header class="bg-surface dark:bg-surface border-b border-outline-variant dark:border-outline-variant sticky top-0 z-50 w-full flex justify-between items-center h-16 px-gutter">
+<div class="flex items-center gap-6">
+<h1 class="font-headline-lg text-headline-lg font-semibold text-primary dark:text-primary-fixed-dim tracking-tight">Lumina Editor</h1>
+<nav class="hidden md:flex gap-1 items-center">
+<a class="px-3 py-2 text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-colors rounded-DEFAULT font-body-md text-body-md opacity-80 hover:opacity-100 duration-150" href="#">Project</a>
+<a class="px-3 py-2 text-primary dark:text-primary-fixed-dim border-b-2 border-primary font-bold hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-colors font-body-md text-body-md opacity-100" href="#">History</a>
+<a class="px-3 py-2 text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-colors rounded-DEFAULT font-body-md text-body-md opacity-80 hover:opacity-100 duration-150" href="#">Export</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button aria-label="settings" class="p-2 rounded-full text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<button aria-label="help" class="p-2 rounded-full text-on-surface-variant hover:bg-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant overflow-hidden flex items-center justify-center shrink-0 ml-2">
+<img alt="User avatar" class="w-full h-full object-cover" data-alt="A minimalist, high-contrast user avatar illustration suitable for a dark mode interface. The avatar depicts an abstract, stylized geometric portrait using sharp lines and a limited palette of deep indigo, soft violet, and cool slate gray. The lighting is subtle, creating a sense of professional calm and technical capability. The background is a stark, dark navy to blend seamlessly with the Lumina AI theme." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDAxRpIMonMUbSzx1utrbepJy0BTwdDpWyfcQ_q7qzCieUVhherDDKCJFqGyq5Rey4rnxhtJATBwrSU9WQF70MbShWZAzFh_Bu0hXHO88mwRezJim3qR35NAC-_qEkgwssOWEpfvNhmICVc3mc_QARgJHtWC1Ust5CEw5Ce2Ux25_P0Ajm4oj1LY1e91SIWJ6koxF23TDqJmaTBEY6LY4nb2u5Ln67QIdfvzPqiAXnSlDKiRkb184d5">
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col items-center justify-center p-margin-page relative overflow-hidden">
+<!-- Subtle Background Glow -->
+<div class="absolute inset-0 pointer-events-none flex items-center justify-center">
+<div class="w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px]"></div>
+</div>
+<!-- Empty State Container -->
+<div class="max-w-md w-full flex flex-col items-center text-center z-10 animate-fade-in-up">
+<!-- Abstract Empty State Illustration (using a stylized icon container) -->
+<div class="w-24 h-24 mb-8 relative flex items-center justify-center">
+<div class="absolute inset-0 bg-surface-container-high rounded-full border border-outline-variant shadow-[0_4px_20px_rgba(0,0,0,0.4)] rotate-3"></div>
+<div class="absolute inset-0 bg-surface-container-highest rounded-full border border-outline-variant/50 -rotate-6"></div>
+<span class="material-symbols-outlined text-[48px] text-primary relative z-10 font-light" style="font-variation-settings: 'wght' 200;">auto_awesome</span>
+</div>
+<h2 class="font-display text-display text-on-surface mb-4">No sessions yet</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant mb-10 max-w-[360px] mx-auto leading-relaxed">
+                Start your first deep dive or launch a contextual inquiry to begin your learning journey.
+            </p>
+<button class="group relative flex items-center gap-2 px-6 py-3 bg-primary text-on-primary rounded-lg font-body-md text-body-md font-medium hover:bg-primary-fixed transition-all duration-200 shadow-[0_0_15px_rgba(192,193,255,0.2)] hover:shadow-[0_0_25px_rgba(192,193,255,0.4)] active:scale-95">
+<span class="material-symbols-outlined text-[20px] group-hover:rotate-90 transition-transform duration-300">add</span>
+                Start New Session
+                <div class="absolute inset-0 rounded-lg border border-white/20 pointer-events-none"></div>
+</button>
+</div>
+</main>
+<style>
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .animate-fade-in-up {
+            animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+    </style>
+</body></html>

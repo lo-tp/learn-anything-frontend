@@ -7,8 +7,6 @@ declare const messages: {
     "description": "An AI conversation-driven learning assistant: declare a knowledge point and it walks you to mastery, one question at a time."
   },
   "topbar": {
-    "settings": "Settings",
-    "help": "Help",
     "chooseLanguage": "Choose language",
     "toggleTheme": "Toggle theme",
     "reviewDue": "{count} cards due for review"

@@ -1,7 +1,5 @@
 "use client";
 
-import { CircleHelp } from "lucide-react";
-import { useTranslations } from "next-intl";
 import { AccountMenu } from "@/components/account-menu";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -14,7 +12,6 @@ import { Link } from "@/i18n/navigation";
  * utility aria labels come from the `topbar` namespace.
  */
 export function TopBar() {
-  const t = useTranslations("topbar");
   return (
     <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between border-b border-outline-variant bg-surface px-gutter">
       <Link href="/" className="font-display text-lg font-semibold text-primary">
@@ -24,13 +21,6 @@ export function TopBar() {
         <ThemeToggle />
         <LanguageSwitcher />
         <AccountMenu />
-        <button
-          type="button"
-          aria-label={t("help")}
-          className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-highest"
-        >
-          <CircleHelp className="size-5" />
-        </button>
       </nav>
     </header>
   );

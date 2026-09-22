@@ -4,8 +4,6 @@
     "description": "AI 对话驱动的学习助手：说出一个知识点，它会一步步带你走向精通。"
   },
   "topbar": {
-    "settings": "设置",
-    "help": "帮助",
     "chooseLanguage": "选择语言",
     "toggleTheme": "切换主题",
     "reviewDue": "{count} 张卡片待复习"
