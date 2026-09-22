@@ -54,4 +54,29 @@ describe("QuizQuestion", () => {
     expect(screen.getByText("Correct.")).toBeTruthy();
     expect(screen.getByText("F is the net force.")).toBeTruthy();
   });
+
+  it("keeps the options non-interactive when onSelect is absent (review surface)", () => {
+    renderWithLocale(<QuizQuestion question={question} selected={null} />);
+    expect(
+      (screen.getByRole("button", { name: /^a\s*force$/i }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: /^b\s*friction$/i }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    // Nothing is revealed without a selection.
+    expect(screen.queryByText("F is the net force.")).toBeNull();
+  });
+
+  it("reveals the correct answer and explanation without a verdict when selected is null", () => {
+    renderWithLocale(<QuizQuestion question={question} selected={null} revealed />);
+    expect(screen.getByText("F is the net force.")).toBeTruthy();
+    // No verdict heading (the review surface shows no "you" pick).
+    expect(screen.queryByText(/correct\.|not quite\./i)).toBeNull();
+    expect(
+      (screen.getByRole("button", { name: /^a\s*force$/i }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
 });

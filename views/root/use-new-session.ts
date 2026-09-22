@@ -24,17 +24,21 @@ export type RecentMessage = {
   /**
    * The turn's body. A single string renders as one line; an array with more
    * than one entry renders as a list (e.g. the AI's clarifying questions, or
-   * a learner's multi-line answer split into its lines).
+   * a learner's multi-line answer split into its lines). Omitted for probe
+   * card bubbles, which carry the question in `probe`.
    */
-  text: string | string[];
+  text?: string | string[];
   /**
-   * Probe-question options rendered as a lettered list under the bubble
-   * body (the active question the learner must answer by typing its
-   * option's letter). Probe questions carry their options in a
-   * per-question shuffled display order, so the correct answer is never
-   * stuck on one letter (#74).
+   * When set, the bubble renders this probe question as the shared
+   * QuizQuestion card (options in their per-question shuffled display
+   * order, so the correct answer is never stuck on one letter (#74)).
    */
-  options?: string[];
+  probe?: ShuffledProbeQuestion;
+  /**
+   * The chosen option's DISPLAY index (the card's own order) for an
+   * answered probe card — the click locks and reveals the card in place.
+   */
+  probeSelected?: number;
   /**
    * Marks the AI's narrowed-goal and probe-completion turns so they stand
    * out against the other bubbles.
@@ -141,11 +145,12 @@ export function useNewSession({
       textareaMounted &&
       !pending &&
       !confirming &&
-      !awaitingPlan
+      !awaitingPlan &&
+      !probing
     ) {
       textareaRef.current?.focus({ preventScroll: true });
     }
-  }, [open, textareaMounted, pending, confirming, awaitingPlan]);
+  }, [open, textareaMounted, pending, confirming, awaitingPlan, probing]);
 
   // ── Shared helpers ───────────────────────────────────────────────────────
   function splitAnswer(text: string): string | string[] {
@@ -154,10 +159,6 @@ export function useNewSession({
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
     return lines.length > 1 ? lines : lines[0] ?? text;
-  }
-
-  function optionLetter(index: number): string {
-    return String.fromCharCode("A".charCodeAt(0) + index - 1);
   }
 
   // ── Cross-phase record functions ────────────────────────────────────────
@@ -176,14 +177,7 @@ export function useNewSession({
     setProbeBatch(batch);
     setProbeAnswers([]);
     setParagraph("");
-    setMessages((prev) => [
-      ...prev,
-      {
-        role: "ai",
-        text: batch[0].text,
-        options: batch[0].order.map((i) => batch[0].options[i]),
-      },
-    ]);
+    setMessages((prev) => [...prev, { role: "ai", probe: batch[0] }]);
   }
 
   /**
@@ -251,7 +245,6 @@ export function useNewSession({
     onAccept,
     close,
     splitAnswer,
-    optionLetter,
     t,
     recordProbeBatch,
     recordPlan,
@@ -297,6 +290,24 @@ export function useNewSession({
     }
   }
 
+  /**
+   * Answer the active probe question with a clicked option (display
+   * index, the card's own order). The click is the answer — no confirm
+   * step; a failed submit leaves the card unlocked and the error shows
+   * inline (#113).
+   */
+  async function selectProbeOption(displayIndex: number) {
+    if (pending || confirming) return;
+    setStatus("pending");
+    setMessage(null);
+    try {
+      await probe.selectOption(displayIndex);
+    } catch (err) {
+      setStatus("error");
+      setMessage(err instanceof ApiError ? err.message : null);
+    }
+  }
+
   return {
     paragraph,
     setParagraph,
@@ -314,6 +325,7 @@ export function useNewSession({
     messagesPanelRef,
     attachTextarea,
     submit,
+    selectProbeOption,
     close,
     confirm: confirmPhase.confirm,
     handleOpenChange,

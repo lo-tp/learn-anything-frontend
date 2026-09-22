@@ -29,7 +29,6 @@ import {
   GOAL,
   LABEL,
   PLAN_OUT,
-  PROBE_LABEL,
   Q1,
   SHORT,
   TITLE,
@@ -445,10 +444,16 @@ describe("NewSessionDialog", () => {
       boundary_map: { f_ma_relation: { floor: "scalar F = ma", ceiling: null } },
     });
     mockGeneratePlan.mockResolvedValue(PLAN_OUT);
-    fireEvent.change(screen.getByLabelText(PROBE_LABEL), {
-      target: { value: "B" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    // Click the probe card's correct option — the answer path is a click,
+    // not the textarea.
+    const probeButtons = Array.from(
+      screen.getByText(Q1.text).closest("div")!.querySelectorAll("button"),
+    ) as HTMLButtonElement[];
+    fireEvent.click(
+      probeButtons.find((button) =>
+        (button.textContent ?? "").includes("5 m/s²"),
+      )!,
+    );
     expect(await screen.findByRole("status", { name: /reviewing/i })).toBeTruthy();
   });
 });

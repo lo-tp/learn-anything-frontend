@@ -20,6 +20,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { QuizQuestion } from "@/components/session/quiz-question";
+import { toCardQuestion } from "@/views/root/hooks";
 import {
   useNewSession,
   type RecentMessage,
@@ -36,6 +38,11 @@ export type { RecentMessage };
  * option's letter), and the plan review step (the generated plan renders as
  * a highlighted bubble with its numbered steps; the learner adjusts it with
  * free text or types `approve` to approve it).
+ *
+ * The probe loop renders its questions as the shared QuizQuestion card
+ * inside the message bubbles: clicking an option answers (no confirm
+ * step) — the card locks and reveals in place (#113). The textarea and
+ * Send stay visible but disabled while a probe card is active.
  *
  * All state and business logic lives in `useNewSession`
  * (`./use-new-session.ts`); this component is purely presentational — it
@@ -69,6 +76,7 @@ export function NewSessionDialog({
     messagesPanelRef,
     attachTextarea,
     submit,
+    selectProbeOption,
     close,
     confirm,
     handleOpenChange,
@@ -94,8 +102,8 @@ export function NewSessionDialog({
    * (the AI's clarifying questions, or a learner's multi-line answer). Each
    * list item is preceded by a big dot marker.
    */
-  function renderBody(text: string | string[]) {
-    const lines = Array.isArray(text) ? text : [text];
+  function renderBody(text: string | string[] | undefined) {
+    const lines = Array.isArray(text) ? text : [text ?? ""];
     return lines.length > 1 ? (
       <ul className="space-y-1.5">
         {lines.map((line, i) => (
@@ -119,6 +127,12 @@ export function NewSessionDialog({
     event.preventDefault();
     void submit();
   }
+
+  /**
+   * While a probe card is active, the learner answers by clicking an
+   * option, so the textarea and Send stay visible but disabled.
+   */
+  const probeCardActive = probing && probeQuestion !== null;
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
@@ -208,7 +222,18 @@ export function NewSessionDialog({
                               : "border-outline-variant/40 bg-surface-bright",
                           )}
                         >
-                          {entry.highlighted ? (
+                          {entry.probe ? (
+                            <QuizQuestion
+                              question={toCardQuestion(entry.probe)}
+                              selected={entry.probeSelected ?? null}
+                              onSelect={
+                                entry.probe === probeQuestion &&
+                                !pending
+                                  ? (index) => void selectProbeOption(index)
+                                  : undefined
+                              }
+                            />
+                          ) : entry.highlighted ? (
                             <span className="font-semibold text-primary">
                               {renderBody(entry.text)}
                             </span>
@@ -236,23 +261,6 @@ export function NewSessionDialog({
                                             )?.title ?? id,
                                         )
                                         .join(", ")}`}
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                          {entry.options && (
-                            <ul className="mt-2.5 space-y-1.5">
-                              {entry.options.map((option, i) => (
-                                <li key={i} className="flex items-start gap-2">
-                                  <span
-                                    aria-hidden
-                                    className="mt-0.5 font-mono text-xs font-semibold text-primary"
-                                  >
-                                    {String.fromCharCode("A".charCodeAt(0) + i)}
-                                  </span>
-                                  <span>
-                                    <MathText content={option} />
                                   </span>
                                 </li>
                               ))}
@@ -302,19 +310,12 @@ export function NewSessionDialog({
                         onChange={(e) => setParagraph(e.target.value)}
                         onKeyDown={handleKeyDown}
                         placeholder={
-                          probing && probeQuestion
-                            ? t("placeholderProbe", {
-                                last: String.fromCharCode(
-                                  "A".charCodeAt(0) +
-                                    probeQuestion.options.length -
-                                    1,
-                                ),
-                              })
-                            : reviewing
-                              ? t("placeholderReview")
-                              : t("placeholderDefault")
+                          reviewing
+                            ? t("placeholderReview")
+                            : t("placeholderDefault")
                         }
-                        className="w-full resize-none rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-base text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/50 focus:border-primary"
+                        disabled={probeCardActive}
+                        className="w-full resize-none rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-base text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/50 focus:border-primary disabled:bg-surface-container-low disabled:opacity-60"
                       />
                     </div>
                   </>
@@ -356,7 +357,7 @@ export function NewSessionDialog({
                 </Button>
                 <Button
                   type="submit"
-                  disabled={pending}
+                  disabled={pending || probeCardActive}
                   className={cn(
                     "gap-2 px-6 py-2.5 text-on-primary-container hover:bg-primary-fixed hover:text-on-primary-container",
                   )}

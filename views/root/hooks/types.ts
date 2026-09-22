@@ -4,7 +4,9 @@ import type {
   PlanBody,
   PlanOut,
   ProbeQuestionOut,
+  QuestionItem,
 } from "@/lib/api-client";
+import { displayOrderQuestion } from "@/components/session/quiz-question";
 import { displayOrder } from "@/lib/utils";
 import type { RecentMessage } from "../use-new-session";
 
@@ -38,6 +40,24 @@ export function withDisplayOrder(
     ...question,
     order: displayOrder(question.options.length, true),
   }));
+}
+
+/**
+ * A probe question as a display-order `QuestionItem` for the shared
+ * QuizQuestion card: options permuted into the question's display order
+ * (via `displayOrderQuestion`), so the card's own `selected` / reveal
+ * work in display coordinates.
+ */
+export function toCardQuestion(
+  question: ShuffledProbeQuestion,
+): QuestionItem {
+  return {
+    type: "question",
+    id: question.id,
+    text: question.text,
+    explanation: question.explanation,
+    ...displayOrderQuestion(question, question.order),
+  };
 }
 
 /**
@@ -81,7 +101,6 @@ export interface PhaseContext {
 
   // ── Shared helpers ────────────────────────────────────────────────
   splitAnswer: (text: string) => string | string[];
-  optionLetter: (index: number) => string;
   /**
    * The `dialog`-namespace translator (ICU message formatting), so the
    * phase hooks can build their AI-bubble and error strings through i18n.

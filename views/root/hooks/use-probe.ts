@@ -7,7 +7,6 @@ import {
 } from "@/lib/api-client";
 import type { PhaseContext, ShuffledProbeQuestion } from "./types";
 import { withDisplayOrder } from "./types";
-import type { RecentMessage } from "../use-new-session";
 
 /**
  * The Probing phase: runs the batched probe loop against the combined
@@ -15,21 +14,23 @@ import type { RecentMessage } from "../use-new-session";
  * time**. The backend serves a whole batch per round (`startProbe` fetches
  * the first; `answerProbe` submits the combined answers for a batch and
  * returns the next batch or the boundary map). The learner, however, is
- * shown one question at a time and answers each by typing its option's
- * letter (A, B, C, …), which is client-validated. Each question's options
+ * shown one question at a time, rendered as the shared QuizQuestion card,
+ * and answers each by **clicking an option** (#113): the click is the
+ * answer (no confirm step), the card locks and reveals in place, and the
+ * old separate "you" + verdict bubbles are gone. Each question's options
  * are rendered in a shuffled display order (generated once per batch) so
- * the correct answer is never stuck on one letter (#74); the typed letter
+ * the correct answer is never stuck on one letter (#74); a clicked option
  * is mapped back through the question's `order` to the backend index
- * before it is recorded or submitted. Within a batch the next
- * question is drawn from the batch locally (no round-trip); only when the
- * batch's last question is answered are all of its answers combined and
- * sent to the backend in a single call. Within a batch the questions are
- * independent; adaptivity between batches comes from the backend's updated
- * boundary map. When the boundary is established the plan is auto-generated.
+ * before it is recorded or submitted. Within a batch the next question is
+ * drawn from the batch locally (no round-trip); only when the batch's last
+ * question is answered are all of its answers combined and sent to the
+ * backend in a single call — and a failed submit leaves the card unlocked
+ * so the learner re-clicks. Within a batch the questions are independent;
+ * adaptivity between batches comes from the backend's updated boundary
+ * map. When the boundary is established the plan is auto-generated.
  */
 export function useProbePhase(ctx: PhaseContext) {
   const {
-    paragraph,
     sessionId,
     probeBatch,
     probeAnswers,
@@ -38,166 +39,87 @@ export function useProbePhase(ctx: PhaseContext) {
     setMessage,
     setMessages,
     setPhase,
-    setParagraph,
     setProbeBatch,
     setProbeAnswers,
     setProbeCount,
-    optionLetter,
     t,
-    recordPlan,
     recordProbeBatch,
+    recordPlan,
   } = ctx;
 
   /**
-   * The 0-based option index for the learner's typed letter (A, B, C, …),
-   * matching the backend's `correct_index` / `selected_index` convention
-   * (the UI shows 1-based option letters). Returns null when the text is not
-   * a single letter within range.
+   * Mark the active question's card as answered (with the chosen DISPLAY
+   * index — the card's own order) and, when there is one, surface the
+   * next question's card.
    */
-  function parseOptionIndex(text: string, count: number): number | null {
-    const trimmed = text.trim().toUpperCase();
-    if (trimmed.length !== 1) return null;
-    const index = trimmed.charCodeAt(0) - "A".charCodeAt(0);
-    if (index < 0 || index >= count) return null;
-    return index;
-  }
-
-  /**
-   * The "you" pick and the AI verdict for one answered question, computed
-   * client-side from the question's known `correct_index` + `explanation`.
-   * `selected` is the **backend** index; the letters shown are translated
-   * back through the question's display order, so they match what the
-   * learner actually saw and typed.
-   */
-  function pickAndVerdict(
+  function markAnswered(
     question: ShuffledProbeQuestion,
-    selected: number,
-  ): RecentMessage[] {
-    const isCorrect = selected === question.correct_index;
-    const chosenLetter = optionLetter(question.order.indexOf(selected) + 1);
-    const correctLetter = optionLetter(
-      question.order.indexOf(question.correct_index) + 1,
-    );
-    return [
-      {
-        role: "you",
-        text: `${chosenLetter}: ${question.options[selected]}`,
-      },
-      {
-        role: "ai",
-        text: isCorrect
-          ? t("verdictCorrect", {
-              letter: correctLetter,
-              option: question.options[selected],
-              explanation: question.explanation,
-            })
-          : t("verdictNotQuite", {
-              letter: correctLetter,
-              option: question.options[question.correct_index],
-              explanation: question.explanation,
-            }),
-      },
-    ];
+    displayIndex: number,
+    next: ShuffledProbeQuestion | null,
+  ) {
+    setMessages((prev) => {
+      const marked = prev.map((entry) =>
+        entry.probe === question
+          ? { ...entry, probeSelected: displayIndex }
+          : entry,
+      );
+      return next ? [...marked, { role: "ai", probe: next }] : marked;
+    });
   }
 
   /**
-   * Handle a submit during the probing phase:
-   * - fetch the first batch (or retry a failed fetch) when none is active;
-   * - otherwise answer the ACTIVE question (one at a time). When that was
-   *   the batch's last question, all of its answers are combined and
-   *   submitted to the backend in a single call.
+   * Answer the ACTIVE question with a clicked option. `displayIndex` is
+   * the position in the question's shuffled display order (the card's own
+   * order) — it is mapped back to the backend index through the question's
+   * `order` before it is recorded or submitted (#74).
    */
-  async function submit() {
-    if (sessionId === null) {
-      setStatus("error");
-      setMessage(t("errorFallback"));
-      return;
-    }
-
-    if (probeBatch === null) {
-      // First fetch (or its retry) — no batch is active yet.
-      const result = await startProbe(sessionId);
-      if (!result.questions) {
-        setStatus("error");
-        setMessage(t("errorNoQuestions"));
-        return;
-      }
-      recordProbeBatch(result.questions);
-      return;
-    }
-
-    // The active question is the first one in the batch not yet answered.
+  async function selectOption(displayIndex: number) {
+    if (probeBatch === null || sessionId === null) return;
     const activeIndex = probeAnswers.length;
-    if (activeIndex >= probeBatch.length) return; // exhausted — no active q
+    if (activeIndex >= probeBatch.length) return;
     const question = probeBatch[activeIndex];
+    if (displayIndex < 0 || displayIndex >= question.order.length) return;
 
-    const displayIndex = parseOptionIndex(paragraph, question.options.length);
-    if (displayIndex === null) {
-      setStatus("error");
-      setMessage(
-        t("errorEnterLetter", {
-          last: optionLetter(question.options.length),
-        }),
-      );
-      return;
-    }
-    // The typed letter is a position in the question's shuffled display
-    // order — map it back to the backend index before recording or
-    // submitting (#74).
+    // The clicked option is a position in the display order — map it back
+    // to the backend index before recording or submitting (#74).
     const selected = question.order[displayIndex];
-
-    // Combine this answer with the ones collected earlier in the batch.
     const answers = [...probeAnswers, selected];
     const isLast = activeIndex === probeBatch.length - 1;
 
-    // Record the pick + verdict for this question and count it.
-    setProbeAnswers(answers);
-    setProbeCount((count) => count + 1);
-    setMessages((prev) => [...prev, ...pickAndVerdict(question, selected)]);
-
     if (!isLast) {
-      // Surface the next question from the batch — no backend round-trip.
-      const next = probeBatch[activeIndex + 1];
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "ai",
-          text: next.text,
-          options: next.order.map((i) => next.options[i]),
-        },
-      ]);
-      setParagraph("");
+      // Local answer — no backend round-trip until the batch is exhausted.
+      setProbeAnswers(answers);
+      setProbeCount((count) => count + 1);
+      markAnswered(question, displayIndex, probeBatch[activeIndex + 1]);
       setStatus("idle");
       return;
     }
 
-    // Last question in the batch: submit the combined answers to the backend.
+    // Last question in the batch: submit the combined answers FIRST — a
+    // failure leaves the card unlocked (no local state is touched yet) so
+    // the learner re-clicks, and the error shows inline.
     const payload = probeBatch.map((q, i) => ({
       question_id: q.id,
       selected_index: answers[i],
     }));
     const result: { phase: Phase; questions?: ProbeQuestionOut[] | null } =
       await answerProbe(sessionId, payload);
-    // The submit succeeded — clear the text now (a failure preserves it for
-    // a retry).
-    setParagraph("");
+
+    // The submit succeeded — record the answer and count it.
+    setProbeAnswers(answers);
+    setProbeCount((count) => count + 1);
+    markAnswered(question, displayIndex, null);
 
     if (result.questions) {
       // Next batch: surface only its FIRST question and reset the collected
-      // answers. The rest of the batch is drawn locally as the learner goes.
-      // Each question gets a fresh display order, as with the first batch.
+      // answers. The rest of the batch is drawn locally as the learner
+      // goes. Each question gets a fresh display order, as with the first
+      // batch.
       const batch = withDisplayOrder(result.questions);
       const first = batch[0];
       setProbeBatch(batch);
       setProbeAnswers([]);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "ai",
-          text: first.text,
-          options: first.order.map((i) => first.options[i]),
-        },
-      ]);
+      setMessages((prev) => [...prev, { role: "ai", probe: first }]);
       setPhase(result.phase);
       setStatus("idle");
       return;
@@ -216,12 +138,33 @@ export function useProbePhase(ctx: PhaseContext) {
         highlighted: true,
       },
     ]);
-    // Keep the status pending so Send/Cancel stay disabled while generation is
-    // in flight (recordPlan settles it on success; the error path settles it
-    // for a retry).
+    // Keep the status pending so the footer stays disabled while
+    // generation is in flight (recordPlan settles it on success; the
+    // error path settles it for a retry).
     const generated = await generatePlan(sessionId);
     recordPlan(generated);
   }
 
-  return { submit };
+  /**
+   * Handle a submit during the probing phase with no card on screen:
+   * fetch the first batch (or retry a failed fetch). With a card on
+   * screen the answer path is the option click, not this submit.
+   */
+  async function submit() {
+    if (probeBatch !== null) return;
+    if (sessionId === null) {
+      setStatus("error");
+      setMessage(t("errorFallback"));
+      return;
+    }
+    const result = await startProbe(sessionId);
+    if (!result.questions) {
+      setStatus("error");
+      setMessage(t("errorNoQuestions"));
+      return;
+    }
+    recordProbeBatch(result.questions);
+  }
+
+  return { submit, selectOption };
 }
