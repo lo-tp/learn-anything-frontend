@@ -68,6 +68,19 @@ export function useProbePhase(ctx: PhaseContext) {
   }
 
   /**
+   * Unlock a probe card that was revealed on the click but whose combined
+   * submit failed: clear its selection so the options are interactive
+   * again and the learner re-clicks.
+   */
+  function unlockAnswered(question: ShuffledProbeQuestion) {
+    setMessages((prev) =>
+      prev.map((entry) =>
+        entry.probe === question ? { ...entry, probeSelected: undefined } : entry,
+      ),
+    );
+  }
+
+  /**
    * Answer the ACTIVE question with a clicked option. `displayIndex` is
    * the position in the question's shuffled display order (the card's own
    * order) — it is mapped back to the backend index through the question's
@@ -95,20 +108,28 @@ export function useProbePhase(ctx: PhaseContext) {
       return;
     }
 
-    // Last question in the batch: submit the combined answers FIRST — a
-    // failure leaves the card unlocked (no local state is touched yet) so
-    // the learner re-clicks, and the error shows inline.
+    // Last question in the batch: reveal the card INSTANTLY on the click
+    // (lock + verdict + explanation) so the learner gets feedback before
+    // the backend responds — the combined submit then goes out in the
+    // background. A failure unlocks the card again so the learner
+    // re-clicks, and the error shows inline (no local state is touched
+    // yet, so a re-click retries the submit).
+    markAnswered(question, displayIndex, null);
     const payload = probeBatch.map((q, i) => ({
       question_id: q.id,
       selected_index: answers[i],
     }));
-    const result: { phase: Phase; questions?: ProbeQuestionOut[] | null } =
-      await answerProbe(sessionId, payload);
+    let result: { phase: Phase; questions?: ProbeQuestionOut[] | null };
+    try {
+      result = await answerProbe(sessionId, payload);
+    } catch (err) {
+      unlockAnswered(question);
+      throw err;
+    }
 
     // The submit succeeded — record the answer and count it.
     setProbeAnswers(answers);
     setProbeCount((count) => count + 1);
-    markAnswered(question, displayIndex, null);
 
     if (result.questions) {
       // Next batch: surface only its FIRST question and reset the collected

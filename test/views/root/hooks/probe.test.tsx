@@ -199,11 +199,40 @@ describe("NewSessionDialog probe loop (one at a time, click to answer)", () => {
       { question_id: "q1", selected_index: 1 },
       { question_id: "q2", selected_index: 1 },
     ]);
-    // The card reveals once the combined submit resolves (MathText splits
-    // the explanation into math/prose spans, so match the prose part).
-    expect(await screen.findByText(/doubling F doubles a/)).toBeTruthy();
+    // The card reveals instantaneously on the click — before the combined
+    // submit resolves (MathText splits the explanation into math/prose
+    // spans, so match the prose part).
+    expect(screen.getByText(/doubling F doubles a/)).toBeTruthy();
     // The next (size-1) batch renders with its own card.
     await screen.findByText(Q3.text);
+  });
+
+  it("reveals the last question's card instantaneously on the click, before the submit resolves", async () => {
+    await reachFirstBatch([Q1, Q2]);
+    // The combined submit never resolves — it stays in flight.
+    mockAnswerProbe.mockReturnValue(new Promise(() => {}));
+
+    // Answer Q1 (local — no round-trip); Q2 (the batch's last) appears.
+    clickOption(Q1.text, "5 m/s²");
+    await screen.findByText(Q2.text);
+
+    // The last question's click must re-render the card INSTANTLY —
+    // locked options, verdict, and explanation — without waiting for the
+    // backend. The card is revealed even though the submit is pending.
+    clickOption(Q2.text, "doubles");
+    const q2 = card(Q2.text);
+    const q2Buttons = Array.from(q2.querySelectorAll("button")) as HTMLButtonElement[];
+    expect(q2Buttons.every((button) => button.disabled)).toBe(true);
+    expect(q2.textContent).toContain("Correct.");
+    // MathText splits the explanation into math/prose spans, so match the
+    // prose part.
+    expect(q2.textContent).toContain("doubling F doubles a");
+    // The submit went out (and is still pending).
+    expect(mockAnswerProbe).toHaveBeenCalledWith("s-1", [
+      { question_id: "q1", selected_index: 1 },
+      { question_id: "q2", selected_index: 1 },
+    ]);
+    expect(mockAnswerProbe).toHaveBeenCalledTimes(1);
   });
 
   it("explains a wrong answer within the batch", async () => {
@@ -225,9 +254,10 @@ describe("NewSessionDialog probe loop (one at a time, click to answer)", () => {
       { question_id: "q1", selected_index: 0 },
       { question_id: "q2", selected_index: 1 },
     ]);
-    // The card reveals once the combined submit resolves (MathText splits
-    // the explanation into math/prose spans, so match the prose part).
-    expect(await screen.findByText(/doubling F doubles a/)).toBeTruthy();
+    // The card reveals instantaneously on the click — before the combined
+    // submit resolves (MathText splits the explanation into math/prose
+    // spans, so match the prose part).
+    expect(screen.getByText(/doubling F doubles a/)).toBeTruthy();
     await screen.findByText(Q3.text);
   });
 
