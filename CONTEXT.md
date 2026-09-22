@@ -23,3 +23,32 @@ _Avoid_: service account, API key, client, bot
 **Display name**:
 The short chosen name of a User, shown in the top bar. Defaults to the email's local part.
 _Avoid_: username, handle, nickname
+
+## Review
+
+**Review card**:
+A durable record of a question the user missed, scheduled for spaced repetition. One per unique (user, source, session, question).
+_Avoid_: flashcard, card
+
+**Confidence**:
+The user's self-assessment of how correctly they answered a review card, recorded on a four-level scale — again, hard, good, easy — after a reveal.
+_Avoid_: grade, rating, score, was_correct
+
+**Reveal**:
+The step that shows the correct answer and explanation before the user records their confidence.
+_Avoid_: show answer, unlock
+
+**Lapse**:
+A review recorded as `again`; a review card's running count of such reviews. A lapse is a review of an existing card, not the creation of one.
+_Avoid_: miss
+
+**Miss**:
+A question the user got wrong in a probe or material, which creates a review card.
+_Avoid_: lapse
+
+**Due**:
+The state of a review card whose scheduled review time has arrived, making it eligible for the deck.
+
+**Review deck**:
+The user's set of due review cards, served in scheduled order.
+_Avoid_: queue
