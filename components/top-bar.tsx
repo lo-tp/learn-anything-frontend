@@ -8,10 +8,10 @@ import { Link } from "@/i18n/navigation";
 
 /**
  * Top app bar — wordmark + navigation tabs on the left, utility actions on
- * the right. The tabs are self-contained (not bound to a route); their
- * History/Export destinations land with their tickets on map #11. The
- * wordmark (a brand name) stays untranslated; the utility aria labels come
- * from the `topbar` namespace.
+ * the right. The tabs (Study → root, Review → /review) are bound to routes
+ * and derive their active state from the current pathname. The wordmark (a
+ * brand name) stays untranslated; the utility aria labels come from the
+ * `topbar` namespace.
  */
 export function TopBar() {
   return (

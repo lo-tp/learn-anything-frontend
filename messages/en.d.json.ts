@@ -10,9 +10,8 @@ declare const messages: {
     "chooseLanguage": "Choose language",
     "toggleTheme": "Toggle theme",
     "reviewDue": "{count} cards due for review",
-    "project": "Project",
-    "history": "History",
-    "export": "Export"
+    "study": "Study",
+    "review": "Review"
   },
   "account": {
     "displayName": "Display name",
