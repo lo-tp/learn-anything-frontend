@@ -47,10 +47,10 @@ describe("TopBarTabs", () => {
     expect(screen.getByRole("link", { name: "Study" }).getAttribute("aria-current")).toBeNull();
   });
 
-  it("marks neither tab active on a session page", () => {
+  it("marks Study active on a session page", () => {
     nav.pathname = "/session/abc";
     renderWithLocale(<TopBarTabs />);
-    expect(screen.getByRole("link", { name: "Study" }).getAttribute("aria-current")).toBeNull();
+    expect(screen.getByRole("link", { name: "Study" }).getAttribute("aria-current")).toBe("page");
     expect(screen.getByRole("link", { name: "Review" }).getAttribute("aria-current")).toBeNull();
   });
 
