@@ -20,34 +20,24 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import type { PlanBody } from "@/lib/api-client";
 import { QuizQuestion } from "@/components/session/quiz-question";
-import { toCardQuestion } from "@/views/root/hooks";
-import {
-  useNewSession,
-  type RecentMessage,
-} from "./use-new-session";
-
-export type { RecentMessage };
+import { useSessionIntake } from "./use-session-intake";
 
 /**
  * The new-session popup over the History (#26), per
  * `design/home/new_session/code.html`: a header, a read-only "Recent
  * Messages" preview, an intake textarea, and a footer that adapts to the
  * Clarify loop, the probe loop (probe questions render as lettered option
- * lists inside the message bubbles; the learner answers by typing the
- * option's letter), and the plan review step (the generated plan renders as
- * a highlighted bubble with its numbered steps; the learner adjusts it with
+ * lists inside the message bubbles; the learner answers by clicking an
+ * option), and the plan review step (the generated plan renders as a
+ * highlighted bubble with its lettered steps; the learner adjusts it with
  * free text or types `approve` to approve it).
  *
- * The probe loop renders its questions as the shared QuizQuestion card
- * inside the message bubbles: clicking an option answers (no confirm
- * step) — the card locks and reveals in place (#113). The textarea and
- * Send stay visible but disabled while a probe card is active.
- *
- * All state and business logic lives in `useNewSession`
- * (`./use-new-session.ts`); this component is purely presentational — it
- * renders the header, message bubbles, intake box, and footer, and wires
- * the Send/Cancel/Confirm actions to the hook.
+ * Pure presentation: the intake core derives every decision (which request
+ * is in flight, which bubble is answerable, what the footer shows) and the
+ * dialog renders render-ready bubbles and wires the controls to the binding's
+ * intents (`submit`, `pickOption`, `close`, `confirm`).
  */
 export function NewSessionDialog({
   open,
@@ -63,47 +53,23 @@ export function NewSessionDialog({
   const {
     paragraph,
     setParagraph,
-    status,
-    message,
-    messages,
-    pending,
-    phase,
-    probing,
-    probeQuestion,
-    reviewing,
-    awaitingPlan,
-    confirming,
-    messagesPanelRef,
-    attachTextarea,
+    view,
     submit,
-    selectProbeOption,
+    pickOption,
     close,
     confirm,
     handleOpenChange,
-  } = useNewSession({ open, onAccept, onOpenChange });
-
-  /**
-   * The note shown in place of the intake box while a request is in flight
-   * or the plan is still being generated — one or two sentences explaining
-   * what is happening.
-   */
-  function pendingNote(): string {
-    if (awaitingPlan) return t("pendingPlan");
-    if (reviewing) return t("pendingReview");
-    if (probing) {
-      return probeQuestion ? t("pendingProbeAnswer") : t("pendingProbeGenerate");
-    }
-    if (phase === "clarifying") return t("pendingClarify");
-    return t("pendingDefault");
-  }
+    messagesPanelRef,
+    attachTextarea,
+  } = useSessionIntake({ open, onAccept, onOpenChange });
 
   /**
    * The bubble body: a single line, or a list when there is more than one
    * (the AI's clarifying questions, or a learner's multi-line answer). Each
    * list item is preceded by a big dot marker.
    */
-  function renderBody(text: string | string[] | undefined) {
-    const lines = Array.isArray(text) ? text : [text ?? ""];
+  function renderBody(text: string | string[]) {
+    const lines = Array.isArray(text) ? text : [text];
     return lines.length > 1 ? (
       <ul className="space-y-1.5">
         {lines.map((line, i) => (
@@ -125,19 +91,17 @@ export function NewSessionDialog({
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    void submit();
+    void submit(paragraph);
   }
 
-  /**
-   * While a probe card is active, the learner answers by clicking an
-   * option, so the textarea and Send stay visible but disabled.
-   */
-  const probeCardActive = probing && probeQuestion !== null;
+  /** While a probe card is active, the learner answers by clicking an
+   *  option, so the textarea and Send stay visible but disabled. */
+  const probeCardActive = view.intake.disabled;
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      void submit();
+      void submit(paragraph);
     }
   }
 
@@ -146,7 +110,7 @@ export function NewSessionDialog({
       <DialogContent
         showCloseButton={false}
         // Opt out of Radix's open auto-focus (it targets the close button);
-        // useNewSession owns focus and puts it in the textarea when enabled.
+        // the binding owns focus and puts it in the textarea when enabled.
         onOpenAutoFocus={(event) => event.preventDefault()}
         className="w-full max-w-3xl max-h-[95vh] flex-col gap-0 overflow-hidden border-outline-variant bg-surface-container p-0 text-on-surface sm:max-w-3xl"
       >
@@ -162,12 +126,12 @@ export function NewSessionDialog({
               </DialogTitle>
             </div>
             <div className="flex items-center gap-3">
-              <PhaseIndicator phase={phase} pending={pending} />
+              <PhaseIndicator phase={view.phase} pending={view.pending} />
               <DialogClose asChild>
                 <button
                   type="button"
                   aria-label={t("close")}
-                  disabled={pending}
+                  disabled={view.pending}
                   className="flex size-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-bright hover:text-on-surface disabled:pointer-events-none disabled:opacity-50"
                 >
                   <X className="size-5" aria-hidden />
@@ -178,7 +142,7 @@ export function NewSessionDialog({
 
           {/* Body — Recent Messages preview + the intake textarea. */}
           <div className="flex flex-col gap-5 p-6">
-            {messages.length > 0 && (
+            {view.bubbles.length > 0 && (
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 font-mono text-xs font-medium uppercase tracking-wider text-on-surface-variant">
@@ -186,7 +150,7 @@ export function NewSessionDialog({
                     {t("recentMessages")}
                   </span>
                   <span className="font-mono text-xs text-on-surface-variant/70">
-                    {t("messages", { n: messages.length })}
+                    {t("messages", { n: view.bubbles.length })}
                   </span>
                 </div>
 
@@ -194,20 +158,24 @@ export function NewSessionDialog({
                   ref={messagesPanelRef}
                   className="flex max-h-[40rem] flex-col gap-3 overflow-y-auto rounded-xl border border-outline-variant/30 bg-surface-container-lowest/50 p-3 pr-2"
                 >
-                  {messages.map((entry, index) => {
-                    if (entry.role === "you") {
+                  {view.bubbles.map((bubble, index) => {
+                    if (bubble.kind === "text" && bubble.from === "you") {
                       return (
                         <div key={index} className="flex flex-col items-end gap-1">
                           <span className="font-mono text-xs font-medium text-secondary">
                             {t("you")}
                           </span>
                           <div className="max-w-[85%] whitespace-pre-line rounded-xl rounded-tr-sm border border-outline-variant/30 bg-secondary-container px-3.5 py-2 text-sm text-on-surface">
-                            {renderBody(entry.text)}
+                            {renderBody(bubble.text)}
                           </div>
                         </div>
                       );
                     }
-                    const plan = entry.plan;
+                    const highlightedText =
+                      bubble.kind === "text" && bubble.from === "ai"
+                        ? bubble.text
+                        : null;
+                    const isProbe = bubble.kind === "probe";
                     return (
                       <div key={index} className="flex flex-col items-start gap-1">
                         <span className="flex items-center gap-1 font-mono text-xs font-medium text-primary">
@@ -217,54 +185,39 @@ export function NewSessionDialog({
                         <div
                           className={cn(
                             "max-w-[85%] whitespace-pre-line rounded-xl rounded-tl-sm border px-3.5 py-2.5 text-sm text-on-surface",
-                            entry.highlighted
+                            bubble.kind === "text" && bubble.from === "ai" && bubble.highlighted
                               ? "border-primary/40 bg-primary/10"
                               : "border-outline-variant/40 bg-surface-bright",
                           )}
                         >
-                          {entry.probe ? (
+                          {isProbe ? (
                             <QuizQuestion
-                              question={toCardQuestion(entry.probe)}
-                              selected={entry.probeSelected ?? null}
+                              question={bubble.card}
+                              selected={bubble.state === "answered" ? bubble.picked ?? null : null}
+                              revealed={bubble.state === "answered"}
                               onSelect={
-                                entry.probe === probeQuestion &&
-                                !pending
-                                  ? (index) => void selectProbeOption(index)
+                                bubble.state === "active" && !view.pending
+                                  ? pickOption
                                   : undefined
                               }
+                              shuffled
+                              pinUnknown
                             />
-                          ) : entry.highlighted ? (
-                            <span className="font-semibold text-primary">
-                              {renderBody(entry.text)}
-                            </span>
+                          ) : bubble.kind === "plan" ? (
+                            <>
+                              <span className="font-semibold text-primary">
+                                <MathText content={bubble.plan.prose_summary} />
+                              </span>
+                              {planSteps(bubble.plan)}
+                            </>
                           ) : (
-                            renderBody(entry.text)
-                          )}
-                          {plan && (
-                            <ul className="mt-2.5 space-y-1.5">
-                              {plan.steps.map((step) => (
-                                <li key={step.id} className="flex items-start gap-2">
-                                  <span
-                                    aria-hidden
-                                    className="mt-0.5 font-mono text-xs font-semibold text-primary"
-                                  >
-                                    {step.letter}.
-                                  </span>
-                                  <span>
-                                    {step.title} — {step.description}
-                                    {step.depends_on.length > 0 &&
-                                      ` · builds on: ${step.depends_on
-                                        .map(
-                                          (id) =>
-                                            plan.steps.find(
-                                              (s) => s.id === id,
-                                            )?.title ?? id,
-                                        )
-                                        .join(", ")}`}
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
+                            bubble.highlighted ? (
+                              <span className="font-semibold text-primary">
+                                {renderBody(highlightedText ?? "")}
+                              </span>
+                            ) : (
+                              renderBody(highlightedText ?? "")
+                            )
                           )}
                         </div>
                       </div>
@@ -274,66 +227,56 @@ export function NewSessionDialog({
               </div>
             )}
 
-            {!confirming && (
-              <div>
-                {pending || awaitingPlan ? (
-                  <div
-                    role="status"
-                    aria-live="polite"
-                    aria-label={pendingNote()}
-                    className="flex items-start gap-3 rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-sm text-on-surface-variant"
+            <div>
+              {view.showPending ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  aria-label={view.pendingNote}
+                  className="flex items-start gap-3 rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-sm text-on-surface-variant"
+                >
+                  <Loader2
+                    className="mt-0.5 size-4 shrink-0 animate-spin text-primary"
+                    aria-hidden
+                  />
+                  <p>{view.pendingNote}</p>
+                </div>
+              ) : (
+                <>
+                  <label
+                    htmlFor="learning-goal"
+                    className="mb-2 block text-base font-medium text-on-surface"
                   >
-                    <Loader2
-                      className="mt-0.5 size-4 shrink-0 animate-spin text-primary"
-                      aria-hidden
+                    {view.intake.label}
+                  </label>
+                  <div className="relative">
+                    <textarea
+                      id="learning-goal"
+                      ref={attachTextarea}
+                      rows={3}
+                      value={paragraph}
+                      onChange={(e) => setParagraph(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder={view.intake.placeholder}
+                      disabled={probeCardActive}
+                      className="w-full resize-none rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-base text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/50 focus:border-primary disabled:bg-surface-container-low disabled:opacity-60"
                     />
-                    <p>{pendingNote()}</p>
                   </div>
-                ) : (
-                  <>
-                    <label
-                      htmlFor="learning-goal"
-                      className="mb-2 block text-base font-medium text-on-surface"
-                    >
-                      {probing
-                        ? t("labelProbe")
-                        : reviewing
-                          ? t("labelReview")
-                          : t("labelClarify")}
-                    </label>
-                    <div className="relative">
-                      <textarea
-                        id="learning-goal"
-                        ref={attachTextarea}
-                        rows={3}
-                        value={paragraph}
-                        onChange={(e) => setParagraph(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        placeholder={
-                          reviewing
-                            ? t("placeholderReview")
-                            : t("placeholderDefault")
-                        }
-                        disabled={probeCardActive}
-                        className="w-full resize-none rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-base text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/50 focus:border-primary disabled:bg-surface-container-low disabled:opacity-60"
-                      />
-                    </div>
-                  </>
-                )}
-                {status === "error" && (
-                  <p className="mt-2 text-sm text-error" aria-live="polite">
-                    {message ?? t("errorFallback")}
-                  </p>
-                )}
-              </div>
-            )}
+                </>
+              )}
+              {view.error !== null && (
+                <p className="mt-2 text-sm text-error" aria-live="polite">
+                  {view.error ?? t("errorFallback")}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Footer — Cancel + Send, or a single Confirm in the legacy
               confirm step (the review step sends its adjustments and the
               `approve` command through the same Send path). */}
           <div className="flex justify-end gap-3 border-t border-outline-variant/50 bg-surface-container-low px-6 py-4">
-            {confirming ? (
+            {view.confirming ? (
               <Button
                 type="button"
                 onClick={confirm}
@@ -349,7 +292,7 @@ export function NewSessionDialog({
                 <Button
                   type="button"
                   variant="ghost"
-                  disabled={pending}
+                  disabled={view.pending}
                   onClick={close}
                   className="h-auto border border-transparent px-4 py-2 text-on-surface-variant hover:border-outline-variant hover:bg-surface-bright hover:text-on-surface"
                 >
@@ -357,13 +300,13 @@ export function NewSessionDialog({
                 </Button>
                 <Button
                   type="submit"
-                  disabled={pending || probeCardActive}
+                  disabled={view.pending || probeCardActive}
                   className={cn(
                     "gap-2 px-6 py-2.5 text-on-primary-container hover:bg-primary-fixed hover:text-on-primary-container",
                   )}
                 >
-                  <Send className={cn("transition-transform", !pending && "group-hover:translate-x-0.5")} aria-hidden />
-                  {pending ? t("sending") : t("send")}
+                  <Send className={cn("transition-transform", !view.pending && "group-hover:translate-x-0.5")} aria-hidden />
+                  {view.pending ? t("sending") : t("send")}
                 </Button>
               </>
             )}
@@ -371,5 +314,30 @@ export function NewSessionDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** The plan's lettered steps with dependency notes. */
+function planSteps(plan: PlanBody) {
+  return (
+    <ul className="mt-2.5 space-y-1.5">
+      {plan.steps.map((step) => (
+        <li key={step.id} className="flex items-start gap-2">
+          <span
+            aria-hidden
+            className="mt-0.5 font-mono text-xs font-semibold text-primary"
+          >
+            {step.letter}.
+          </span>
+          <span>
+            {step.title} — {step.description}
+            {step.depends_on.length > 0 &&
+              ` · builds on: ${step.depends_on
+                .map((id) => plan.steps.find((s) => s.id === id)?.title ?? id)
+                .join(", ")}`}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }

@@ -1,69 +1,80 @@
 "use client";
 
+import { useMemo } from "react";
 import { Check, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import type { QuestionItem } from "@/lib/api-client";
 import { MathText } from "@/components/math-text";
-import { cn, optionLetter } from "@/lib/utils";
+import { cn, optionLetter, displayOrder } from "@/lib/utils";
 
-/**
- * Project a question's options into a display order (a permutation where
- * `order[i]` is the canonical index of the option rendered at display
- * position `i`), remapping `correct_index` to that display position. The
- * card's `selected` / reveal then work in display coordinates, so a
- * shuffled probe card (#74) and a review card share the same reveal.
- */
-export function displayOrderQuestion(
-  question: { options: string[]; correct_index: number },
-  order: number[],
-): Pick<QuestionItem, "options" | "correct_index"> {
-  return {
-    options: order.map((i) => question.options[i]),
-    correct_index: order.indexOf(question.correct_index),
-  };
-}
+/** The canonical question shape the card projects. Display ordering is the
+ *  card's concern: it stores the canonical `correct_index` and projects the
+ *  options into a (stable) display order. */
+export type QuizQuestionInput = {
+  text: string;
+  options: string[];
+  correct_index: number;
+  explanation: string;
+};
 
 /**
  * The shared quiz card (#113): the prompt, lettered option buttons, and —
- * once revealed — the reveal (correct option highlighted, a wrong
- * selection marked, and the explanation shown). It serves all three
- * surfaces:
- * - **session detail** — select → reveal (`onSelect` + `selected`);
- * - **probe** — select → reveal (`onSelect` + `selected`); a click is the
- *   answer (no confirm step);
- * - **review** — reveal → confidence: pass `selected={null}` plus an
- *   explicit `revealed` and omit `onSelect` — the options stay
- *   non-interactive and the card shows the explanation without a
- *   verdict heading.
+ * once revealed — the reveal (correct option highlighted, a wrong selection
+ * marked, and the explanation shown). It serves all three surfaces:
+ * - **session detail** — select → reveal (`onSelect` + `selected`), canonical
+ *   order (`shuffled` false);
+ * - **probe** — select → reveal; a click is the answer (no confirm step).
+ *   `shuffled` + `pinUnknown` keep the display order stable and the backend's
+ *   "I don't know" option pinned last;
+ * - **review** — reveal → confidence: pass `selected={null}` plus an explicit
+ *   `revealed` and `shuffled`, omit `onSelect` — the options stay
+ *   non-interactive and the card shows the explanation without a verdict.
  *
- * Pure leaf: the owner holds the selection (`selected`) and receives
- * clicks via `onSelect`.
+ * Pure leaf: the owner holds the selection (in **canonical** indices) and
+ * receives clicks via `onSelect(canonicalIndex)`.
  */
 export function QuizQuestion({
   question,
   selected,
   onSelect,
   revealed: revealedProp,
+  shuffled = false,
+  pinUnknown = false,
 }: {
-  question: QuestionItem;
-  /** The chosen option (0-based), or null before the learner answers. */
+  question: QuizQuestionInput;
+  /** The chosen option's canonical index, or null before the learner answers. */
   selected: number | null;
   /**
-   * Receives option clicks. When absent the options are non-interactive
-   * (the review surface, where Reveal is a separate footer control).
+   * Receives option clicks with the option's **canonical** index. When absent
+   * the options are non-interactive (the review surface, where Reveal is a
+   * separate footer control).
    */
-  onSelect?: (index: number) => void;
+  onSelect?: (canonicalIndex: number) => void;
   /**
-   * Reveal the answer without a selection (the review surface). Defaults
-   * to `selected !== null`.
+   * Reveal the answer without a selection (the review surface). Defaults to
+   * `selected !== null`.
    */
   revealed?: boolean;
+  /** Shuffle the option order (stable per question). */
+  shuffled?: boolean;
+  /** Pin the last (canonical) option to the end of the display order. */
+  pinUnknown?: boolean;
 }) {
   const t = useTranslations("session");
   const interactive = onSelect !== undefined;
   const revealed = revealedProp ?? selected !== null;
   const wasCorrect =
     revealed && selected !== null && selected === question.correct_index;
+
+  // The display order is a permutation where `order[i]` is the canonical
+  // index of the option rendered at display position `i`. Stable per question
+  // (keyed on `question`), so a shuffled card never re-shuffles on re-render.
+  const order = useMemo(
+    () =>
+      shuffled
+        ? displayOrder(question.options.length, pinUnknown)
+        : question.options.map((_, i) => i),
+    [question, shuffled, pinUnknown],
+  );
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
@@ -72,15 +83,15 @@ export function QuizQuestion({
       </h2>
 
       <div className="flex flex-col gap-2">
-        {question.options.map((option, i) => {
-          const isCorrect = i === question.correct_index;
-          const isSelected = i === selected;
+        {order.map((canonical, displayIndex) => {
+          const isCorrect = canonical === question.correct_index;
+          const isSelected = canonical === selected;
           return (
             <button
-              key={i}
+              key={displayIndex}
               type="button"
               disabled={!interactive || revealed}
-              onClick={onSelect ? () => onSelect(i) : undefined}
+              onClick={onSelect ? () => onSelect(canonical) : undefined}
               className={cn(
                 "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors",
                 revealed
@@ -104,10 +115,10 @@ export function QuizQuestion({
                       : "border border-outline-variant/60 text-on-surface-variant",
                 )}
               >
-                {optionLetter(i)}
+                {optionLetter(displayIndex)}
               </span>
               <span className="flex-1 text-sm text-on-surface">
-                <MathText content={option} />
+                <MathText content={question.options[canonical]} />
               </span>
               {revealed && isCorrect && (
                 <Check className="size-4 shrink-0 text-primary" aria-hidden />

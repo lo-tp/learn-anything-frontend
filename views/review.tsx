@@ -1,18 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Eye, Loader2, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import {
-  QuizQuestion,
-  displayOrderQuestion,
-} from "@/components/session/quiz-question";
-import { displayOrder } from "@/lib/utils";
+import { QuizQuestion } from "@/components/session/quiz-question";
 import {
   answerReviewCard,
   getReviewDue,
-  type QuestionItem,
   type ReviewCardOut,
   type ReviewConfidence,
 } from "@/lib/api-client";
@@ -67,34 +62,6 @@ export function Review() {
 
   const total = cards?.length ?? 0;
   const current = finished ? null : (cards?.[index] ?? null);
-
-  /**
-   * The current card's display order. `order[i]` is the **canonical**
-   * index of the option rendered at display position `i` — generated once
-   * per card so it is stable across the reveal, and never reshuffles
-   * while the card is on screen.
-   */
-  const order = useMemo<number[]>(() => {
-    if (!current) return [];
-    return displayOrder(current.question.options.length);
-  }, [current]);
-
-  /**
-   * The current card's question as a `QuestionItem` for the shared card:
-   * options permuted into display order, `correct_index` remapped to that
-   * display position (the card highlights it on reveal).
-   */
-  const question = useMemo<QuestionItem | null>(() => {
-    if (!current) return null;
-    const q = current.question;
-    return {
-      type: "question",
-      id: String(current.id),
-      text: q.text,
-      explanation: q.explanation,
-      ...displayOrderQuestion(q, order),
-    };
-  }, [current, order]);
 
   /** Reveal the answer — nothing is recorded until a confidence is. */
   const handleReveal = () => {
@@ -170,8 +137,13 @@ export function Review() {
       </header>
 
       <main className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-6">
-        {question && (
-          <QuizQuestion question={question} selected={null} revealed={revealed} />
+        {current && (
+          <QuizQuestion
+            question={current.question}
+            selected={null}
+            revealed={revealed}
+            shuffled
+          />
         )}
       </main>
 

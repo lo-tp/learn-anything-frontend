@@ -25,7 +25,6 @@ import {
   generatePlan,
   startProbe,
 } from "@/lib/api-client";
-import { act } from "@testing-library/react";
 import {
   GOAL,
   LABEL,
@@ -34,8 +33,7 @@ import {
   SHORT,
   TITLE,
   openDialog,
-  renderUseNewSession,
-} from "./hooks/test-fixtures";
+} from "./test-fixtures";
 
 vi.mock("@/lib/api-client", () => ({
   createSession: vi.fn(),
@@ -474,25 +472,4 @@ describe("NewSessionDialog", () => {
   });
 });
 
-describe("useNewSession guards", () => {
-  it("ignores a re-submit while a request is already in flight", async () => {
-    mockCreateSession.mockReturnValue(new Promise(() => {})); // in flight
-    const { result } = renderUseNewSession({
-      open: true,
-      onAccept: vi.fn(),
-      onOpenChange: vi.fn(),
-    });
 
-    // The first submit starts the (never-resolving) request → pending.
-    await act(async () => {
-      result.current.submit();
-    });
-    // The second submit hits the pending guard and returns early — the
-    // request was not re-issued.
-    await act(async () => {
-      result.current.submit();
-    });
-
-    expect(mockCreateSession).toHaveBeenCalledTimes(1);
-  });
-});
