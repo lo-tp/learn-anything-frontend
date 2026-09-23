@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { PhaseIndicator } from "@/components/phase-indicator";
+import { ProgressRail } from "@/components/progress-rail";
 import { MathText } from "@/components/math-text";
 import {
   Dialog,
@@ -115,8 +115,8 @@ export function NewSessionDialog({
         className="w-full max-w-3xl max-h-[95vh] flex-col gap-0 overflow-hidden border-outline-variant bg-surface-container p-0 text-on-surface sm:max-w-3xl"
       >
         <form onSubmit={handleSubmit} className="flex w-full flex-col">
-          {/* Header — icon tile + title on the left, phase indicator + close on the right. */}
-          <div className="flex items-center justify-between gap-4 border-b border-outline-variant/50 bg-surface-container-low px-6 py-5">
+          {/* Header — icon tile + title on the left, close on the right. */}
+          <div className="flex items-center justify-between gap-4 px-6 py-5">
             <div className="flex items-center gap-2.5">
               <span className="flex size-8 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
                 <MessageSquareText className="size-5" aria-hidden />
@@ -126,7 +126,6 @@ export function NewSessionDialog({
               </DialogTitle>
             </div>
             <div className="flex items-center gap-3">
-              <PhaseIndicator phase={view.phase} pending={view.pending} />
               <DialogClose asChild>
                 <button
                   type="button"
@@ -139,6 +138,9 @@ export function NewSessionDialog({
               </DialogClose>
             </div>
           </div>
+
+          {/* Progress rail — four steps with a state-dependent counter. */}
+          <ProgressRail rail={view.rail} />
 
           {/* Body — Recent Messages preview + the intake textarea. */}
           <div className="flex flex-col gap-5 p-6">

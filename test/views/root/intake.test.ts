@@ -307,3 +307,58 @@ describe("intake core — close / view-model / confirming", () => {
     expect(vm.pendingNote).toBe(t("pendingProbeAnswer"));
   });
 });
+
+describe("intake core — progress rail", () => {
+  it("shows all steps as future with the ready counter before the first submit", () => {
+    const vm = deriveViewModel(mk(), t);
+    expect(vm.rail.steps).toHaveLength(4);
+    expect(vm.rail.steps.map((s) => s.state)).toEqual(["future", "future", "future", "future"]);
+    expect(vm.rail.counter).toBe(t("railCounterReady"));
+    expect(vm.rail.pending).toBe(false);
+  });
+
+  it("marks step 0 as current during clarifying", () => {
+    const vm = deriveViewModel(mk({ sessionId: "s-1", phase: "clarifying" }), t);
+    expect(vm.rail.steps.map((s) => s.state)).toEqual(["current", "future", "future", "future"]);
+    expect(vm.rail.counter).toBe(t("railCounterClarifying"));
+  });
+
+  it("marks step 0 done and step 1 current during probing", () => {
+    const vm = deriveViewModel(mk({ sessionId: "s-1", phase: "probing" }), t);
+    expect(vm.rail.steps.map((s) => s.state)).toEqual(["done", "current", "future", "future"]);
+    expect(vm.rail.counter).toBe(t("railCounterProbing"));
+  });
+
+  it("marks steps 0-1 done and step 2 current during planning", () => {
+    const vm = deriveViewModel(mk({ sessionId: "s-1", phase: "planning" }), t);
+    expect(vm.rail.steps.map((s) => s.state)).toEqual(["done", "done", "current", "future"]);
+    expect(vm.rail.counter).toBe(t("railCounterPlanning"));
+  });
+
+  it("folds reviewing into the planning step (step 2 current)", () => {
+    const vm = deriveViewModel(mk({ sessionId: "s-1", phase: "reviewing", plan: PLAN_OUT.plan }), t);
+    expect(vm.rail.steps.map((s) => s.state)).toEqual(["done", "done", "current", "future"]);
+    expect(vm.rail.counter).toBe(t("railCounterPlanning"));
+  });
+
+  it("marks steps 0-2 done and step 3 current during generating", () => {
+    const vm = deriveViewModel(mk({ sessionId: "s-1", phase: "generating" }), t);
+    expect(vm.rail.steps.map((s) => s.state)).toEqual(["done", "done", "done", "current"]);
+    expect(vm.rail.counter).toBe(t("railCounterGenerating"));
+  });
+
+  it("marks all steps done for executing/complete phases", () => {
+    const vm = deriveViewModel(mk({ sessionId: "s-1", phase: "complete" }), t);
+    expect(vm.rail.steps.map((s) => s.state)).toEqual(["done", "done", "done", "done"]);
+  });
+
+  it("sets rail.pending to true while a request is in flight", () => {
+    const vm = deriveViewModel(mk({ sessionId: "s-1", phase: "clarifying", inFlight: "clarify" }), t);
+    expect(vm.rail.pending).toBe(true);
+  });
+
+  it("sets rail.pending to false when idle", () => {
+    const vm = deriveViewModel(mk({ sessionId: "s-1", phase: "probing" }), t);
+    expect(vm.rail.pending).toBe(false);
+  });
+});

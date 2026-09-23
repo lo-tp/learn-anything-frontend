@@ -478,6 +478,23 @@ export function apply(
   }
 }
 
+/** The visual state of a single progress rail step. */
+export type RailStepState = "done" | "current" | "future";
+
+/** One step in the progress rail (render-ready). */
+export type RailStep = {
+  label: string;
+  state: RailStepState;
+};
+
+/** The progress rail data (render-ready). */
+export type RailData = {
+  steps: RailStep[];
+  counter: string;
+  /** True while a request is in flight — the current step animates. */
+  pending: boolean;
+};
+
 /** The dialog's render-ready view-model, derived from the core state. */
 export type IntakeViewModel = {
   bubbles: Bubble[];
@@ -494,6 +511,7 @@ export type IntakeViewModel = {
     pending: boolean;
     awaitingPlan: boolean;
   };
+  rail: RailData;
 };
 
 export function deriveViewModel(state: IntakeState, t: Translator): IntakeViewModel {
@@ -515,6 +533,36 @@ export function deriveViewModel(state: IntakeState, t: Translator): IntakeViewMo
   else if (state.phase === "clarifying") pendingNote = t("pendingClarify");
   else pendingNote = t("pendingDefault");
 
+  // Progress rail: map the current phase to step states.
+  // reviewing folds into Planning (step 2).
+  let currentStep = -1; // -1 = ready (no step active)
+  if (state.phase === "clarifying") currentStep = 0;
+  else if (state.phase === "probing") currentStep = 1;
+  else if (state.phase === "planning" || state.phase === "reviewing") currentStep = 2;
+  else if (state.phase === "generating") currentStep = 3;
+  else if (state.phase === "executing" || state.phase === "complete" || state.phase === "error") currentStep = 4; // all done
+
+  const stepLabels = [t("railStep0"), t("railStep1"), t("railStep2"), t("railStep3")];
+  const railSteps: RailStep[] = stepLabels.map((label, i) => ({
+    label,
+    state: i < currentStep ? "done" : i === currentStep ? "current" : "future",
+  }));
+
+  // Counter text by state
+  let counter: string;
+  if (currentStep === -1) counter = t("railCounterReady");
+  else if (currentStep === 0) counter = t("railCounterClarifying");
+  else if (currentStep === 1) counter = t("railCounterProbing");
+  else if (currentStep === 2) counter = t("railCounterPlanning");
+  else if (currentStep === 3) counter = t("railCounterGenerating");
+  else counter = t("railCounterGenerating"); // all done
+
+  const rail: RailData = {
+    steps: railSteps,
+    counter,
+    pending,
+  };
+
   return {
     bubbles: state.bubbles,
     phase: state.phase,
@@ -530,5 +578,6 @@ export function deriveViewModel(state: IntakeState, t: Translator): IntakeViewMo
       pending,
       awaitingPlan,
     },
+    rail,
   };
 }

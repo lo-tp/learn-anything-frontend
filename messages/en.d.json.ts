@@ -58,7 +58,16 @@ declare const messages: {
     "errorNoQuestions": "No questions were received — please try again.",
     "errorApproveHint": "Type 'approve' to approve the plan, or describe how to adjust it.",
     "errorSession": "Something went wrong with your session. Please try again.",
-    "errorApprovePlan": "Something went wrong approving your plan. Please try again."
+    "errorApprovePlan": "Something went wrong approving your plan. Please try again.",
+    "railStep0": "Clarifying",
+    "railStep1": "Probing",
+    "railStep2": "Planning",
+    "railStep3": "Generating",
+    "railCounterReady": "3 steps to your lesson",
+    "railCounterClarifying": "2 steps to your lesson",
+    "railCounterProbing": "1 step to your lesson",
+    "railCounterPlanning": "Approve to build your lesson",
+    "railCounterGenerating": "Your lesson is on the way"
   },
   "session": {
     "notFound": {

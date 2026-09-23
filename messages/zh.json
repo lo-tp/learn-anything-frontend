@@ -55,7 +55,16 @@
     "errorNoQuestions": "没有收到题目，请重试。",
     "errorApproveHint": "输入 'approve' 批准计划，或描述如何调整。",
     "errorSession": "会话出了点问题，请重试。",
-    "errorApprovePlan": "批准计划时出了点问题，请重试。"
+    "errorApprovePlan": "批准计划时出了点问题，请重试。",
+    "railStep0": "澄清目标",
+    "railStep1": "水平检测",
+    "railStep2": "制定计划",
+    "railStep3": "生成材料",
+    "railCounterReady": "还有 3 步，就可以开始学习啦",
+    "railCounterClarifying": "还有 2 步，就可以开始学习啦",
+    "railCounterProbing": "还有 1 步，就可以开始学习啦",
+    "railCounterPlanning": "就差一步啦：批准计划，就可以开始学习",
+    "railCounterGenerating": "正在制作课件"
   },
   "session": {
     "notFound": {

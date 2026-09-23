@@ -411,12 +411,12 @@ describe("NewSessionDialog", () => {
     ).toBe(SHORT);
   });
 
-  it("shows a Ready phase indicator before the first submit", async () => {
+  it("shows the progress rail with the ready counter before the first submit", async () => {
     await openDialog();
-    expect(screen.getByRole("status", { name: /ready/i })).toBeTruthy();
+    expect(screen.getByRole("status", { name: /3 steps to your lesson/i })).toBeTruthy();
   });
 
-  it("updates the phase indicator to Clarifying after the first submit", async () => {
+  it("updates the rail counter to Clarifying after the first submit", async () => {
     mockCreateSession.mockResolvedValue({
       session_id: "s-1",
       phase: "clarifying",
@@ -424,10 +424,10 @@ describe("NewSessionDialog", () => {
     });
     await openDialog(SHORT);
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
-    expect(await screen.findByRole("status", { name: /clarifying/i })).toBeTruthy();
+    expect(await screen.findByRole("status", { name: /2 steps to your lesson/i })).toBeTruthy();
   });
 
-  it("tracks the phase through probing and into review", async () => {
+  it("tracks the rail through probing and into planning", async () => {
     // Clarify lands on probing and the first question is fetched.
     mockCreateSession.mockResolvedValue({
       session_id: "s-1",
@@ -436,7 +436,7 @@ describe("NewSessionDialog", () => {
     mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
     await openDialog(GOAL);
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
-    expect(await screen.findByRole("status", { name: /probing/i })).toBeTruthy();
+    expect(await screen.findByRole("status", { name: /1 step to your lesson/i })).toBeTruthy();
 
     // Answering to the boundary auto-generates the plan → review step.
     mockAnswerProbe.mockResolvedValue({
@@ -454,7 +454,7 @@ describe("NewSessionDialog", () => {
         (button.textContent ?? "").includes("5 m/s²"),
       )!,
     );
-    expect(await screen.findByRole("status", { name: /reviewing/i })).toBeTruthy();
+    expect(await screen.findByRole("status", { name: /Approve to build your lesson/i })).toBeTruthy();
   });
 
   it("closes via the header Close button, notifying the parent of the change", async () => {
