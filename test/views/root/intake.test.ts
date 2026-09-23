@@ -15,7 +15,7 @@ import {
   type Translator,
 } from "@/views/root/intake";
 import type { AnswerIn, PlanOut, ProbeOut } from "@/lib/api-client";
-import { PLAN_OUT, Q1, Q2 } from "./test-fixtures";
+import { PLAN_OUT, Q1, Q2, Q3 } from "./test-fixtures";
 
 /** A translator that echoes its key (params serialized) — the core tests
  *  assert structure and effects, not rendered copy. */
@@ -360,5 +360,75 @@ describe("intake core — progress rail", () => {
   it("sets rail.pending to false when idle", () => {
     const vm = deriveViewModel(mk({ sessionId: "s-1", phase: "probing" }), t);
     expect(vm.rail.pending).toBe(false);
+  });
+});
+
+describe("intake core — probe position (batch-local)", () => {
+  it("is hidden when the rail is not on the Probing step", () => {
+    expect(deriveViewModel(mk(), t).rail.probePosition).toBeNull();
+    expect(
+      deriveViewModel(mk({ sessionId: "s-1", phase: "clarifying" }), t).rail
+        .probePosition,
+    ).toBeNull();
+    expect(
+      deriveViewModel(mk({ sessionId: "s-1", phase: "planning" }), t).rail
+        .probePosition,
+    ).toBeNull();
+    expect(
+      deriveViewModel(mk({ sessionId: "s-1", phase: "generating" }), t).rail
+        .probePosition,
+    ).toBeNull();
+  });
+
+  it("is hidden while probing with no batch on screen (a refetch)", () => {
+    const vm = deriveViewModel(
+      mk({ sessionId: "s-1", phase: "probing", inFlight: "start" }),
+      t,
+    );
+    expect(vm.rail.probePosition).toBeNull();
+  });
+
+  it("shows the batch-local position for the first card", () => {
+    const vm = deriveViewModel(
+      mk({ sessionId: "s-1", phase: "probing", batch: [Q1, Q2], picks: [] }),
+      t,
+    );
+    expect(vm.rail.probePosition).toBe(
+      t("railProbePosition", { n: 1, total: 2 }),
+    );
+  });
+
+  it("advances with each answer, using the batch size as the denominator", () => {
+    const batch = [Q1, Q2, Q3, Q1];
+    const positionAt = (picks: number) =>
+      deriveViewModel(
+        mk({
+          sessionId: "s-1",
+          phase: "probing",
+          batch,
+          picks: Array(picks).fill(1),
+          answered: picks,
+        }),
+        t,
+      ).rail.probePosition;
+    expect(positionAt(0)).toBe(t("railProbePosition", { n: 1, total: 4 }));
+    expect(positionAt(1)).toBe(t("railProbePosition", { n: 2, total: 4 }));
+  });
+
+  it("clamps to the batch size once the last card is answered (no overshoot)", () => {
+    const vm = deriveViewModel(
+      mk({
+        sessionId: "s-1",
+        phase: "probing",
+        batch: [Q1, Q2],
+        picks: [1, 2],
+        answered: 2,
+        inFlight: "batch",
+      }),
+      t,
+    );
+    expect(vm.rail.probePosition).toBe(
+      t("railProbePosition", { n: 2, total: 2 }),
+    );
   });
 });

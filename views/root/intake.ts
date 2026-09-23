@@ -493,6 +493,12 @@ export type RailData = {
   counter: string;
   /** True while a request is in flight — the current step animates. */
   pending: boolean;
+  /**
+   * The learner's position within the current probe batch ("Question X of
+   * Y"), rendered under the active Probing step, or null when the rail is
+   * not on the Probing step (#129).
+   */
+  probePosition: string | null;
 };
 
 /** The dialog's render-ready view-model, derived from the core state. */
@@ -557,10 +563,24 @@ export function deriveViewModel(state: IntakeState, t: Translator): IntakeViewMo
   else if (currentStep === 3) counter = t("railCounterGenerating");
   else counter = t("railCounterGenerating"); // all done
 
+  // Batch-local probe position ("Question X of Y") under the active Probing
+  // step. The denominator is the current batch size — never the running
+  // `answered` total, which would read as moving goalposts (#129). It is
+  // hidden whenever the rail is not on the Probing step (no batch, or any
+  // other phase).
+  const probePosition =
+    state.phase === "probing" && state.batch !== null && state.batch.length > 0
+      ? t("railProbePosition", {
+          n: Math.min(state.picks.length + 1, state.batch.length),
+          total: state.batch.length,
+        })
+      : null;
+
   const rail: RailData = {
     steps: railSteps,
     counter,
     pending,
+    probePosition,
   };
 
   return {

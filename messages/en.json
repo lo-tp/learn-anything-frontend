@@ -65,7 +65,8 @@
     "railCounterClarifying": "2 steps to your lesson",
     "railCounterProbing": "1 step to your lesson",
     "railCounterPlanning": "Approve to build your lesson",
-    "railCounterGenerating": "Your lesson is on the way"
+    "railCounterGenerating": "Your lesson is on the way",
+    "railProbePosition": "Question {n} of {total}"
   },
   "session": {
     "notFound": {

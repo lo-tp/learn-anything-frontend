@@ -30,6 +30,7 @@ import {
   LABEL,
   PLAN_OUT,
   Q1,
+  Q2,
   SHORT,
   TITLE,
   openDialog,
@@ -455,6 +456,44 @@ describe("NewSessionDialog", () => {
       )!,
     );
     expect(await screen.findByRole("status", { name: /Approve to build your lesson/i })).toBeTruthy();
+  });
+
+  it("shows a batch-local probe position under the Probing step, updating with each answer", async () => {
+    // Clarify lands on probing and a batch of two is fetched.
+    mockCreateSession.mockResolvedValue({ session_id: "s-1", phase: "probing" });
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1, Q2] });
+    await openDialog(GOAL);
+    // The position is hidden while the rail is not on the Probing step.
+    expect(screen.queryByText("Question 1 of 2")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    // The batch-local position appears under the Probing step (denominator =
+    // the current batch size, 2 — not a cumulative answered count).
+    expect(await screen.findByText("Question 1 of 2")).toBeTruthy();
+
+    // Answering the first card advances the position to the second card.
+    const firstOptions = Array.from(
+      screen.getByText(Q1.text).closest("div")!.querySelectorAll("button"),
+    ) as HTMLButtonElement[];
+    fireEvent.click(
+      firstOptions.find((button) => (button.textContent ?? "").includes("5 m/s²"))!,
+    );
+    expect(await screen.findByText("Question 2 of 2")).toBeTruthy();
+
+    // The position is hidden once the rail leaves the Probing step (planning).
+    mockAnswerProbe.mockResolvedValue({
+      phase: "planning",
+      boundary_map: { f_ma_relation: { floor: "scalar F = ma", ceiling: null } },
+    });
+    mockGeneratePlan.mockResolvedValue(PLAN_OUT);
+    const secondOptions = Array.from(
+      screen.getByText(Q2.text).closest("div")!.querySelectorAll("button"),
+    ) as HTMLButtonElement[];
+    fireEvent.click(
+      secondOptions.find((button) => (button.textContent ?? "").includes("doubles"))!,
+    );
+    await screen.findByRole("status", { name: /Approve to build your lesson/i });
+    expect(screen.queryByText("Question 2 of 2")).toBeNull();
   });
 
   it("closes via the header Close button, notifying the parent of the change", async () => {

@@ -65,7 +65,8 @@
     "railCounterClarifying": "还有 2 步，就可以开始学习啦",
     "railCounterProbing": "还有 1 步，就可以开始学习啦",
     "railCounterPlanning": "就差一步啦：批准计划，就可以开始学习",
-    "railCounterGenerating": "正在制作课件"
+    "railCounterGenerating": "正在制作课件",
+    "railProbePosition": "第 {n} / {total} 题"
   },
   "session": {
     "notFound": {
