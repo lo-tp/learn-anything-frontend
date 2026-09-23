@@ -8,6 +8,10 @@ An AI conversation-driven learning app: a learner declares a knowledge point and
 One learning journey from goal declaration through to generated materials (phases: clarifying → probing → planning → reviewing → generating).
 _Avoid_: conversation, course, unit
 
+**Session intake**:
+The interactive arc that opens a Session: goal declaration through clarifying, probing, and planning, ending when the plan is approved.
+_Avoid_: intake dialog, new-session flow, onboarding
+
 **User**:
 A person who can sign in to the app: a unique email address, a display name, and a password.
 _Avoid_: account, member, learner
