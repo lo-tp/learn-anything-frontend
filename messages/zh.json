@@ -23,7 +23,8 @@
     "subtitle": "继续你的深度探索，或发起一次新的学习探究。",
     "emptyTitle": "还没有会话",
     "emptyBody": "开始你的第一次深度探索，或发起一次新的学习探究，开启学习之旅。",
-    "startNewSession": "开始新会话"
+    "startNewSession": "开始新会话",
+    "generating": "正在生成资料…"
   },
   "dialog": {
     "openingPrompt": "告诉我们你想探索或学习什么，我们会为你量身安排一次学习。",

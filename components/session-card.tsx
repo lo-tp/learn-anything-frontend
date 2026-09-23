@@ -1,7 +1,7 @@
 "use client";
 
-import { BookOpen, Clock } from "lucide-react";
-import { useLocale, useMessages } from "next-intl";
+import { BookOpen, Clock, Loader2 } from "lucide-react";
+import { useLocale, useMessages, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { timeAgo } from "@/lib/time";
 import type { SessionListItem } from "@/lib/api-client";
@@ -13,9 +13,10 @@ import type { SessionListItem } from "@/lib/api-client";
  * vocabulary; the icon tile has a fixed neutral treatment instead.
  */
 export function SessionCard({ session }: { session: SessionListItem }) {
-  const { session_id, narrowed_goal, goal, created_at } = session;
+  const { session_id, narrowed_goal, goal, created_at, phase } = session;
   const locale = useLocale();
   const messages = useMessages();
+  const t = useTranslations("home");
 
   return (
     <Link
@@ -35,6 +36,18 @@ export function SessionCard({ session }: { session: SessionListItem }) {
           {timeAgo(created_at, locale, messages.time)}
         </span>
       </div>
+      {phase === "generating" ? (
+        // In-progress indicator for background material generation (#127).
+        // Deliberately minimal — a spinner + a short note, not a stage label.
+        <span
+          role="status"
+          aria-label={t("generating")}
+          className="relative z-10 flex shrink-0 items-center gap-2 text-tertiary"
+        >
+          <Loader2 className="size-4 animate-spin" aria-hidden />
+          <span className="font-mono text-xs tracking-widest">{t("generating")}</span>
+        </span>
+      ) : null}
     </Link>
   );
 }

@@ -26,7 +26,8 @@ declare const messages: {
     "subtitle": "Resume your deep dives or launch a new contextual inquiry.",
     "emptyTitle": "No sessions yet",
     "emptyBody": "Start your first deep dive or launch a contextual inquiry to begin your learning journey.",
-    "startNewSession": "Start New Session"
+    "startNewSession": "Start New Session",
+    "generating": "Generating materials…"
   },
   "dialog": {
     "openingPrompt": "Tell us what you'd like to explore or learn, and we'll shape a session around it.",

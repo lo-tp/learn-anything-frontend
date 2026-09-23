@@ -56,4 +56,17 @@ describe("SessionCard", () => {
     expect(screen.queryByText(/executing/i)).toBeNull();
     expect(screen.queryByText(/complete/i)).toBeNull();
   });
+
+  it("shows an in-progress indicator for a generating card (#127)", () => {
+    renderWithLocale(<SessionCard session={session({ phase: "generating" })} />);
+    expect(screen.getByRole("status")).toBeTruthy();
+  });
+
+  it("shows no in-progress indicator for cards in other phases", () => {
+    for (const phase of ["executing", "complete", "clarifying", "reviewing"] as const) {
+      const { unmount } = renderWithLocale(<SessionCard session={session({ phase })} />);
+      expect(screen.queryByRole("status")).toBeNull();
+      unmount();
+    }
+  });
 });
