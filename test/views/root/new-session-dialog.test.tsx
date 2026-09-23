@@ -29,8 +29,10 @@ import {
   GOAL,
   LABEL,
   PLAN_OUT,
+  PLAN_OUT_REVISED,
   Q1,
   Q2,
+  REVIEW_LABEL,
   SHORT,
   TITLE,
   openDialog,
@@ -194,35 +196,10 @@ describe("NewSessionDialog", () => {
     expect(screen.queryByText("A bit more, please.")).toBeNull();
   });
 
-  it("notifies the parent and closes when the learner types 'approve'", async () => {
-    mockCreateSession.mockResolvedValue({
-      session_id: "s-1",
-      phase: "planning",
-      narrowed_goal: "Newton's second law of motion",
-    });
-    mockGeneratePlan.mockResolvedValue({
-      phase: "reviewing",
-      plan: {
-        prose_summary: "Start from scalar F = ma, extend to vectors.",
-        dependency_dag: "scalar -> vector",
-        steps: [
-          {
-            id: "step-1",
-            letter: "A",
-            title: "Scalar F = ma",
-            description: "One-dimensional force, mass, and acceleration.",
-            depends_on: [],
-            depth: 0,
-          },
-        ],
-      },
-    });
-    mockApprovePlan.mockResolvedValue({
-      phase: "generating",
-      message: "Plan approved.",
-    });
-    // Stateful harness: the dialog's onOpenChange(false) must be able to flip
-    // `open` for the close to be observable.
+  /** Drive the dialog to the review step (the generated plan on screen).
+   *  The stateful harness lets `onOpenChange(false)` flip `open` so a close
+   *  is observable, and spies `onAccept`. */
+  async function reachReview(onAccept: () => void) {
     function Harness({ onAccept }: { onAccept: () => void }) {
       const [open, setOpen] = useState(true);
       return (
@@ -233,24 +210,73 @@ describe("NewSessionDialog", () => {
         />
       );
     }
-    const onAccept = vi.fn();
-    const view = renderWithLocale(<Harness onAccept={onAccept} />);
-    const textarea = await screen.findByLabelText(LABEL);
-    fireEvent.change(textarea, {
-      target: {
-        value: GOAL + " and I know velocity but mix up force and momentum.",
-      },
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "planning",
+      narrowed_goal: "Newton's second law of motion",
     });
+    mockGeneratePlan.mockResolvedValue(PLAN_OUT);
+    mockApprovePlan.mockResolvedValue({ phase: "generating", message: "Plan approved." });
+    renderWithLocale(<Harness onAccept={onAccept} />);
+    const textarea = await screen.findByLabelText(LABEL);
+    fireEvent.change(textarea, { target: { value: GOAL } });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    return screen.findByLabelText(REVIEW_LABEL);
+  }
 
-    // The plan lands in the review step; the typed approval command hands
-    // off (there is no Approve button).
-    const review = await screen.findByLabelText(
-      "How should we adjust the plan?",
-    );
+  it("stays open in the 'on the way' state when the learner types 'approve'", async () => {
+    const onAccept = vi.fn();
+    const review = await reachReview(onAccept);
     fireEvent.change(review, { target: { value: "approve" } });
     fireEvent.keyDown(review, { key: "Enter" });
 
+    // The dialog stays open — no hand-off until the learner closes it.
+    await screen.findByRole("button", { name: /Back to my sessions/ });
+    expect(onAccept).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { name: TITLE })).toBeTruthy();
+    // The Generating rail step is active, lit by the on-the-way counter.
+    expect(
+      screen.getByRole("status", { name: /Your lesson is on the way/i }),
+    ).toBeTruthy();
+    // The encouraging copy appears both in the rail counter and the body.
+    expect(screen.getAllByText("Your lesson is on the way")).toHaveLength(2);
+    expect(screen.getByText(/safely close this window/i)).toBeTruthy();
+    // The approval request fired exactly once — no polling for materials.
+    expect(mockApprovePlan).toHaveBeenCalledTimes(1);
+    // The footer is a single "back" button (no Send / Cancel / Confirm).
+    expect(
+      screen.getByRole("button", { name: /Back to my sessions/ }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Send/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Cancel/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Confirm/ })).toBeNull();
+  });
+
+  it("submits a plan adjustment from the review step (no hand-off)", async () => {
+    const onAccept = vi.fn();
+    const review = await reachReview(onAccept);
+    mockAdjustPlan.mockResolvedValue(PLAN_OUT_REVISED);
+    fireEvent.change(review, { target: { value: "drop the last step" } });
+    fireEvent.keyDown(review, { key: "Enter" });
+
+    expect(mockAdjustPlan).toHaveBeenCalledWith("s-1", "drop the last step");
+    // The revised plan lands in a new plan bubble; the dialog stays open
+    // (no hand-off until the learner approves and closes).
+    expect(
+      await screen.findByText("A tighter two-step path from scalar F = ma to vectors."),
+    ).toBeTruthy();
+    expect(onAccept).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { name: TITLE })).toBeTruthy();
+  });
+
+  it("closes back to the session list from the footer button, notifying the parent", async () => {
+    const onAccept = vi.fn();
+    const review = await reachReview(onAccept);
+    fireEvent.change(review, { target: { value: "approve" } });
+    fireEvent.keyDown(review, { key: "Enter" });
+    await screen.findByRole("button", { name: /Back to my sessions/ });
+
+    fireEvent.click(screen.getByRole("button", { name: /Back to my sessions/ }));
     await vi.waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
     // Depending on the (never-completing in jsdom) exit animation the panel
     // is either unmounted or left mounted in its closed state.
@@ -259,7 +285,71 @@ describe("NewSessionDialog", () => {
       expect(panel === null || panel.getAttribute("data-state") === "closed")
         .toBe(true);
     });
-    void view;
+  });
+
+  it("closes via the header Close button from the 'on the way' state, notifying the parent", async () => {
+    const onAccept = vi.fn();
+    const review = await reachReview(onAccept);
+    fireEvent.change(review, { target: { value: "approve" } });
+    fireEvent.keyDown(review, { key: "Enter" });
+    await screen.findByRole("button", { name: /Back to my sessions/ });
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    await vi.waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => {
+      const panel = document.querySelector('[role="dialog"]');
+      expect(panel === null || panel.getAttribute("data-state") === "closed")
+        .toBe(true);
+    });
+  });
+
+  it("starts a fresh intake when the dialog is reopened after approval", async () => {
+    function Harness({ onAccept }: { onAccept: () => void }) {
+      const [open, setOpen] = useState(true);
+      return (
+        <>
+          <NewSessionDialog
+            open={open}
+            onOpenChange={setOpen}
+            onAccept={onAccept}
+          />
+          <button type="button" onClick={() => setOpen(true)}>
+            Reopen
+          </button>
+        </>
+      );
+    }
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "planning",
+      narrowed_goal: "Newton's second law of motion",
+    });
+    mockGeneratePlan.mockResolvedValue(PLAN_OUT);
+    mockApprovePlan.mockResolvedValue({ phase: "generating", message: "Plan approved." });
+    const onAccept = vi.fn();
+    renderWithLocale(<Harness onAccept={onAccept} />);
+    const textarea = await screen.findByLabelText(LABEL);
+    fireEvent.change(textarea, { target: { value: GOAL } });
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    const review = await screen.findByLabelText(REVIEW_LABEL);
+    fireEvent.change(review, { target: { value: "approve" } });
+    fireEvent.keyDown(review, { key: "Enter" });
+    await screen.findByRole("button", { name: /Back to my sessions/ });
+
+    // Closing the on-the-way state resets the intake for the next session.
+    fireEvent.click(screen.getByRole("button", { name: /Back to my sessions/ }));
+    await vi.waitFor(() => {
+      const panel = document.querySelector('[role="dialog"]');
+      expect(panel === null || panel.getAttribute("data-state") === "closed")
+        .toBe(true);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Reopen" }));
+    // The fresh intake: the opening prompt and the clarify label, no leftover
+    // plan or on-the-way copy.
+    expect((await screen.findByLabelText(LABEL)) as HTMLTextAreaElement).toHaveProperty("value", "");
+    expect(screen.queryByText("Your lesson is on the way")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Back to my sessions/ })).toBeNull();
   });
 
   it("enters the confirm step for later phases, without a goal message when narrowed_goal is absent", async () => {

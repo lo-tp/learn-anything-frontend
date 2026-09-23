@@ -52,6 +52,13 @@ export type IntakeState = {
   inFlight: InFlight;
   error: string | null;
   /**
+   * The post-approval "on the way" state: the plan is approved and generation
+   * is running server-side. The dialog stays open (no polling for materials),
+   * shows the Generating rail step active, and is closable — closing hands off
+   * to the parent (a refetch) and resets the intake.
+   */
+  onTheWay: boolean;
+  /**
    * The user's submitted text, committed as a "you" bubble when the
    * request RESOLVES (so a failure preserves the textarea — the user's
    * words are only recorded in the transcript once the turn succeeds).
@@ -120,6 +127,7 @@ export function initialState(t: Translator): IntakeState {
     plan: null,
     inFlight: null,
     error: null,
+    onTheWay: false,
     pendingYou: null,
     pendingClear: false,
   };
@@ -191,11 +199,19 @@ export function apply(
   t: Translator,
 ): ApplyResult {
   switch (action.type) {
-    case "close":
-      return { state: initialState(t), effects: [], clearInput: false };
+    case "close": {
+      // Closing from the post-approval "on the way" state hands off to the
+      // parent (a History refetch) — the session now exists in the list; the
+      // accept effect runs that callback. Closing always resets for a fresh
+      // intake next time (the binding also clears the textarea).
+      const effects: Effect[] = state.onTheWay ? [{ type: "accept" }] : [];
+      return { state: initialState(t), effects, clearInput: true };
+    }
 
     case "confirm":
-      return { state: initialState(t), effects: [], clearInput: false };
+      // The confirm step hands off the same way: the accept effect triggers
+      // the History refetch.
+      return { state: initialState(t), effects: [{ type: "accept" }], clearInput: true };
 
     case "submit": {
       if (state.inFlight) return { state, effects: [], clearInput: false };
@@ -447,12 +463,28 @@ export function apply(
       };
     }
 
-    case "approveDone":
+    case "approveDone": {
+      // Post-approval "on the way" state: the dialog stays open. Generation
+      // continues server-side (no polling for materials); the conversation
+      // history is kept, the review artifacts are cleared, and the approval
+      // request settles with no further request in flight.
       return {
-        state: initialState(t),
-        effects: [{ type: "accept" }],
+        state: {
+          ...state,
+          phase: "generating",
+          plan: null,
+          batch: null,
+          picks: [],
+          inFlight: null,
+          onTheWay: true,
+          error: null,
+          pendingYou: null,
+          pendingClear: false,
+        },
+        effects: [],
         clearInput: false,
       };
+    }
 
     case "apiFailed": {
       let picks = state.picks;
@@ -507,6 +539,7 @@ export type IntakeViewModel = {
   phase: Phase | null;
   pending: boolean;
   confirming: boolean;
+  onTheWay: boolean;
   showPending: boolean;
   pendingNote: string;
   error: string | null;
@@ -588,6 +621,7 @@ export function deriveViewModel(state: IntakeState, t: Translator): IntakeViewMo
     phase: state.phase,
     pending,
     confirming,
+    onTheWay: state.onTheWay,
     showPending: pending || awaitingPlan,
     pendingNote,
     error: state.error,

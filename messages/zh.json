@@ -66,7 +66,9 @@
     "railCounterProbing": "还有 1 步，就可以开始学习啦",
     "railCounterPlanning": "就差一步啦：批准计划，就可以开始学习",
     "railCounterGenerating": "正在制作课件",
-    "railProbePosition": "第 {n} / {total} 题"
+    "railProbePosition": "第 {n} / {total} 题",
+    "onTheWaySubline": "课件正在生成中，你可以先关闭窗口。",
+    "backToSessions": "返回我的会话"
   },
   "session": {
     "notFound": {

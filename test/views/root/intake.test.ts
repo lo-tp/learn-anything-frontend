@@ -252,6 +252,33 @@ describe("intake core — plan", () => {
   });
 });
 
+describe("intake core — approve (the post-approval 'on the way' state)", () => {
+  it("enters the on-the-way state after approval: generating phase, idle, no accept effect", () => {
+    const s0 = mk({ sessionId: "s-1", phase: "reviewing", plan: PLAN_OUT.plan, inFlight: "approve" });
+    const { state, effects, clearInput } = step(s0, { type: "approveDone" });
+    // The approval request settles and no further request is in flight — the
+    // dialog does not poll for materials.
+    expect(effects).toEqual([]);
+    expect(clearInput).toBe(false);
+    expect(state.inFlight).toBeNull();
+    expect(state.onTheWay).toBe(true);
+    // The generating phase lights the Generating rail step.
+    expect(state.phase).toBe("generating");
+    // The review artifacts are cleared; the conversation history is kept.
+    expect(state.plan).toBeNull();
+    expect(state.batch).toBeNull();
+    expect(state.picks).toEqual([]);
+  });
+
+  it("closes the on-the-way state back to a fresh intake", () => {
+    const s0 = mk({ sessionId: "s-1", phase: "generating", onTheWay: true });
+    const { state } = step(s0, { type: "close" });
+    expect(state.onTheWay).toBe(false);
+    expect(state.sessionId).toBeNull();
+    expect(state.bubbles).toHaveLength(1);
+  });
+});
+
 describe("intake core — failures (discard the pending you-turn, preserve input)", () => {
   it("records the transport fallback and clears nothing", () => {
     const s0 = mk({ inFlight: "clarify", pendingYou: "goal", pendingClear: true });
@@ -306,6 +333,13 @@ describe("intake core — close / view-model / confirming", () => {
     expect(vm.intake.disabled).toBe(true);
     expect(vm.pendingNote).toBe(t("pendingProbeAnswer"));
   });
+
+  it("flags the post-approval on-the-way state (idle, no pending)", () => {
+    const vm = deriveViewModel(mk({ sessionId: "s-1", phase: "generating", onTheWay: true }), t);
+    expect(vm.onTheWay).toBe(true);
+    expect(vm.pending).toBe(false);
+    expect(vm.showPending).toBe(false);
+  });
 });
 
 describe("intake core — progress rail", () => {
@@ -350,6 +384,13 @@ describe("intake core — progress rail", () => {
   it("marks all steps done for executing/complete phases", () => {
     const vm = deriveViewModel(mk({ sessionId: "s-1", phase: "complete" }), t);
     expect(vm.rail.steps.map((s) => s.state)).toEqual(["done", "done", "done", "done"]);
+  });
+
+  it("keeps the Generating step active in the on-the-way state (idle, not pulsing)", () => {
+    const vm = deriveViewModel(mk({ sessionId: "s-1", phase: "generating", onTheWay: true }), t);
+    expect(vm.rail.steps.map((s) => s.state)).toEqual(["done", "done", "done", "current"]);
+    expect(vm.rail.counter).toBe(t("railCounterGenerating"));
+    expect(vm.rail.pending).toBe(false);
   });
 
   it("sets rail.pending to true while a request is in flight", () => {

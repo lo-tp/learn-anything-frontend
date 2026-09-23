@@ -69,7 +69,9 @@ declare const messages: {
     "railCounterProbing": "1 step to your lesson",
     "railCounterPlanning": "Approve to build your lesson",
     "railCounterGenerating": "Your lesson is on the way",
-    "railProbePosition": "Question {n} of {total}"
+    "railProbePosition": "Question {n} of {total}",
+    "onTheWaySubline": "You can safely close this window — your lesson will be ready when you get back.",
+    "backToSessions": "Back to my sessions"
   },
   "session": {
     "notFound": {

@@ -230,7 +230,20 @@ export function NewSessionDialog({
             )}
 
             <div>
-              {view.showPending ? (
+              {view.onTheWay ? (
+                <div className="flex flex-col items-center gap-3 rounded-xl border border-outline-variant/40 bg-surface-bright p-6 text-center">
+                  <Loader2
+                    className="size-6 animate-spin text-primary"
+                    aria-hidden
+                  />
+                  <p className="text-base font-medium text-on-surface">
+                    {t("railCounterGenerating")}
+                  </p>
+                  <p className="text-sm text-on-surface-variant">
+                    {t("onTheWaySubline")}
+                  </p>
+                </div>
+              ) : view.showPending ? (
                 <div
                   role="status"
                   aria-live="polite"
@@ -278,7 +291,16 @@ export function NewSessionDialog({
               confirm step (the review step sends its adjustments and the
               `approve` command through the same Send path). */}
           <div className="flex justify-end gap-3 border-t border-outline-variant/50 bg-surface-container-low px-6 py-4">
-            {view.confirming ? (
+            {view.onTheWay ? (
+              <Button
+                type="button"
+                onClick={close}
+                className="gap-2 px-6 py-2.5 text-on-primary-container hover:bg-primary-fixed hover:text-on-primary-container"
+              >
+                <History className="size-4" aria-hidden />
+                {t("backToSessions")}
+              </Button>
+            ) : view.confirming ? (
               <Button
                 type="button"
                 onClick={confirm}

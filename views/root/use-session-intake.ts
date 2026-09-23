@@ -66,8 +66,9 @@ export function useSessionIntake({
    *  re-entrancy. */
   function runEffect(effect: Effect) {
     if (effect.type === "accept") {
+      // The hand-off: the intake is accepted into the History, so the parent
+      // refetches. The binding's `close`/`confirm` handle the actual close.
       onAccept();
-      onOpenChange(false);
       return;
     }
     const fail = (err: unknown) =>
@@ -135,12 +136,15 @@ export function useSessionIntake({
   }
 
   function close() {
+    // Both the footer button and the header Close reach here. Closing from
+    // the "on the way" state emits the accept effect (a History refetch);
+    // the rest is a local close.
     dispatch({ type: "close" });
     onOpenChange(false);
   }
 
   function confirm() {
-    onAccept();
+    // The confirm step hands off via the accept effect, then closes.
     dispatch({ type: "confirm" });
     onOpenChange(false);
   }
