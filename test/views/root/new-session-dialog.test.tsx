@@ -233,11 +233,13 @@ describe("NewSessionDialog", () => {
     // The dialog stays open — no hand-off until the learner closes it.
     await screen.findByRole("button", { name: /Back to my sessions/ });
     expect(onAccept).not.toHaveBeenCalled();
-    // The final stage: the "on the way" card replaces the rail, transcript,
-    // and intake controls — the header stays, and the copy appears once
-    // (no rail counter).
-    expect(screen.getByRole("heading", { name: TITLE })).toBeTruthy();
-    expect(screen.getByText("Your lesson is on the way")).toBeTruthy();
+    // The final stage: the "on the way" title moves into the header, the
+    // encouraging icon replaces the rail, transcript, and intake controls,
+    // and the copy appears once (no rail counter).
+    expect(
+      screen.getByRole("heading", { name: "Your lesson is on the way" }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: TITLE })).toBeNull();
     expect(screen.queryByRole("status", { name: /Your lesson is on the way/i })).toBeNull();
     expect(screen.queryByText("Recent Messages")).toBeNull();
     expect(screen.getAllByText("Your lesson is on the way")).toHaveLength(1);

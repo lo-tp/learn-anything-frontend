@@ -216,11 +216,12 @@ describe("Root (home History)", () => {
     fireEvent.change(review, { target: { value: "approve" } });
     fireEvent.keyDown(review, { key: "Enter" });
 
-    // The final stage: the "on the way" card replaces the intake UI —
-    // the header stays, but no rail, transcript, or intake controls.
+    // The final stage: the "on the way" title moves into the header and the
+    // card replaces the intake UI — no rail, transcript, or intake controls.
     await screen.findByRole("button", { name: /Back to my sessions/ });
-    expect(screen.getByRole("heading", { name: "Start New Session" })).toBeTruthy();
-    expect(screen.getByText("Your lesson is on the way")).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "Your lesson is on the way" }),
+    ).toBeTruthy();
     expect(screen.queryByText("Recent Messages")).toBeNull();
     expect(screen.queryByText("Clarifying")).toBeNull(); // the progress rail
     expect(screen.queryByLabelText("How should we adjust the plan?")).toBeNull();

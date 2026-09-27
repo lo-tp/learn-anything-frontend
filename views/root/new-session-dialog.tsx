@@ -4,7 +4,7 @@ import {
   Check,
   History,
   Loader2,
-  MessageSquareText,
+  PartyPopper,
   Send,
   Sparkles,
   X,
@@ -115,16 +115,11 @@ export function NewSessionDialog({
         className="w-full max-w-3xl max-h-[95vh] flex-col gap-0 overflow-hidden border-outline-variant bg-surface-container p-0 text-on-surface sm:max-w-3xl"
       >
         <form onSubmit={handleSubmit} className="flex w-full flex-col">
-          {/* Header — icon tile + title on the left, close on the right. */}
+          {/* Header — title on the left, close on the right. */}
           <div className="flex items-center justify-between gap-4 px-6 py-5">
-            <div className="flex items-center gap-2.5">
-              <span className="flex size-8 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
-                <MessageSquareText className="size-5" aria-hidden />
-              </span>
-              <DialogTitle className="text-left font-display text-2xl font-semibold text-on-surface">
-                {t("title")}
-              </DialogTitle>
-            </div>
+            <DialogTitle className="text-left font-display text-2xl font-semibold text-on-surface">
+              {view.onTheWay ? t("railCounterGenerating") : t("title")}
+            </DialogTitle>
             <div className="flex items-center gap-3">
               <DialogClose asChild>
                 <button
@@ -148,15 +143,11 @@ export function NewSessionDialog({
               intake UI. */}
           <div className="flex flex-col gap-5 p-6">
             {view.onTheWay ? (
+              /* Final stage: the encouraging icon replaces the intake UI —
+                 the header carries the "on the way" title. */
               <div className="flex flex-1 flex-col items-center justify-center">
-                <div className="flex flex-col items-center gap-3 rounded-xl border border-outline-variant/40 bg-surface-bright p-6 text-center">
-                  <Loader2
-                    className="size-6 animate-spin text-primary"
-                    aria-hidden
-                  />
-                  <p className="text-base font-medium text-on-surface">
-                    {t("railCounterGenerating")}
-                  </p>
+                <div className="flex flex-col items-center gap-4 text-center">
+                  <PartyPopper className="size-16 text-primary" aria-hidden />
                   <p className="text-sm text-on-surface-variant">
                     {t("onTheWaySubline")}
                   </p>
