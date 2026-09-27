@@ -118,24 +118,6 @@ export function Review() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-outline-variant bg-surface px-6">
-        <h1 className="font-display text-xl font-medium text-on-surface">
-          {t("title")}
-        </h1>
-        {/* Progress pill: {index+1}/{total}. */}
-        <div
-          className="flex items-center gap-1.5 rounded-lg border border-outline-variant/50 bg-surface-container-low px-3 py-1.5 font-mono text-xs text-on-surface-variant"
-          aria-label={t("progress", {
-            current: String(index + 1),
-            total: String(total),
-          })}
-        >
-          <span className="font-semibold text-on-surface">{index + 1}</span>
-          <span>/</span>
-          <span>{total}</span>
-        </div>
-      </header>
-
       <main className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-6">
         {current && (
           <QuizQuestion
@@ -147,7 +129,7 @@ export function Review() {
         )}
       </main>
 
-      <footer className="flex shrink-0 items-center justify-center gap-3 border-t border-outline-variant bg-surface px-6 py-3">
+      <footer className="relative flex shrink-0 items-center justify-center gap-3 border-t border-outline-variant bg-surface px-6 py-3">
         {!revealed ? (
           <button
             type="button"
@@ -176,6 +158,18 @@ export function Review() {
             </div>
           </div>
         )}
+        {/* Progress pill: {index+1}/{total}, pinned to the bar's right. */}
+        <div
+          className="absolute right-6 flex items-center gap-1.5 rounded-lg border border-outline-variant/50 bg-surface-container-low px-3 py-1.5 font-mono text-xs text-on-surface-variant"
+          aria-label={t("progress", {
+            current: String(index + 1),
+            total: String(total),
+          })}
+        >
+          <span className="font-semibold text-on-surface">{index + 1}</span>
+          <span>/</span>
+          <span>{total}</span>
+        </div>
       </footer>
     </div>
   );
