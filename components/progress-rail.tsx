@@ -24,8 +24,13 @@ import type { RailData } from "@/views/root/intake";
  * probe position) is derived by `deriveViewModel` in the intake core.
  */
 
-/** The rail's Probing step — the only step that carries the batch-local
- *  probe position ("Question X of Y"). */
+/** The rail's Clarifying step — carries the batch-local clarify position
+ *  ("Question X of Y") while the clarifying questions are asked one at a
+ *  time. */
+const CLARIFY_STEP_INDEX = 0;
+
+/** The rail's Probing step — carries the batch-local probe position
+ *  ("Question X of Y") while a probe batch is on screen. */
 const PROBE_STEP_INDEX = 1;
 
 export function ProgressRail({ rail }: { rail: RailData }) {
@@ -72,9 +77,13 @@ export function ProgressRail({ rail }: { rail: RailData }) {
                   {step.label}
                 </span>
               </div>
-              {/* Batch-local probe position, shown only under the active
-                  Probing step while a batch is on screen. */}
-              {i === PROBE_STEP_INDEX && rail.probePosition ? (
+              {/* Batch-local position, shown only under the active Clarifying
+                  or Probing step while a batch is on screen. */}
+              {i === CLARIFY_STEP_INDEX && rail.clarifyPosition ? (
+                <span className="pl-6 font-mono text-[0.6rem] font-medium text-primary/70">
+                  {rail.clarifyPosition}
+                </span>
+              ) : i === PROBE_STEP_INDEX && rail.probePosition ? (
                 <span className="pl-6 font-mono text-[0.6rem] font-medium text-primary/70">
                   {rail.probePosition}
                 </span>

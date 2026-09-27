@@ -66,6 +66,17 @@ export type IntakeState = {
   pendingYou: string | string[] | null;
   /** Clear the textarea on the resolving event (true for text submits). */
   pendingClear: boolean;
+  /**
+   * The clarifying questions asked one at a time: the incoming
+   * `clarifying_questions` array is presented a single question at a time
+   * (mirroring the probe `batch`), and the learner answers each before the
+   * combined answer is sent to the backend. Null when no clarify batch is on
+   * screen.
+   */
+  clarifyBatch: string[] | null;
+  /** The answers collected for `clarifyBatch`, in batch order. The active
+   *  question is `clarifyBatch[clarifyPicks.length]`. */
+  clarifyPicks: string[];
 };
 
 /** The user's intents (what the dialog's controls dispatch). */
@@ -130,6 +141,8 @@ export function initialState(t: Translator): IntakeState {
     onTheWay: false,
     pendingYou: null,
     pendingClear: false,
+    clarifyBatch: null,
+    clarifyPicks: [],
   };
 }
 
@@ -219,6 +232,55 @@ export function apply(
         return { state, effects: [], clearInput: false };
       const clear = { ...state, error: null };
       const text = splitAnswer(action.text);
+
+      // Clarifying batch: the clarifying questions are asked one at a time.
+      // The answer to the current question commits immediately; only the
+      // final question fires the combined answer to the backend (a single
+      // `answer` string — the endpoint contract is unchanged).
+      if (state.clarifyBatch !== null && state.sessionId !== null) {
+        const batch = state.clarifyBatch;
+        const index = state.clarifyPicks.length;
+        if (index >= batch.length) return { state, effects: [], clearInput: false };
+        const answer = action.text.trim();
+        const picks = [...state.clarifyPicks, answer];
+        if (index === batch.length - 1) {
+          // Final question: the combined answer goes to the backend; the
+          // learner's words commit as a you-turn on success (a failure
+          // discards them and re-arms the last question).
+          return {
+            state: {
+              ...clear,
+              inFlight: "clarify",
+              pendingYou: answer,
+              pendingClear: true,
+              clarifyPicks: picks,
+            },
+            effects: [
+              {
+                type: "api",
+                call: "clarifySession",
+                sessionId: state.sessionId,
+                answer: picks.join("\n"),
+              },
+            ],
+            clearInput: false,
+          };
+        }
+        // Non-final question: commit the answer and surface the next one.
+        return {
+          state: {
+            ...clear,
+            clarifyPicks: picks,
+            bubbles: [
+              ...state.bubbles,
+              { kind: "text", from: "you", text: answer } as Bubble,
+              { kind: "text", from: "ai", text: batch[index + 1] },
+            ],
+          },
+          effects: [],
+          clearInput: true,
+        };
+      }
 
       // Reviewing: the typed command is either "approve" (hand-off) or a
       // free-text plan adjustment.
@@ -345,14 +407,19 @@ export function apply(
       let effects: Effect[] = [];
       let inFlight: InFlight = null;
       let phase = state.phase;
+      // The clarifying questions are presented one at a time; a phase
+      // advance clears the batch.
+      let clarifyBatch: string[] | null = null;
+      const clarifyPicks: string[] = [];
       if (result.phase === "clarifying") {
         phase = "clarifying";
         const questions = result.clarifying_questions ?? [];
-        additions.push({
-          kind: "text",
-          from: "ai",
-          text: questions.length ? questions : [t("thinFeedback")],
-        });
+        if (questions.length) {
+          clarifyBatch = questions;
+          additions.push({ kind: "text", from: "ai", text: questions[0] });
+        } else {
+          additions.push({ kind: "text", from: "ai", text: t("thinFeedback") });
+        }
       } else if (result.phase === "probing") {
         phase = "probing";
         inFlight = "start";
@@ -373,6 +440,8 @@ export function apply(
           error: null,
           pendingYou: null,
           pendingClear: false,
+          clarifyBatch,
+          clarifyPicks,
           bubbles: [...base, ...additions],
         },
         effects,
@@ -487,10 +556,16 @@ export function apply(
 
     case "apiFailed": {
       let picks = state.picks;
+      let clarifyPicks = state.clarifyPicks;
       let bubbles = state.bubbles;
       if (state.inFlight === "batch") {
         picks = picks.slice(0, -1);
         bubbles = markLastProbeActive(bubbles);
+      } else if (state.inFlight === "clarify" && state.clarifyBatch !== null) {
+        // Revert the final clarify answer so the last question is answerable
+        // again (the combined answer was never sent, so no server state to
+        // unwind — just drop the last pick).
+        clarifyPicks = clarifyPicks.slice(0, -1);
       }
       return {
         state: {
@@ -500,6 +575,7 @@ export function apply(
           pendingClear: false,
           error: action.message,
           picks,
+          clarifyPicks,
           bubbles,
         },
         effects: [],
@@ -530,6 +606,9 @@ export type RailData = {
    * not on the Probing step (#129).
    */
   probePosition: string | null;
+  /** The batch-local clarify position ("Question X of Y"), rendered under
+   *  the active Clarifying step, or null when no clarify batch is on screen. */
+  clarifyPosition: string | null;
 };
 
 /** The dialog's render-ready view-model, derived from the core state. */
@@ -608,11 +687,24 @@ export function deriveViewModel(state: IntakeState, t: Translator): IntakeViewMo
         })
       : null;
 
+  // The batch-local clarify position under the active Clarifying step, in
+  // the same "Question X of Y" shape (the one-at-a-time clarify loop).
+  const clarifyPosition =
+    state.phase === "clarifying" &&
+    state.clarifyBatch !== null &&
+    state.clarifyPicks.length < state.clarifyBatch.length
+      ? t("railProbePosition", {
+          n: state.clarifyPicks.length + 1,
+          total: state.clarifyBatch.length,
+        })
+      : null;
+
   const rail: RailData = {
     steps: railSteps,
     counter,
     pending,
     probePosition,
+    clarifyPosition,
   };
 
   return {

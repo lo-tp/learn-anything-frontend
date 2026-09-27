@@ -124,7 +124,7 @@ describe("intake core — submit (stores the pending you-turn)", () => {
 });
 
 describe("intake core — clarifyResolved (commits the you-turn on success)", () => {
-  it("records the learner's words then the clarifying questions", () => {
+  it("records the learner's words then the first clarifying question (one at a time)", () => {
     const s0 = mk({ sessionId: "s-1", phase: "clarifying", pendingYou: "more", pendingClear: true });
     const { state, effects } = step(s0, {
       type: "clarifyResolved",
@@ -135,7 +135,31 @@ describe("intake core — clarifyResolved (commits the you-turn on success)", ()
     expect(state.pendingYou).toBeNull();
     expect(state.pendingClear).toBe(false);
     expect(state.bubbles.at(-2)).toEqual({ kind: "text", from: "you", text: "more" });
-    expect(state.bubbles.at(-1)).toEqual({ kind: "text", from: "ai", text: ["a?"] });
+    // The question is presented one at a time — a single string, not a list.
+    expect(state.bubbles.at(-1)).toEqual({ kind: "text", from: "ai", text: "a?" });
+    expect(state.clarifyBatch).toEqual(["a?"]);
+    expect(state.clarifyPicks).toEqual([]);
+  });
+
+  it("surfaces all the clarifying questions at the front (one at a time) when several arrive", () => {
+    const s0 = mk({ sessionId: "s-1", phase: "clarifying" });
+    const { state } = step(s0, {
+      type: "clarifyResolved",
+      result: { session_id: "s-1", phase: "clarifying", clarifying_questions: ["a?", "b?", "c?"] },
+    });
+    expect(state.clarifyBatch).toEqual(["a?", "b?", "c?"]);
+    expect(state.clarifyPicks).toEqual([]);
+    expect(state.bubbles.at(-1)).toEqual({ kind: "text", from: "ai", text: "a?" });
+  });
+
+  it("shows thin feedback when the phase is clarifying with no questions", () => {
+    const s0 = mk({ sessionId: "s-1", phase: "clarifying" });
+    const { state } = step(s0, {
+      type: "clarifyResolved",
+      result: { session_id: "s-1", phase: "clarifying", clarifying_questions: null },
+    });
+    expect(state.clarifyBatch).toBeNull();
+    expect(state.bubbles.at(-1)).toEqual({ kind: "text", from: "ai", text: t("thinFeedback") });
   });
 
   it("starts the probe loop when the phase advances to probing", () => {
@@ -165,6 +189,82 @@ describe("intake core — clarifyResolved (commits the you-turn on success)", ()
     expect(effects).toEqual([{ type: "api", call: "generatePlan", sessionId: "s-1" }]);
     expect(state.phase).toBe("planning");
     expect(state.inFlight).toBe("plan");
+  });
+
+  it("clears the clarify batch when the phase advances", () => {
+    const s0 = mk({ sessionId: "s-1", phase: "clarifying", clarifyBatch: ["a?", "b?"], clarifyPicks: ["a"] });
+    const { state } = step(s0, {
+      type: "clarifyResolved",
+      result: { session_id: "s-1", phase: "probing" },
+    });
+    expect(state.clarifyBatch).toBeNull();
+    expect(state.clarifyPicks).toEqual([]);
+  });
+});
+
+describe("intake core — clarifying questions one at a time", () => {
+  /** A clarifying state with a two-question batch on screen (first active). */
+  function clarifying(): IntakeState {
+    return mk({
+      sessionId: "s-1",
+      phase: "clarifying",
+      clarifyBatch: ["What topic?", "What depth?"],
+      clarifyPicks: [],
+    });
+  }
+
+  it("commits the answer locally and surfaces the next question for a non-final one", () => {
+    const { state, effects, clearInput } = step(clarifying(), { type: "submit", text: "physics" });
+    expect(effects).toEqual([]);
+    expect(clearInput).toBe(true);
+    expect(state.inFlight).toBe(null);
+    expect(state.clarifyPicks).toEqual(["physics"]);
+    // The answer commits as a you-turn; the next question is now active.
+    expect(state.bubbles.at(-2)).toEqual({ kind: "text", from: "you", text: "physics" });
+    expect(state.bubbles.at(-1)).toEqual({ kind: "text", from: "ai", text: "What depth?" });
+  });
+
+  it("sends the combined answer to the backend for the final question", () => {
+    const afterFirst = step(clarifying(), { type: "submit", text: "physics" }).state;
+    const { state, effects, clearInput } = step(afterFirst, { type: "submit", text: "an overview" });
+    expect(state.inFlight).toBe("clarify");
+    expect(clearInput).toBe(false);
+    expect(effects).toEqual([
+      {
+        type: "api",
+        call: "clarifySession",
+        sessionId: "s-1",
+        answer: "physics\nan overview",
+      },
+    ]);
+    // The final answer is a pending you-turn (committed on success).
+    expect(state.pendingYou).toBe("an overview");
+    expect(state.pendingClear).toBe(true);
+  });
+
+  it("is a no-op once the batch is exhausted", () => {
+    const exhausted = mk({
+      sessionId: "s-1",
+      phase: "clarifying",
+      clarifyBatch: ["What topic?"],
+      clarifyPicks: ["physics"],
+    });
+    const { state, effects } = step(exhausted, { type: "submit", text: "again" });
+    expect(effects).toEqual([]);
+    expect(state).toBe(exhausted);
+  });
+
+  it("re-arms the final question on a failed combined submit (discards the answer)", () => {
+    const afterFirst = step(clarifying(), { type: "submit", text: "physics" }).state;
+    const afterSecond = step(afterFirst, { type: "submit", text: "an overview" }).state;
+    const { state } = step(afterSecond, { type: "apiFailed", message: "boom" });
+    expect(state.inFlight).toBe(null);
+    expect(state.error).toBe("boom");
+    // The final pick is dropped so the last question is answerable again.
+    expect(state.clarifyPicks).toEqual(["physics"]);
+    expect(state.clarifyBatch).toEqual(["What topic?", "What depth?"]);
+    // The final answer was never committed as a you-turn.
+    expect(state.bubbles.at(-1)).toEqual({ kind: "text", from: "ai", text: "What depth?" });
   });
 });
 
@@ -473,5 +573,51 @@ describe("intake core — probe position (batch-local)", () => {
     expect(vm.rail.probePosition).toBe(
       t("railProbePosition", { n: 2, total: 2 }),
     );
+  });
+});
+
+describe("intake core — clarify position (batch-local)", () => {
+  it("is hidden when no clarify batch is on screen", () => {
+    expect(deriveViewModel(mk(), t).rail.clarifyPosition).toBeNull();
+    // Clarifying with no batch (e.g. the first submit is in flight) is hidden.
+    expect(
+      deriveViewModel(
+        mk({ sessionId: "s-1", phase: "clarifying", inFlight: "clarify" }),
+        t,
+      ).rail.clarifyPosition,
+    ).toBeNull();
+    // Non-clarifying phases are always hidden.
+    expect(
+      deriveViewModel(mk({ sessionId: "s-1", phase: "probing" }), t).rail
+        .clarifyPosition,
+    ).toBeNull();
+  });
+
+  it("shows the batch-local position for the first question", () => {
+    const vm = deriveViewModel(
+      mk({
+        sessionId: "s-1",
+        phase: "clarifying",
+        clarifyBatch: ["What topic?", "What depth?"],
+        clarifyPicks: [],
+      }),
+      t,
+    );
+    expect(vm.rail.clarifyPosition).toBe(t("railProbePosition", { n: 1, total: 2 }));
+  });
+
+  it("advances with each answer and is hidden once the batch is exhausted", () => {
+    const positionAt = (picks: string) =>
+      deriveViewModel(
+        mk({
+          sessionId: "s-1",
+          phase: "clarifying",
+          clarifyBatch: ["What topic?", "What depth?"],
+          clarifyPicks: picks ? [picks] : [],
+        }),
+        t,
+      ).rail.clarifyPosition;
+    expect(positionAt("")).toBe(t("railProbePosition", { n: 1, total: 2 }));
+    expect(positionAt("physics")).toBe(t("railProbePosition", { n: 2, total: 2 }));
   });
 });
