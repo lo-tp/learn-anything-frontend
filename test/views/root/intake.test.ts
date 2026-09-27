@@ -254,6 +254,16 @@ describe("intake core — clarifying questions one at a time", () => {
     expect(state).toBe(exhausted);
   });
 
+  it("ignores a blank answer (stays on the same question, no bubble)", () => {
+    const s0 = clarifying();
+    const { state, effects, clearInput } = step(s0, { type: "submit", text: "   " });
+    expect(effects).toEqual([]);
+    expect(clearInput).toBe(false);
+    // No pick recorded and no new bubble — the question is unchanged.
+    expect(state.clarifyPicks).toEqual([]);
+    expect(state.bubbles).toEqual(s0.bubbles);
+  });
+
   it("re-arms the final question on a failed combined submit (discards the answer)", () => {
     const afterFirst = step(clarifying(), { type: "submit", text: "physics" }).state;
     const afterSecond = step(afterFirst, { type: "submit", text: "an overview" }).state;

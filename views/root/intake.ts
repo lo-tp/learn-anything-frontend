@@ -242,6 +242,10 @@ export function apply(
         const index = state.clarifyPicks.length;
         if (index >= batch.length) return { state, effects: [], clearInput: false };
         const answer = action.text.trim();
+        // A blank answer is a no-op — the learner has to actually type
+        // something (there is no "skip" in the clarify loop). Focus stays in
+        // the textarea, so the question is unchanged.
+        if (answer === "") return { state, effects: [], clearInput: false };
         const picks = [...state.clarifyPicks, answer];
         if (index === batch.length - 1) {
           // Final question: the combined answer goes to the backend; the
