@@ -233,13 +233,14 @@ describe("NewSessionDialog", () => {
     // The dialog stays open — no hand-off until the learner closes it.
     await screen.findByRole("button", { name: /Back to my sessions/ });
     expect(onAccept).not.toHaveBeenCalled();
+    // The final stage: the "on the way" card replaces the rail, transcript,
+    // and intake controls — the header stays, and the copy appears once
+    // (no rail counter).
     expect(screen.getByRole("heading", { name: TITLE })).toBeTruthy();
-    // The Generating rail step is active, lit by the on-the-way counter.
-    expect(
-      screen.getByRole("status", { name: /Your lesson is on the way/i }),
-    ).toBeTruthy();
-    // The encouraging copy appears both in the rail counter and the body.
-    expect(screen.getAllByText("Your lesson is on the way")).toHaveLength(2);
+    expect(screen.getByText("Your lesson is on the way")).toBeTruthy();
+    expect(screen.queryByRole("status", { name: /Your lesson is on the way/i })).toBeNull();
+    expect(screen.queryByText("Recent Messages")).toBeNull();
+    expect(screen.getAllByText("Your lesson is on the way")).toHaveLength(1);
     expect(screen.getByText(/safely close this window/i)).toBeTruthy();
     // The approval request fired exactly once — no polling for materials.
     expect(mockApprovePlan).toHaveBeenCalledTimes(1);

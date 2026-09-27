@@ -139,11 +139,31 @@ export function NewSessionDialog({
             </div>
           </div>
 
-          {/* Progress rail — four steps with a state-dependent counter. */}
-          <ProgressRail rail={view.rail} />
+          {/* Progress rail — four steps with a state-dependent counter.
+              Hidden in the final "on the way" stage. */}
+          {!view.onTheWay && <ProgressRail rail={view.rail} />}
 
-          {/* Body — Recent Messages preview + the intake textarea. */}
+          {/* Body — Recent Messages preview + the intake textarea. In the
+              final "on the way" stage the card below replaces the whole
+              intake UI. */}
           <div className="flex flex-col gap-5 p-6">
+            {view.onTheWay ? (
+              <div className="flex flex-1 flex-col items-center justify-center">
+                <div className="flex flex-col items-center gap-3 rounded-xl border border-outline-variant/40 bg-surface-bright p-6 text-center">
+                  <Loader2
+                    className="size-6 animate-spin text-primary"
+                    aria-hidden
+                  />
+                  <p className="text-base font-medium text-on-surface">
+                    {t("railCounterGenerating")}
+                  </p>
+                  <p className="text-sm text-on-surface-variant">
+                    {t("onTheWaySubline")}
+                  </p>
+                </div>
+              </div>
+            ) : (
+            <>
             {view.bubbles.length > 0 && (
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
@@ -229,62 +249,51 @@ export function NewSessionDialog({
               </div>
             )}
 
-            <div>
-              {view.onTheWay ? (
-                <div className="flex flex-col items-center gap-3 rounded-xl border border-outline-variant/40 bg-surface-bright p-6 text-center">
-                  <Loader2
-                    className="size-6 animate-spin text-primary"
-                    aria-hidden
-                  />
-                  <p className="text-base font-medium text-on-surface">
-                    {t("railCounterGenerating")}
-                  </p>
-                  <p className="text-sm text-on-surface-variant">
-                    {t("onTheWaySubline")}
-                  </p>
-                </div>
-              ) : view.showPending ? (
-                <div
-                  role="status"
-                  aria-live="polite"
-                  aria-label={view.pendingNote}
-                  className="flex items-start gap-3 rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-sm text-on-surface-variant"
-                >
-                  <Loader2
-                    className="mt-0.5 size-4 shrink-0 animate-spin text-primary"
-                    aria-hidden
-                  />
-                  <p>{view.pendingNote}</p>
-                </div>
-              ) : (
-                <>
-                  <label
-                    htmlFor="learning-goal"
-                    className="mb-2 block text-base font-medium text-on-surface"
+              <div>
+                {view.showPending ? (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    aria-label={view.pendingNote}
+                    className="flex items-start gap-3 rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-sm text-on-surface-variant"
                   >
-                    {view.intake.label}
-                  </label>
-                  <div className="relative">
-                    <textarea
-                      id="learning-goal"
-                      ref={attachTextarea}
-                      rows={3}
-                      value={paragraph}
-                      onChange={(e) => setParagraph(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder={view.intake.placeholder}
-                      disabled={probeCardActive}
-                      className="w-full resize-none rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-base text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/50 focus:border-primary disabled:bg-surface-container-low disabled:opacity-60"
+                    <Loader2
+                      className="mt-0.5 size-4 shrink-0 animate-spin text-primary"
+                      aria-hidden
                     />
+                    <p>{view.pendingNote}</p>
                   </div>
-                </>
-              )}
-              {view.error !== null && (
-                <p className="mt-2 text-sm text-error" aria-live="polite">
-                  {view.error ?? t("errorFallback")}
-                </p>
-              )}
-            </div>
+                ) : (
+                  <>
+                    <label
+                      htmlFor="learning-goal"
+                      className="mb-2 block text-base font-medium text-on-surface"
+                    >
+                      {view.intake.label}
+                    </label>
+                    <div className="relative">
+                      <textarea
+                        id="learning-goal"
+                        ref={attachTextarea}
+                        rows={3}
+                        value={paragraph}
+                        onChange={(e) => setParagraph(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder={view.intake.placeholder}
+                        disabled={probeCardActive}
+                        className="w-full resize-none rounded-xl border border-outline-variant/40 bg-surface-bright p-4 text-base text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/50 focus:border-primary disabled:bg-surface-container-low disabled:opacity-60"
+                      />
+                    </div>
+                  </>
+                )}
+                {view.error !== null && (
+                  <p className="mt-2 text-sm text-error" aria-live="polite">
+                    {view.error ?? t("errorFallback")}
+                  </p>
+                )}
+              </div>
+            </>
+            )}
           </div>
 
           {/* Footer — Cancel + Send, or a single Confirm in the legacy
