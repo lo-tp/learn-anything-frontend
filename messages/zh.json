@@ -24,7 +24,16 @@
     "emptyTitle": "还没有会话",
     "emptyBody": "开始你的第一次深度探索，或发起一次新的学习探究，开启学习之旅。",
     "startNewSession": "开始新会话",
-    "generating": "正在生成资料…"
+    "generating": "正在生成资料…",
+    "loading": {
+      "title": "正在加载你的会话…",
+      "note": "请稍候 —— 正在加载你的历史。"
+    },
+    "error": {
+      "title": "无法加载你的会话",
+      "note": "无法连接后端。你的会话安然无恙 —— 请重试。"
+    },
+    "retry": "重试"
   },
   "dialog": {
     "openingPrompt": "告诉我们你想探索或学习什么，我们会为你量身安排一次学习。",
@@ -86,7 +95,7 @@
     "generating": {
       "title": "正在生成学习材料…",
       "note": "请稍候 —— 你的幻灯片和题目正在准备中。",
-      "retryNote": "当前无法连接后端 —— 正在重试。"
+      "pollingNote": "当前无法连接后端 —— 我们会持续重试。"
     },
     "learningSession": "学习会话",
     "backToSessions": "返回我的会话",
@@ -167,7 +176,12 @@
     "emptyTitle": "全部完成",
     "emptyBody": "当前没有待复习的卡片 —— 继续加油！",
     "loading": "正在加载你的复习牌组…",
-    "error": "无法连接复习服务，请重试。",
+    "error": {
+      "title": "无法加载你的复习牌组",
+      "note": "无法连接后端。"
+    },
+    "retry": "重试",
+    "answerFailed": "无法记录你的回答 —— 再点一次置信度重试。",
     "backToSessions": "返回我的会话",
     "reveal": "显示答案",
     "confidence": "你有多大把握？",

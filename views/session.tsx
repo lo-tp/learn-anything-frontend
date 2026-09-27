@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { ControlBar } from "@/components/control-bar";
 import { PhaseIndicator } from "@/components/phase-indicator";
+import { StatePanel } from "@/components/state-panel";
 import { QuizQuestion } from "@/components/session/quiz-question";
 import { SessionSidebar, type SidebarGroup } from "@/components/session/session-sidebar";
 import { SandboxFrame } from "@/components/sandbox/sandbox-frame";
@@ -141,6 +142,16 @@ export function Session({ sessionId }: { sessionId: string }) {
   // slide switches never change `src`. The sidebar mini previews already use
   // a per-theme constant `src` (one fixed slide each) and are measured not
   // to add history entries.
+  /** The shared footer action of the friendly states: a link home. */
+  const backToSessions = (
+    <Link
+      href="/"
+      className="mt-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-fixed"
+    >
+      {t("backToSessions")}
+    </Link>
+  );
+
   const playerRef = useRef<HTMLIFrameElement>(null);
   const firstSlideId = useMemo(
     () => deck.find((d) => d.type === "slide")?.slide_id ?? null,
@@ -188,6 +199,7 @@ export function Session({ sessionId }: { sessionId: string }) {
         icon={<TriangleAlert className="size-8 text-error" aria-hidden />}
         title={t("notFound.title")}
         note={t("notFound.note")}
+        action={backToSessions}
       />
     );
   }
@@ -199,6 +211,7 @@ export function Session({ sessionId }: { sessionId: string }) {
         title={t("error.title")}
         note={t("error.note")}
         chip={<PhaseIndicator phase={phase} />}
+        action={backToSessions}
       />
     );
   }
@@ -213,6 +226,7 @@ export function Session({ sessionId }: { sessionId: string }) {
         note={t("notReady.note")}
         subtitle={session.narrowed_goal ?? undefined}
         chip={<PhaseIndicator phase={phase} />}
+        action={backToSessions}
       />
     );
   }
@@ -220,6 +234,8 @@ export function Session({ sessionId }: { sessionId: string }) {
   if (deck.length === 0) {
     // Reaching here means the phase is `generating` (with no items yet —
     // `materials` null or empty steps both flatten to an empty deck).
+    // A poll failure only changes the note — the 3s poll self-retries, so
+    // there is no user action to surface (#132).
     return (
       <StatePanel
         icon={
@@ -228,7 +244,7 @@ export function Session({ sessionId }: { sessionId: string }) {
         title={t("generating.title")}
         note={
           pollError
-            ? t("generating.retryNote")
+            ? t("generating.pollingNote")
             : t("generating.note")
         }
       />
@@ -302,44 +318,4 @@ export function Session({ sessionId }: { sessionId: string }) {
   );
 }
 
-/**
- * The friendly full-page states (not found / error / not ready /
- * generating): a centered icon, title, optional subtitle, note, phase
- * chip, and a link back to the home page.
- */
-function StatePanel({
-  icon,
-  title,
-  note,
-  subtitle,
-  chip,
-}: {
-  icon?: React.ReactNode;
-  title: string;
-  note: string;
-  subtitle?: string;
-  chip?: React.ReactNode;
-}) {
-  const t = useTranslations("session");
-  return (
-    <main className="flex flex-1 items-center justify-center overflow-y-auto">
-      <div className="flex flex-col items-center gap-3 p-8 text-center">
-        {icon}
-        <h1 className="font-display text-2xl font-semibold text-on-surface">
-          {title}
-        </h1>
-        {subtitle && (
-          <p className="text-sm text-on-surface-variant">{subtitle}</p>
-        )}
-        <p className="max-w-md text-sm text-on-surface-variant">{note}</p>
-        {chip}
-        <Link
-          href="/"
-          className="mt-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-fixed"
-        >
-          {t("backToSessions")}
-        </Link>
-      </div>
-    </main>
-  );
-}
+

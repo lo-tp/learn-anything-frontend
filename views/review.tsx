@@ -5,6 +5,7 @@ import { Check, Eye, Loader2, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { QuizQuestion } from "@/components/session/quiz-question";
+import { StatePanel } from "@/components/state-panel";
 import {
   answerReviewCard,
   getReviewDue,
@@ -26,9 +27,12 @@ const CONFIDENCES: ReviewConfidence[] = ["again", "hard", "good", "easy"];
  * and options (the shared QuizQuestion card, non-interactive — no `onSelect`),
  * taps **Reveal** to uncover the correct answer and the
  * explanation, then records a confidence (again / hard / good / easy).
- * Recording the confidence schedules the card via `answerReviewCard`
- * (fire-and-forget, mirroring the material-miss path) and advances the
- * deck. The shared frame is applied by the root layout.
+ * Recording the confidence schedules the card via `answerReviewCard`,
+ * **awaited** before the deck advances (#132): the four controls are
+ * disabled while in flight, and a failed recording keeps the card on
+ * screen with a notice so the learner can tap a confidence again — a
+ * missed schedule is never lost silently. The shared frame is applied by
+ * the root layout.
  */
 export function Review() {
   const t = useTranslations("review");
@@ -38,9 +42,13 @@ export function Review() {
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [finished, setFinished] = useState(false);
+  /** A confidence recording is in flight (controls disabled). */
+  const [submitting, setSubmitting] = useState(false);
+  /** The last confidence recording failed — the card stays on screen. */
+  const [answerError, setAnswerError] = useState(false);
 
-  // The initial fetch: the view owns its data (static shell, #87).
-  useEffect(() => {
+  /** Fetch the due cards — the initial load and the error state's Retry. */
+  const load = () => {
     let cancelled = false;
     (async () => {
       try {
@@ -58,7 +66,10 @@ export function Review() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  };
+
+  // The initial fetch: the view owns its data (static shell, #87).
+  useEffect(load, []);
 
   const total = cards?.length ?? 0;
   const current = finished ? null : (cards?.[index] ?? null);
@@ -69,14 +80,23 @@ export function Review() {
   };
 
   /**
-   * A confidence: record it (fire-and-forget, mirroring the material-miss
-   * path) and advance — next card (fresh order, not revealed) or finish
-   * the deck.
+   * A confidence: record it (awaited, #132) and advance — next card (fresh
+   * order, not revealed) or finish the deck. A failed recording keeps the
+   * card on screen with a notice; the learner taps a confidence to retry.
    */
-  const handleConfidence = (confidence: ReviewConfidence) => {
+  const handleConfidence = async (confidence: ReviewConfidence) => {
     /* v8 ignore next */
-    if (!current) return;
-    answerReviewCard(current.id, confidence).catch(() => {});
+    if (!current || submitting) return;
+    setSubmitting(true);
+    setAnswerError(false);
+    try {
+      await answerReviewCard(current.id, confidence);
+    } catch {
+      setSubmitting(false);
+      setAnswerError(true);
+      return;
+    }
+    setSubmitting(false);
     if (index < total - 1) {
       setIndex((i) => i + 1);
       setRevealed(false);
@@ -84,6 +104,16 @@ export function Review() {
       setFinished(true);
     }
   };
+
+  /** The friendly states' shared footer action: a link home. */
+  const backToSessions = (
+    <Link
+      href="/"
+      className="mt-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-fixed"
+    >
+      {t("backToSessions")}
+    </Link>
+  );
 
   // ── Friendly states (loading / error / empty-or-finished) ──────────
   if (!loaded) {
@@ -93,6 +123,7 @@ export function Review() {
           <Loader2 className="size-8 animate-spin text-tertiary" aria-hidden />
         }
         title={t("loading")}
+        action={backToSessions}
       />
     );
   }
@@ -101,7 +132,17 @@ export function Review() {
     return (
       <StatePanel
         icon={<TriangleAlert className="size-8 text-error" aria-hidden />}
-        title={t("error")}
+        title={t("error.title")}
+        note={t("error.note")}
+        action={
+          <button
+            type="button"
+            onClick={load}
+            className="mt-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-fixed"
+          >
+            {t("retry")}
+          </button>
+        }
       />
     );
   }
@@ -112,6 +153,7 @@ export function Review() {
         icon={<Check className="size-8 text-primary" aria-hidden />}
         title={t("emptyTitle")}
         note={t("emptyBody")}
+        action={backToSessions}
       />
     );
   }
@@ -150,12 +192,18 @@ export function Review() {
                   key={confidence}
                   type="button"
                   onClick={() => handleConfidence(confidence)}
-                  className="rounded-lg border border-outline-variant/60 bg-surface-container-low px-4 py-2 text-sm font-semibold text-on-surface transition-colors hover:border-outline-variant hover:bg-surface-container"
+                  disabled={submitting}
+                  className="rounded-lg border border-outline-variant/60 bg-surface-container-low px-4 py-2 text-sm font-semibold text-on-surface transition-colors hover:border-outline-variant hover:bg-surface-container disabled:opacity-50"
                 >
                   {t(confidence)}
                 </button>
               ))}
             </div>
+            {answerError && (
+              <p className="text-xs text-error" role="alert">
+                {t("answerFailed")}
+              </p>
+            )}
           </div>
         )}
         {/* Progress pill: {index+1}/{total}, pinned to the bar's right. */}
@@ -175,37 +223,3 @@ export function Review() {
   );
 }
 
-/**
- * The review view's full-bleed friendly states (loading / error /
- * all-clear): a centered icon, title, optional note, and a link home.
- */
-function StatePanel({
-  icon,
-  title,
-  note,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  note?: string;
-}) {
-  const t = useTranslations("review");
-  return (
-    <main className="flex flex-1 items-center justify-center overflow-y-auto">
-      <div className="flex flex-col items-center gap-3 p-8 text-center">
-        {icon}
-        <h1 className="font-display text-2xl font-semibold text-on-surface">
-          {title}
-        </h1>
-        {note && (
-          <p className="max-w-md text-sm text-on-surface-variant">{note}</p>
-        )}
-        <Link
-          href="/"
-          className="mt-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-fixed"
-        >
-          {t("backToSessions")}
-        </Link>
-      </div>
-    </main>
-  );
-}

@@ -390,7 +390,9 @@ describe("Session", () => {
         vi.advanceTimersByTime(3000);
       });
       await act(async () => {});
-      expect(screen.getByText("Can't reach the backend right now — retrying.")).toBeTruthy();
+      expect(
+        screen.getByText("We can't reach the backend right now — we'll keep trying."),
+      ).toBeTruthy();
       // Still generating — the next tick polls again.
       act(() => {
         vi.advanceTimersByTime(3000);

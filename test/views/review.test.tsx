@@ -139,13 +139,57 @@ describe("Review", () => {
     fireEvent.click(confidence(/reveal/i));
     fireEvent.click(confidence(/^hard$/i));
     expect(mockAnswerReviewCard).toHaveBeenCalledWith(1, "hard");
-    // Advanced to the second card, fresh unrevealed state.
-    expect(screen.getByText("What does a stand for?")).toBeTruthy();
+    // Advanced to the second card, fresh unrevealed state (the recording is
+    // awaited before advancing, #132 — so the advance is awaited too).
+    expect(await screen.findByText("What does a stand for?")).toBeTruthy();
     expect(progressAt(2, 2)).toBeTruthy();
     expect(screen.queryByText("a is the acceleration.")).toBeNull();
     // Reveal control is back; no confidence controls.
     expect(confidence(/reveal/i)).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^good$/i })).toBeNull();
+  });
+
+  it("disables the confidence controls while the recording is in flight", async () => {
+    let resolveAnswer: (value: ReviewAnswerOut) => void;
+    mockAnswerReviewCard.mockReturnValue(
+      new Promise((resolve) => {
+        resolveAnswer = resolve;
+      }),
+    );
+    renderWithLocale(<Review />);
+    await screen.findByText("What does F stand for?");
+    fireEvent.click(confidence(/reveal/i));
+    fireEvent.click(confidence(/^good$/i));
+    // In flight — the controls are locked until the recording settles.
+    expect((confidence(/^good$/i) as HTMLButtonElement).disabled).toBe(true);
+    resolveAnswer!({ due_at: "", interval_days: 2, lapses: 0 });
+    expect(await screen.findByText("What does a stand for?")).toBeTruthy();
+  });
+
+  it("keeps the card on screen with a notice when the recording fails", async () => {
+    renderWithLocale(<Review />);
+    await screen.findByText("What does F stand for?");
+    fireEvent.click(confidence(/reveal/i));
+    mockAnswerReviewCard.mockRejectedValueOnce(new Error("nope"));
+    fireEvent.click(confidence(/^easy$/i));
+    // The card stays (no advance) with the failure notice — a missed
+    // schedule is never lost silently (#132).
+    expect(
+      await screen.findByText(
+        "Couldn't record your answer — tap a confidence to try again.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("What does F stand for?")).toBeTruthy();
+    expect(progressAt(1, 2)).toBeTruthy();
+    // A second tap records and advances.
+    mockAnswerReviewCard.mockResolvedValue({
+      due_at: "",
+      interval_days: 2,
+      lapses: 0,
+    });
+    fireEvent.click(confidence(/^easy$/i));
+    expect(await screen.findByText("What does a stand for?")).toBeTruthy();
+    expect(mockAnswerReviewCard).toHaveBeenLastCalledWith(1, "easy");
   });
 
   it("finishes the deck on the last card's confidence", async () => {
@@ -158,8 +202,9 @@ describe("Review", () => {
     fireEvent.click(confidence(/reveal/i));
     fireEvent.click(confidence(/^easy$/i));
     expect(mockAnswerReviewCard).toHaveBeenLastCalledWith(2, "easy");
-    // Deck complete → all-clear state.
-    expect(screen.getByText("All clear")).toBeTruthy();
+    // Deck complete → all-clear state (awaited — the recording is awaited
+    // before advancing, #132).
+    expect(await screen.findByText("All clear")).toBeTruthy();
   });
 
   it("shows the empty state with a home link when there are no due cards", async () => {
@@ -170,13 +215,15 @@ describe("Review", () => {
     expect(screen.getByRole("link", { name: /back to my sessions/i })).toBeTruthy();
   });
 
-  it("shows the error state with a home link when the fetch fails", async () => {
+  it("shows the error state with a Retry when the fetch fails", async () => {
     mockGetReviewDue.mockRejectedValue(new Error("nope"));
     renderWithLocale(<Review />);
-    expect(
-      await screen.findByText("Can't reach the review service. Please try again."),
-    ).toBeTruthy();
-    expect(screen.getByRole("link", { name: /back to my sessions/i })).toBeTruthy();
+    expect(await screen.findByText("Can't load your review deck")).toBeTruthy();
+    expect(screen.getByText("We couldn't reach the backend.")).toBeTruthy();
+    // Retry re-runs the fetch and lands on the deck (#132).
+    mockGetReviewDue.mockResolvedValue([card()]);
+    fireEvent.click(screen.getByRole("button", { name: /Retry/ }));
+    expect(await screen.findByText("What does F stand for?")).toBeTruthy();
   });
 
   it("discards the fetch result when unmounted before it settles", async () => {

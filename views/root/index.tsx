@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Loader2, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { EmptyState } from "@/components/empty-state";
 import { NewSessionDialog } from "./new-session-dialog";
 import { SessionCard } from "@/components/session-card";
 import { StartSessionButton } from "@/components/start-session-button";
+import { StatePanel } from "@/components/state-panel";
 import { ApiError, listSessions, type SessionListItem } from "@/lib/api-client";
 
 /**
@@ -14,44 +16,51 @@ import { ApiError, listSessions, type SessionListItem } from "@/lib/api-client";
  * new-session dialog accepts an intake), and the dialog's open state, and
  * renders the page directly from the pure leaf components in `components/*`.
  * The route is a static shell — the view does the fetching in the browser
- * (#87). While the initial fetch is in flight (or the backend is
- * unreachable), the empty state shows; the refresh can retry.
+ * (#87).
+ *
+ * Three fetch-driven states (#132): **loading** (the initial fetch in
+ * flight — a friendly panel, never the empty state), **error** (a non-401
+ * initial failure — a friendly panel with a Retry that re-runs the fetch),
+ * and **ready** (the list — empty or filled). A 401 is the special case:
+ * the API client already redirected to login (`handleUnauthorized`), so
+ * the page suppresses itself while the tab hands over (#94). The refresh
+ * after the dialog accepts an intake is a silent re-fetch — it keeps the
+ * current list on failure.
  *
  * With sessions: the "My Sessions" header (title + CTA) above the cards.
- * When empty: the header is hidden and the empty state carries the CTA at its
- * base, so there is one primary button in either view. Either CTA opens the
- * new-session dialog (#26).
+ * When empty: the header is hidden and the empty state carries the CTA at
+ * its base, so there is one primary button in either view. Either CTA
+ * opens the new-session dialog (#26).
  */
 export function Root() {
   const t = useTranslations("home");
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [dialogOpen, setDialogOpen] = useState(false);
   // A 401 means the API client already redirected to login
-  // (`handleUnauthorized`); suppress the empty state while the tab hands
-  // over (#94).
+  // (`handleUnauthorized`); suppress the page while the tab hands over
+  // (#94).
   const [unauthorized, setUnauthorized] = useState(false);
 
-  /** A 401 from `listSessions` — the API client already redirected to
-   *  login (`handleUnauthorized`), so suppress the empty state while the
-   *  tab hands over (#94). */
-  const onFetchError = (err: unknown) => {
-    if (err instanceof ApiError && err.status === 401) setUnauthorized(true);
-  };
-
-  /** Re-fetch the History from the backend and swap the list in place. */
-  const refresh = useCallback(async () => {
+  /** The error state's Retry: re-run the fetch with full status tracking. */
+  const load = useCallback(async () => {
+    setStatus("loading");
     try {
       const { sessions } = await listSessions();
       setSessions(sessions);
       setUnauthorized(false);
+      setStatus("ready");
     } catch (err) {
-      onFetchError(err);
-      /* keep the current list */
+      if (err instanceof ApiError && err.status === 401) {
+        setUnauthorized(true);
+      } else {
+        setStatus("error");
+      }
     }
   }, []);
 
   // The initial fetch: the route is a static shell, so the view owns its
-  // data (#87).
+  // data (#87). The mount state starts at `loading`.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -60,10 +69,16 @@ export function Root() {
         if (!cancelled) {
           setSessions(sessions);
           setUnauthorized(false);
+          setStatus("ready");
         }
       } catch (err) {
-        if (!cancelled) onFetchError(err);
-        /* keep the current list */
+        if (!cancelled) {
+          if (err instanceof ApiError && err.status === 401) {
+            setUnauthorized(true);
+          } else {
+            setStatus("error");
+          }
+        }
       }
     })();
     return () => {
@@ -71,10 +86,55 @@ export function Root() {
     };
   }, []);
 
+  /** Re-fetch the History after an accepted intake — a silent re-fetch:
+   *  it keeps the current list on failure (#132). */
+  const refresh = useCallback(async () => {
+    try {
+      const { sessions } = await listSessions();
+      setSessions(sessions);
+      setUnauthorized(false);
+    } catch {
+      /* keep the current list */
+    }
+  }, []);
+
+  if (unauthorized) return null;
+
+  if (status === "loading") {
+    return (
+      <StatePanel
+        icon={
+          <Loader2 className="size-8 animate-spin text-tertiary" aria-hidden />
+        }
+        title={t("loading.title")}
+        note={t("loading.note")}
+      />
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <StatePanel
+        icon={<TriangleAlert className="size-8 text-error" aria-hidden />}
+        title={t("error.title")}
+        note={t("error.note")}
+        action={
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="mt-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-fixed"
+          >
+            {t("retry")}
+          </button>
+        }
+      />
+    );
+  }
+
   return (
     <main className="flex-1 overflow-y-auto">
       <div className="mx-auto w-full max-w-[1200px] p-8 md:p-margin-page">
-        {unauthorized ? null : sessions.length === 0 ? (
+        {sessions.length === 0 ? (
           <EmptyState>
             <StartSessionButton onClick={() => setDialogOpen(true)} />
           </EmptyState>

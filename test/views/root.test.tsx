@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   screen,
@@ -88,10 +89,33 @@ describe("Root (home History)", () => {
     expect(mockListSessions).toHaveBeenCalledWith(); // no phase filter — History shows all phases
   });
 
-  it("degrades to the empty state when the backend is unreachable", async () => {
+  it("shows the loading state while the initial fetch is in flight", async () => {
+    let resolveFetch: (value: { sessions: [] }) => void;
+    mockListSessions.mockReturnValue(
+      new Promise((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+    renderWithLocale(<Root />);
+    expect(await screen.findByText("Loading your sessions…")).toBeTruthy();
+    // The empty state must not double as the loading state (#132).
+    expect(screen.queryByText("No sessions yet")).toBeNull();
+    resolveFetch!({ sessions: [] });
+    expect(await screen.findByText("No sessions yet")).toBeTruthy();
+  });
+
+  it("shows the error state with a Retry when the initial fetch fails", async () => {
     mockListSessions.mockRejectedValue(new Error("boom"));
     renderWithLocale(<Root />);
+    expect(await screen.findByText("Can't load your sessions")).toBeTruthy();
+    // A failed fetch is not an empty History — the empty state stays hidden
+    // (#132).
+    expect(screen.queryByText("No sessions yet")).toBeNull();
+    // Retry re-runs the fetch and lands on the list.
+    mockListSessions.mockResolvedValue({ sessions: [] });
+    fireEvent.click(screen.getByRole("button", { name: /Retry/ }));
     expect(await screen.findByText("No sessions yet")).toBeTruthy();
+    expect(mockListSessions).toHaveBeenCalledTimes(2);
   });
 
   it("does not update state when unmounted before the initial fetch settles", async () => {
@@ -118,6 +142,27 @@ describe("Root (home History)", () => {
     mockListSessions.mockRejectedValue(new ApiError("unauthorized", 401));
     renderWithLocale(<Root />);
     await waitFor(() => expect(mockListSessions).toHaveBeenCalled());
+    // Let the rejection's catch settle (the 401 suppression branch).
+    await act(async () => {});
+    expect(screen.queryByText("No sessions yet")).toBeNull();
+    // …and no error state: the 401 suppresses the page while the redirect
+    // takes over (#94, #132).
+    expect(screen.queryByText("Can't load your sessions")).toBeNull();
+  });
+
+  it("suppresses the page on a 401 from the Retry fetch", async () => {
+    // First fetch fails (error state); the Retry hits a 401 — the API client
+    // redirects to login, so the page suppresses itself while the tab hands
+    // over (#94, #132).
+    mockListSessions
+      .mockRejectedValueOnce(new Error("boom"))
+      .mockRejectedValueOnce(new ApiError("unauthorized", 401));
+    renderWithLocale(<Root />);
+    await act(async () => {});
+    expect(screen.getByText("Can't load your sessions")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Retry/ }));
+    await act(async () => {});
+    expect(screen.queryByText("Can't load your sessions")).toBeNull();
     expect(screen.queryByText("No sessions yet")).toBeNull();
   });
 

@@ -38,6 +38,9 @@ export function AccountMenu() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    // A transient failure leaves the menu hidden — deliberately tolerated
+    // (#132 gap 5): every surface is sign-in-gated, so an authenticated
+    // `getMe` failing is a rare blip, and a full refresh re-attempts it.
     getMe().then((user) => setDisplayName(user.display_name)).catch(() => {});
   }, []);
 
@@ -69,8 +72,15 @@ export function AccountMenu() {
   }
 
   async function handleSignOut() {
-    await logoutAuth();
-    router.push("/login");
+    // A failed sign-out leaves the user signed in (no navigation) — the
+    // least-harmful outcome; there is no toast surface to report it
+    // (#132 gap 1).
+    try {
+      await logoutAuth();
+      router.push("/login");
+    } catch {
+      /* stay signed in */
+    }
   }
 
   return (

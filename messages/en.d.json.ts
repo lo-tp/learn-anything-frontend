@@ -27,7 +27,16 @@ declare const messages: {
     "emptyTitle": "No sessions yet",
     "emptyBody": "Start your first deep dive or launch a contextual inquiry to begin your learning journey.",
     "startNewSession": "Start New Session",
-    "generating": "Generating materials…"
+    "generating": "Generating materials…",
+    "loading": {
+      "title": "Loading your sessions…",
+      "note": "Hang tight — your history is loading."
+    },
+    "error": {
+      "title": "Can't load your sessions",
+      "note": "We couldn't reach the backend. Your sessions are safe — try again."
+    },
+    "retry": "Retry"
   },
   "dialog": {
     "openingPrompt": "Tell us what you'd like to explore or learn, and we'll shape a session around it.",
@@ -89,7 +98,7 @@ declare const messages: {
     "generating": {
       "title": "Generating materials…",
       "note": "Hang tight — your slides and questions are being prepared.",
-      "retryNote": "Can't reach the backend right now — retrying."
+      "pollingNote": "We can't reach the backend right now — we'll keep trying."
     },
     "learningSession": "Learning session",
     "backToSessions": "Back to my sessions",
@@ -170,7 +179,12 @@ declare const messages: {
     "emptyTitle": "All clear",
     "emptyBody": "No cards are due right now — keep studying!",
     "loading": "Loading your review deck…",
-    "error": "Can't reach the review service. Please try again.",
+    "error": {
+      "title": "Can't load your review deck",
+      "note": "We couldn't reach the backend."
+    },
+    "retry": "Retry",
+    "answerFailed": "Couldn't record your answer — tap a confidence to try again.",
     "backToSessions": "Back to my sessions",
     "reveal": "Reveal answer",
     "confidence": "How confident were you?",
