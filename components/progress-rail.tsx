@@ -6,9 +6,11 @@ import type { RailData } from "@/views/root/intake";
 
 /**
  * The intake progress rail: a full-width row of four steps
- * (Clarifying → Probing → Planning → Generating) with a state-dependent
- * counter at the right end. Replaces the PhaseIndicator chip in the
- * dialog header (#126).
+ * (Clarifying → Probing → Planning → Generating). Replaces the
+ * PhaseIndicator chip in the dialog header (#126).
+ *
+ * The state-dependent counter is not rendered as text — it only names
+ * the `status` role for screen readers.
  *
  * Step states:
  * - done: filled circle with a check
@@ -94,10 +96,6 @@ export function ProgressRail({ rail }: { rail: RailData }) {
         ))}
       </ol>
 
-      {/* Counter */}
-      <span className="ml-2 shrink-0 font-mono text-xs text-on-surface-variant">
-        {rail.counter}
-      </span>
     </div>
   );
 }

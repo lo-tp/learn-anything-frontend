@@ -134,9 +134,9 @@ export function NewSessionDialog({
             </div>
           </div>
 
-          {/* Progress rail — four steps with a state-dependent counter.
-              Hidden in the final "on the way" stage. */}
-          {!view.onTheWay && <ProgressRail rail={view.rail} />}
+          {/* Progress rail — four steps, kept at the final "on the way"
+              stage (the Generating step is active). */}
+          <ProgressRail rail={view.rail} />
 
           {/* Body — Recent Messages preview + the intake textarea. In the
               final "on the way" stage the card below replaces the whole
