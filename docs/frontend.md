@@ -51,6 +51,16 @@ Navigate to the new route — the frame/top bar come free from the layout.
 - **Data flow**: the view is the **single state owner** — and the single **fetcher**; leaves receive props and report back via callbacks (see `NewSessionDialog` → `onAccept` → parent `refresh()`).
 - **Docs/comments**: each file opens with a short doc block; reference the design doc and ticket (e.g. `per design/progress/card` or `(#31)`) — matching the style of the existing files.
 
+## Backend interactions: loading and error states
+
+Every backend interaction the view owns (#87) gets a loading state, an error state, and an in-flight story — a blank page or a silent failure is a bug, not a state (#132):
+
+- **Loading**: a friendly panel via `components/state-panel.tsx` — never a blank page, and never the empty state doubling as loading.
+- **Error**: a panel with a **Retry** button that re-runs the fetch (e.g. `views/root/index.tsx`). The exception is a self-retrying poll, which shows an honest note about the auto-retry instead (`views/session.tsx`).
+- **401**: `lib/api-client` already redirects to login (#94) — suppress the page while the tab hands over; no custom error UI for it.
+- **In-flight writes**: disable the control while the request is pending and await it before advancing; on failure stay in place with a notice so the action can be retried — a failed write must never be swallowed (e.g. `views/review.tsx`). Fire-and-forget is for misses that cost nothing (`postReviewCard` material).
+- **Background refresh**: silent — keep the existing content on failure (the intake re-fetch in `views/root/index.tsx`).
+
 ## Do / Don't
 
 - ✅ Add `app/<route>/page.tsx`; let the layout supply the frame.
@@ -60,3 +70,4 @@ Navigate to the new route — the frame/top bar come free from the layout.
 - ❌ Don't fetch data in a route entry — views own their fetches (#87).
 - ❌ Don't put state in a leaf, or data-fetching in a component that isn't the view.
 - ✅ Session data comes from the typed backend client (`lib/api-client`); `types/api.d.ts` is generated (`npm run generate:types`), never hand-edited.
+- ✅ Give every fetch a loading state and an error state with Retry (`components/state-panel.tsx`) — no silent failures, no swallowed write errors (#132).
