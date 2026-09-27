@@ -112,7 +112,7 @@ export function NewSessionDialog({
         // Opt out of Radix's open auto-focus (it targets the close button);
         // the binding owns focus and puts it in the textarea when enabled.
         onOpenAutoFocus={(event) => event.preventDefault()}
-        className="w-full max-w-3xl max-h-[95vh] flex-col gap-0 overflow-hidden border-outline-variant bg-surface-container p-0 text-on-surface sm:max-w-3xl"
+        className="w-full max-w-4xl max-h-[98vh] flex-col gap-0 overflow-hidden border-outline-variant bg-surface-container p-0 text-on-surface sm:max-w-4xl"
       >
         <form onSubmit={handleSubmit} className="flex w-full flex-col">
           {/* Header — title on the left, close on the right. */}
