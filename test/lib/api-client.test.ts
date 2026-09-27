@@ -23,7 +23,6 @@ const {
   generatePlan,
   getSession,
   getReviewDue,
-  getReviewSummary,
   listSessions,
   logoutAuth,
   postReviewCard,
@@ -115,7 +114,7 @@ describe("describeError edge cases", () => {
     fetchMock.mockResolvedValue(
       new Response("internal explosion", { status: 500 }),
     );
-    const err = await getReviewSummary().catch((e) => e);
+    const err = await getReviewDue().catch((e) => e);
     expect(err).toBeInstanceOf(ApiError);
     expect(err.message).toBe("Request failed (500)");
   });
@@ -299,12 +298,6 @@ describe("review endpoints", () => {
     fetchMock.mockResolvedValue(json({ due_at: "", interval_days: 2, lapses: 0 }));
     await answerReviewCard(7, "hard");
     expect(fetchMock.mock.calls[0][0]).toBe(`${BACKEND}/review/cards/7/answer`);
-  });
-
-  it("getReviewSummary GETs the summary", async () => {
-    fetchMock.mockResolvedValue(json({ due_count: 1, total_active: 3 }));
-    await getReviewSummary();
-    expect(fetchMock.mock.calls[0][0]).toBe(`${BACKEND}/review/summary`);
   });
 
   it("redirects to login on a 401 (and still throws)", async () => {

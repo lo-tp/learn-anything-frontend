@@ -358,11 +358,6 @@ export type ReviewAnswerOut = {
   lapses: number;
 };
 
-export type ReviewSummaryOut = {
-  due_count: number;
-  total_active: number;
-};
-
 /** Internal: raw fetch against the backend with review-path error handling. */
 async function reviewFetch<T>(
   method: string,
@@ -415,7 +410,3 @@ export async function answerReviewCard(
   );
 }
 
-/** `GET /review/summary` — due/active/retired counts for the badge. */
-export async function getReviewSummary(): Promise<ReviewSummaryOut> {
-  return reviewFetch<ReviewSummaryOut>("GET", "/review/summary");
-}
