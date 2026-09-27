@@ -46,11 +46,13 @@ describe("intake core — splitAnswer", () => {
 });
 
 describe("intake core — submit (stores the pending you-turn)", () => {
-  it("creates the session on the first send (no session yet), clearing input on success", () => {
+  it("creates the session on the first send, recording the learner's reply", () => {
     const { state, effects } = step(mk(), { type: "submit", text: "goal" });
     expect(effects).toEqual([{ type: "api", call: "createSession", goal: "goal" }]);
     expect(state.inFlight).toBe("clarify");
-    expect(state.pendingYou).toBeNull(); // the first send carries no you-bubble
+    // The learner's reply to the opening prompt is recorded (committed as
+    // a "you" bubble when the request resolves).
+    expect(state.pendingYou).toBe("goal");
     expect(state.pendingClear).toBe(true);
   });
 

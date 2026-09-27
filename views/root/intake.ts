@@ -266,13 +266,12 @@ export function apply(
         };
       }
 
-      // Clarifying / initial: create the session on the first send, then
-      // resume the clarify loop. The first send carries no you-bubble (it
-      // only clears the input on success); subsequent sends record the
-      // learner's words.
+      // Clarifying / initial: the first send creates the session and
+      // records the learner's reply to the opening prompt — the "you"
+      // bubble is committed on success like every other turn.
       if (state.sessionId === null) {
         return {
-          state: { ...clear, inFlight: "clarify", pendingYou: null, pendingClear: true },
+          state: { ...clear, inFlight: "clarify", pendingYou: text, pendingClear: true },
           effects: [{ type: "api", call: "createSession", goal: action.text }],
           clearInput: false,
         };
