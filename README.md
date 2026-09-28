@@ -56,3 +56,9 @@ Run it whenever the backend spec changes (it needs the backend running at that U
 
 - [Architecture revamp](ArchitectureRevamp.md) — the three-service restructure (FE/BFF + Sandbox + LangGraph LLM): topology, contracts, state ownership, demo flow, deployment, and the decisions that supersede the prior design.
 - [Frontend](docs/frontend.md) — the frontend page-structure guide.
+
+## License
+
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+
+Released under the [GNU General Public License v3.0](LICENSE).
