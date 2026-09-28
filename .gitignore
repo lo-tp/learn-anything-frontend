@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Local tooling (project-level venv, not global)
+.venv/
+
 # Builds
 dist/
 build/
