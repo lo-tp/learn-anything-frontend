@@ -9,6 +9,7 @@ import { SessionCard } from "@/components/session-card";
 import { StartSessionButton } from "@/components/start-session-button";
 import { StatePanel } from "@/components/state-panel";
 import { ApiError, listSessions, type SessionListItem } from "@/lib/api-client";
+import { CONFIRMING_PHASES } from "./intake";
 
 /**
  * The home page: the learner's History. Owns the list state, the initial
@@ -46,7 +47,7 @@ export function Root() {
   const load = useCallback(async () => {
     setStatus("loading");
     try {
-      const { sessions } = await listSessions();
+      const { sessions } = await listSessions(CONFIRMING_PHASES);
       setSessions(sessions);
       setUnauthorized(false);
       setStatus("ready");
@@ -65,7 +66,7 @@ export function Root() {
     let cancelled = false;
     (async () => {
       try {
-        const { sessions } = await listSessions();
+        const { sessions } = await listSessions(CONFIRMING_PHASES);
         if (!cancelled) {
           setSessions(sessions);
           setUnauthorized(false);
@@ -90,7 +91,7 @@ export function Root() {
    *  it keeps the current list on failure (#132). */
   const refresh = useCallback(async () => {
     try {
-      const { sessions } = await listSessions();
+      const { sessions } = await listSessions(CONFIRMING_PHASES);
       setSessions(sessions);
       setUnauthorized(false);
     } catch {

@@ -120,7 +120,13 @@ export type ApplyResult = {
   clearInput: boolean;
 };
 
-const CONFIRMING_PHASES: Phase[] = ["generating", "executing", "complete"];
+/**
+ * The phases a session has reached by the time it generates materials —
+ * i.e. at/after the generating step. The History list shows only these
+ * sessions (earlier phases are live intake, surfaced in the dialog, not the
+ * list); the dialog's confirming state uses the same set (#131).
+ */
+export const CONFIRMING_PHASES: Phase[] = ["generating", "executing", "complete"];
 
 export function isConfirming(phase: Phase | null): boolean {
   return phase !== null && CONFIRMING_PHASES.includes(phase);

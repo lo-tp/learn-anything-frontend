@@ -86,7 +86,11 @@ describe("Root (home History)", () => {
     expect(await screen.findByText("My Sessions")).toBeTruthy();
     expect(screen.getByText("React Hooks Deep Dive")).toBeTruthy();
     expect(screen.queryByText("No sessions yet")).toBeNull();
-    expect(mockListSessions).toHaveBeenCalledWith(); // no phase filter — History shows all phases
+    // History lists only sessions at/after the generating step (#131) —
+    // the mount fetch filters to the confirming phases.
+    expect(mockListSessions).toHaveBeenCalledWith(
+      ["generating", "executing", "complete"],
+    );
   });
 
   it("shows the loading state while the initial fetch is in flight", async () => {
