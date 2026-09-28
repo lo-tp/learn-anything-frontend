@@ -445,6 +445,25 @@ describe("NewSessionDialog", () => {
     expect(screen.getByRole("button", { name: /Send/ })).toBeTruthy();
   });
 
+  it("renders a multi-line learner answer as a bulleted list in the transcript", async () => {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: ["A bit more, please."],
+    });
+    await openDialog();
+    fireEvent.change(screen.getByLabelText(LABEL), {
+      target: { value: "First line of my answer\nSecond line of my answer" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    // The "you" bubble splits the answer into per-line items, each rendered
+    // as its own bullet in the transcript.
+    await screen.findByText("A bit more, please.");
+    expect(screen.getByText("First line of my answer")).toBeTruthy();
+    expect(screen.getByText("Second line of my answer")).toBeTruthy();
+  });
+
   it("scrolls the recent messages to the bottom when a new message arrives", async () => {
     mockCreateSession.mockResolvedValue({
       session_id: "s-1",
