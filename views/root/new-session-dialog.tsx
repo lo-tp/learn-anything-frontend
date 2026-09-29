@@ -112,7 +112,10 @@ export function NewSessionDialog({
         // Opt out of Radix's open auto-focus (it targets the close button);
         // the binding owns focus and puts it in the textarea when enabled.
         onOpenAutoFocus={(event) => event.preventDefault()}
-        className="w-full max-w-4xl max-h-[98vh] flex-col gap-0 overflow-hidden border-outline-variant bg-surface-container p-0 text-on-surface sm:max-w-4xl"
+        // Full-screen: override the centered, max-width default content
+        // (`fixed top-1/2 left-1/2 -translate-* max-w-*`) with inset + full
+        // dimensions so the dialog fills the viewport.
+        className="inset-0 flex-col gap-0 h-full w-full max-h-none max-w-none sm:max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-none border-outline-variant bg-surface-container p-0 text-on-surface"
       >
         <form onSubmit={handleSubmit} className="flex w-full flex-col">
           {/* Header — title on the left, close on the right. */}
@@ -140,8 +143,10 @@ export function NewSessionDialog({
 
           {/* Body — Recent Messages preview + the intake textarea. In the
               final "on the way" stage the card below replaces the whole
-              intake UI. */}
-          <div className="flex flex-col gap-5 p-6">
+              intake UI. Constrained to a reading width and centered so the
+              content doesn't span the full screen; flex-1 pushes the footer
+              to the bottom. */}
+          <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col gap-5 p-6">
             {view.onTheWay ? (
               /* Final stage: the encouraging icon replaces the intake UI —
                  the header carries the "on the way" title. */
@@ -156,7 +161,7 @@ export function NewSessionDialog({
             ) : (
             <>
             {view.bubbles.length > 0 && (
-              <div className="flex flex-col gap-3">
+              <div className="flex min-h-0 flex-1 flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 font-mono text-xs font-medium uppercase tracking-wider text-on-surface-variant">
                     <History className="size-4 text-primary" aria-hidden />
@@ -169,7 +174,7 @@ export function NewSessionDialog({
 
                 <div
                   ref={messagesPanelRef}
-                  className="flex max-h-[40rem] flex-col gap-3 overflow-y-auto rounded-xl border border-outline-variant/30 bg-surface-container-lowest/50 p-3 pr-2"
+                  className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto rounded-xl border border-outline-variant/30 bg-surface-container-lowest/50 p-3 pr-2"
                 >
                   {view.bubbles.map((bubble, index) => {
                     if (bubble.kind === "text" && bubble.from === "you") {
@@ -240,7 +245,7 @@ export function NewSessionDialog({
               </div>
             )}
 
-              <div>
+              <div className="mt-auto">
                 {view.showPending ? (
                   <div
                     role="status"
@@ -290,7 +295,8 @@ export function NewSessionDialog({
           {/* Footer — Cancel + Send, or a single Confirm in the legacy
               confirm step (the review step sends its adjustments and the
               `approve` command through the same Send path). */}
-          <div className="flex justify-end gap-3 border-t border-outline-variant/50 bg-surface-container-low px-6 py-4">
+          <div className="border-t border-outline-variant/50 bg-surface-container-low py-4">
+            <div className="mx-auto flex w-full max-w-3xl justify-end gap-3 px-6">
             {view.onTheWay ? (
               <Button
                 type="button"
@@ -334,6 +340,7 @@ export function NewSessionDialog({
                 </Button>
               </>
             )}
+            </div>
           </div>
         </form>
       </DialogContent>
