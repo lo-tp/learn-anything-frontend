@@ -14,90 +14,97 @@
  *   on its sheets — a color-coded map of what you are curious about.
  * Correction pink and verified green are never inquiry inks.
  *
- * `:root` is the dark palette — the "night desk" rendition with fluorescent
- * inks — and the default for any consumer that never adds a class. The
+ * `:root` is the dark palette — the "Night Desk" rendition: the SAME press
+ * shown at night. Its ground is a deep warm desk in the paper's own hue
+ * family (never a cool/purple dark), sheets sit lit just *above* the desk
+ * (paper catching lamplight), pencils and rules stay warm, and every role
+ * ink is raised to a fluorescent "glowing ink" level while keeping its
+ * exact light-world hue — so no role ever changes meaning between themes.
+ * :root is the default for any consumer that never adds a class. The
  * `.light` block carries the light "riso paper" values for consumers that
  * opt in by adding the `light` class to `<html>`.
  */
 
 :root {
-  /* Night desk & sheets */
-  --background: #17131f;
-  --on-background: #f2e8d8;
-  --surface: #17131f;
-  --surface-dim: #120e19;
-  --surface-bright: #2c2439;
-  --surface-variant: #372e47;
-  --surface-tint: #d9cbb6;
-  --surface-container-lowest: #100c17;
-  --surface-container-low: #1d1727;
-  --surface-container: #241d30;
-  --surface-container-high: #2c2439;
-  --surface-container-highest: #372e47;
-  --on-surface: #f2e8d8;
-  --on-surface-variant: #b6ab9d;
+  /* Night desk & lit sheets — a deep warm desk in the paper's own hue
+   * family (not a cool/purple dark); sheets read as paper lit by a lamp,
+   * sitting just ABOVE the desk rather than sinking below it. */
+  --background: #1d1813;
+  --on-background: #f4efe1;
+  --surface: #1d1813;
+  --surface-dim: #130f0c;
+  --surface-bright: #483f32;
+  --surface-variant: #54493b;
+  --surface-tint: #dcd1bc;
+  --surface-container-lowest: #312a21;
+  --surface-container-low: #15100c;
+  --surface-container: #3d3429;
+  --surface-container-high: #483f32;
+  --surface-container-highest: #54493b;
+  --on-surface: #f4efe1;
+  --on-surface-variant: #c6b89f;
 
-  /* Primary on the night desk: paper (inverted print) */
-  --primary: #f2e8d8;
-  --on-primary: #17131f;
-  --primary-container: #d9cbb6;
-  --on-primary-container: #17131f;
-  --primary-fixed: #d9cbb6;
-  --primary-fixed-dim: #b6ab9d;
-  --on-primary-fixed: #100c17;
-  --on-primary-fixed-variant: #372e47;
-  --inverse-primary: #3f3552;
+  /* Primary on the night desk: paper ink (inverted print) */
+  --primary: #f4efe1;
+  --on-primary: #1d1813;
+  --primary-container: #dcd1bc;
+  --on-primary-container: #1d1813;
+  --primary-fixed: #dcd1bc;
+  --primary-fixed-dim: #ab9a7c;
+  --on-primary-fixed: #312a21;
+  --on-primary-fixed-variant: #54493b;
+  --inverse-primary: #6d5946;
 
   /* Pencil (meta / pending) */
-  --secondary: #a89b8a;
-  --on-secondary: #17131f;
-  --secondary-container: #3a3145;
-  --on-secondary-container: #d9cbb6;
-  --secondary-fixed: #d9cbb6;
-  --secondary-fixed-dim: #a89b8a;
-  --on-secondary-fixed: #100c17;
-  --on-secondary-fixed-variant: #453c55;
+  --secondary: #ab9a7c;
+  --on-secondary: #1d1813;
+  --secondary-container: #3d3429;
+  --on-secondary-container: #e4ddcd;
+  --secondary-fixed: #dcd1bc;
+  --secondary-fixed-dim: #ab9a7c;
+  --on-secondary-fixed: #312a21;
+  --on-secondary-fixed-variant: #685740;
 
-  /* Riso green (verified / passed only) */
-  --tertiary: #3fc578;
-  --on-tertiary: #08170e;
-  --tertiary-container: #143821;
-  --on-tertiary-container: #b9e6c8;
-  --tertiary-fixed: #b9e6c8;
-  --tertiary-fixed-dim: #3fc578;
-  --on-tertiary-fixed: #08170e;
-  --on-tertiary-fixed-variant: #1c4d2e;
+  /* Riso green (verified / passed only) — glowing ink, light-world hue held */
+  --tertiary: #39d085;
+  --on-tertiary: #0a1a12;
+  --tertiary-container: #163b29;
+  --on-tertiary-container: #c8ead9;
+  --tertiary-fixed: #c8ead9;
+  --tertiary-fixed-dim: #39d085;
+  --on-tertiary-fixed: #0a1a12;
+  --on-tertiary-fixed-variant: #1f5138;
 
   /* Riso pink-red (misses / corrections / reveals only) */
-  --error: #f5578d;
-  --on-error: #21060f;
-  --error-container: #4b1027;
-  --on-error-container: #f7c9d9;
+  --error: #ee637c;
+  --on-error: #1d0c10;
+  --error-container: #3f1820;
+  --on-error-container: #eed3d8;
 
   /* Engagement blue (activity / interaction only: focus, current, running) */
-  --engage: #58a6ff;
-  --on-engage: #0a1526;
+  --engage: #4299f0;
+  --on-engage: #0b141e;
 
   /* Inquiry inks — per-inquiry identity spot colors (never pink/green) */
-  --inq-blue: #58a6ff;
-  --inq-flame: #ff8a4d;
-  --inq-violet: #b39aff;
-  --inq-ochre: #e8b95c;
-  --on-inq: #17131f;
+  --inq-blue: #4299f0;
+  --inq-flame: #fa7f42;
+  --inq-violet: #a98de2;
+  --inq-ochre: #efc439;
+  --on-inq: #1d1813;
 
-  --inverse-surface: #f2e8d8;
-  --inverse-on-surface: #241d30;
-  --outline: #9a8fa0;
-  --outline-variant: #453c55;
+  --inverse-surface: #f4efe1;
+  --inverse-on-surface: #3d3429;
+  --outline: #ab997c;
+  --outline-variant: #685740;
 
   /* Chart/data roles — mapped from the press roles so data marks read the
    * same as the UI. Included here because generated sandbox slides consume
    * palette.css cross-origin and must not fall back to default black. */
-  --chart-1: #f2e8d8;
-  --chart-2: #3fc578;
-  --chart-3: #f5578d;
-  --chart-4: #58a6ff;
-  --chart-5: #453c55;
+  --chart-1: #f4efe1;
+  --chart-2: #39d085;
+  --chart-3: #ee637c;
+  --chart-4: #4299f0;
+  --chart-5: #685740;
 }
 
 .light {

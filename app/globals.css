@@ -169,30 +169,33 @@
   /* Native form controls & scrollbars follow the theme. */
   color-scheme: dark;
 
-  /* shadcn/ui semantic mappings onto the design palette (night desk) */
-  --foreground: #f2e8d8;
-  --card: #241d30;
-  --card-foreground: #f2e8d8;
-  --popover: #241d30;
-  --popover-foreground: #f2e8d8;
-  --primary-foreground: #17131f;
-  --secondary-foreground: #17131f;
-  --muted: #1d1727;
-  --muted-foreground: #b6ab9d;
-  --accent: #372e47;
-  --accent-foreground: #d9cbb6;
-  --destructive: #f5578d;
-  --border: #453c55;
-  --input: #453c55;
+  /* shadcn/ui semantic mappings onto the design palette (Night Desk).
+   * These reference the palette tokens in public/palette.css directly, so
+   * the semantic layer can never drift from the colours it maps to. Menus,
+   * popovers and cards resolve to the same lit-sheet surface the app uses. */
+  --foreground: var(--on-surface);
+  --card: var(--surface-container-lowest);
+  --card-foreground: var(--on-surface);
+  --popover: var(--surface-container-lowest);
+  --popover-foreground: var(--on-surface);
+  --primary-foreground: var(--on-primary);
+  --secondary-foreground: var(--on-secondary);
+  --muted: var(--surface-container);
+  --muted-foreground: var(--on-surface-variant);
+  --accent: var(--surface-container-high);
+  --accent-foreground: var(--on-surface);
+  --destructive: var(--error);
+  --border: var(--outline-variant);
+  --input: var(--outline-variant);
   --ring: var(--engage);
   --radius: 0.25rem;
-  --sidebar: #120e19;
-  --sidebar-foreground: #f2e8d8;
-  --sidebar-primary: #f2e8d8;
-  --sidebar-primary-foreground: #17131f;
-  --sidebar-accent: #372e47;
-  --sidebar-accent-foreground: #d9cbb6;
-  --sidebar-border: #453c55;
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--on-surface);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--on-primary);
+  --sidebar-accent: var(--surface-container-high);
+  --sidebar-accent-foreground: var(--on-surface);
+  --sidebar-border: var(--outline-variant);
   --sidebar-ring: var(--engage);
 
   /* Sheet elevation — the press depth of paper on a desk. Shadows carry an
