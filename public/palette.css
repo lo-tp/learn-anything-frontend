@@ -89,6 +89,15 @@
   --inverse-on-surface: #241d30;
   --outline: #9a8fa0;
   --outline-variant: #453c55;
+
+  /* Chart/data roles — mapped from the press roles so data marks read the
+   * same as the UI. Included here because generated sandbox slides consume
+   * palette.css cross-origin and must not fall back to default black. */
+  --chart-1: #f2e8d8;
+  --chart-2: #3fc578;
+  --chart-3: #f5578d;
+  --chart-4: #58a6ff;
+  --chart-5: #453c55;
 }
 
 .light {
@@ -160,4 +169,11 @@
   --inverse-on-surface: #efe6d4;
   --outline: #6b6053;
   --outline-variant: #d3c6b0;
+
+  /* Chart/data roles — see the dark block for the mapping rationale. */
+  --chart-1: #181420;
+  --chart-2: #167a3f;
+  --chart-3: #c81e5b;
+  --chart-4: #1450a3;
+  --chart-5: #d3c6b0;
 }
