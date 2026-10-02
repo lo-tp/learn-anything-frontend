@@ -8,7 +8,6 @@ import {
   MessageSquareText,
   Play,
   Search,
-  Sparkles,
   TriangleAlert,
   type LucideIcon,
 } from "lucide-react";
@@ -17,82 +16,47 @@ import type { Phase } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 /**
- * The design treatment per phase: icon + accent colors. The human-readable
- * label and hint live in the `phases` message namespace (one
- * `{label, hint}` pair per phase, plus `ready`).
+ * The design treatment per phase. The vocabulary is the stamp, not the
+ * badge: work-in-progress phases take a pencil outline stamp, executing a
+ * filled ink one, complete the verified green stamp, error the red-pen
+ * one. The human-readable label and hint live in the `phases` message
+ * namespace (one `{label, hint}` pair per phase, plus `ready`).
  */
 type PhaseStyle = {
   icon: LucideIcon;
-  text: string;
-  border: string;
-  bg: string;
+  /** Text/line color classes for the stamp. */
+  ink: string;
+  /** True when the stamp carries a dashed outline (work in flight). */
+  working?: boolean;
+  /** True when the stamp body is filled (executing). */
+  filled?: boolean;
 };
 
 const PHASE_STYLE: Record<Phase, PhaseStyle> = {
-  clarifying: {
-    icon: MessageSquareText,
-    text: "text-primary",
-    border: "border-primary/30",
-    bg: "bg-primary/10",
-  },
-  probing: {
-    icon: Search,
-    text: "text-primary",
-    border: "border-primary/30",
-    bg: "bg-primary/10",
-  },
-  planning: {
-    icon: ListChecks,
-    text: "text-secondary",
-    border: "border-secondary/30",
-    bg: "bg-secondary/10",
-  },
-  reviewing: {
-    icon: FilePen,
-    text: "text-secondary",
-    border: "border-secondary/30",
-    bg: "bg-secondary/10",
-  },
-  generating: {
-    icon: Sparkles,
-    text: "text-tertiary",
-    border: "border-tertiary/30",
-    bg: "bg-tertiary/10",
-  },
-  executing: {
-    icon: Play,
-    text: "text-tertiary",
-    border: "border-tertiary/30",
-    bg: "bg-tertiary/10",
-  },
-  complete: {
-    icon: CircleCheck,
-    text: "text-tertiary",
-    border: "border-tertiary/30",
-    bg: "bg-tertiary/10",
-  },
-  error: {
-    icon: TriangleAlert,
-    text: "text-error",
-    border: "border-error/30",
-    bg: "bg-error/10",
-  },
+  clarifying: { icon: MessageSquareText, ink: "text-on-surface-variant", working: true },
+  probing: { icon: Search, ink: "text-on-surface-variant", working: true },
+  planning: { icon: ListChecks, ink: "text-on-surface-variant", working: true },
+  reviewing: { icon: FilePen, ink: "text-on-surface-variant", working: true },
+  generating: { icon: Loader2, ink: "text-on-surface-variant", working: true },
+  executing: { icon: Play, ink: "text-primary", filled: true },
+  complete: { icon: CircleCheck, ink: "text-tertiary" },
+  error: { icon: TriangleAlert, ink: "text-error" },
 };
 
 /** The no-session state before the first submit. */
 const READY_STYLE: PhaseStyle = {
-  icon: Sparkles,
-  text: "text-on-surface-variant",
-  border: "border-outline-variant/50",
-  bg: "bg-outline/5",
+  icon: Search,
+  ink: "text-on-surface-variant",
+  working: true,
 };
 
 /**
- * The current-phase indicator for the new-session dialog: a compact chip
- * (icon + phase label) that tells the learner what the AI is doing right now
- * — clarifying, probing, planning, … When `pending` is set (a request is in
- * flight) the phase icon is swapped for a spinner so the "working" state is
- * obvious at a glance. Pure, props-driven leaf.
+ * The current-phase indicator: a rubber stamp — a square, slightly rotated,
+ * double-ruled outline in monospace caps, pressed onto the page with the
+ * stamp-press motion. A compact stamp tells the learner what the app is
+ * doing right now — clarifying, probing, planning, … When `pending` is set
+ * (a request is in flight) the phase icon is swapped for a spinner so the
+ * "working" state is obvious at a glance. Pure, props-driven leaf.
  */
 export function PhaseIndicator({
   phase,
@@ -114,21 +78,20 @@ export function PhaseIndicator({
       aria-label={`${t(`${key}.label`)} — ${t(`${key}.hint`)}`}
       title={t(`${key}.hint`)}
       className={cn(
-        "flex items-center gap-1.5 rounded-full border px-2.5 py-1",
-        style.border,
-        style.bg,
+        "animate-stamp-press inline-flex -rotate-2 items-center gap-1.5 rounded-[3px] border-[1.5px] px-2.5 py-1",
+        style.filled
+          ? "border-primary bg-primary text-primary-foreground"
+          : [style.ink, "border-current"],
+        style.working && "border-dashed",
+        // The inner rule of a real stamp's double border.
+        "shadow-[inset_0_0_0_1px_color-mix(in_oklab,currentColor_35%,transparent)]",
       )}
     >
       <Icon
-        className={cn("size-3.5", style.text, pending && "animate-spin")}
+        className={cn("size-3.5", pending && "animate-spin")}
         aria-hidden
       />
-      <span
-        className={cn(
-          "font-mono text-xs font-semibold uppercase tracking-wider",
-          style.text,
-        )}
-      >
+      <span className="font-mono text-[11px] font-bold uppercase tracking-[0.14em]">
         {t(`${key}.label`)}
       </span>
     </span>

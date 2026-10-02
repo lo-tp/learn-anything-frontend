@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, JetBrains_Mono } from "next/font/google";
+import { Archivo, JetBrains_Mono, Source_Sans_3 } from "next/font/google";
 import { notFound } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
@@ -30,10 +30,27 @@ function ThemeInitScript() {
   );
 }
 
-const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
+/* The Answer Sheet type stack:
+ * - Archivo — the printed-form grotesque for record headers, sheet titles,
+ *   and the wordmark.
+ * - Source Sans 3 — the plain, high-legibility body voice (all ages).
+ * - JetBrains Mono — form codes, counters, and measured data only.
+ * CJK rendering falls through to the platform Chinese face via the
+ * --font-sans stack in globals.css. */
+const archivo = Archivo({
+  variable: "--font-archivo",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+});
+const sourceSans = Source_Sans_3({
+  variable: "--font-source-sans",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
 const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains-mono",
   subsets: ["latin"],
+  weight: ["400", "500", "700"],
 });
 
 /**
@@ -82,7 +99,7 @@ export default async function RootLayout({
   return (
     <html
       lang={localeTag(locale)}
-      className={`${geist.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${archivo.variable} ${sourceSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>

@@ -18,6 +18,14 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => searchParamsRef.current,
 }));
 
+// The wordmark link uses the locale-aware `Link`; render it as a plain
+// anchor so the test can see it.
+vi.mock("@/i18n/navigation", () => ({
+  Link: ({ children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
+    <a {...props}>{children}</a>
+  ),
+}));
+
 vi.mock("@/lib/api-client", () => ({
   loginAuth: vi.fn(),
   registerAuth: vi.fn(),

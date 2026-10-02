@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { QuizQuestion } from "@/components/session/quiz-question";
 import { StatePanel } from "@/components/state-panel";
+import { cn } from "@/lib/utils";
 import {
   answerReviewCard,
   getReviewDue,
@@ -13,8 +14,21 @@ import {
   type ReviewConfidence,
 } from "@/lib/api-client";
 
-/** The four confidence levels, in FSRS order (harsh → easy). */
-const CONFIDENCES: ReviewConfidence[] = ["again", "hard", "good", "easy"];
+/** The four confidence levels, in FSRS order (harsh → easy). The ink scale
+ *  stays inside the contract's semantics: red pen on AGAIN (a lapse IS a
+ *  recorded miss — the glossary's own definition), then a pencil→ink
+ *  graduation for the rest; verified green belongs to outcomes, never to
+ *  self-reported confidence. */
+const CONFIDENCES: {
+  value: ReviewConfidence;
+  rule: string;
+  hover: string;
+}[] = [
+  { value: "again", rule: "bg-error", hover: "hover:border-error hover:text-error" },
+  { value: "hard", rule: "bg-secondary", hover: "hover:border-secondary hover:text-on-surface" },
+  { value: "good", rule: "bg-primary-container", hover: "hover:border-primary hover:text-primary" },
+  { value: "easy", rule: "bg-primary", hover: "hover:border-primary hover:bg-primary hover:text-primary-foreground" },
+];
 
 /**
  * The `/review` surface (#111, reworked in #117): the learner's due
@@ -109,7 +123,7 @@ export function Review() {
   const backToSessions = (
     <Link
       href="/"
-      className="mt-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-fixed"
+      className="focus-ring mt-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:-translate-y-px hover:shadow-[var(--shadow-sheet-raised)]"
     >
       {t("backToSessions")}
     </Link>
@@ -120,7 +134,7 @@ export function Review() {
     return (
       <StatePanel
         icon={
-          <Loader2 className="size-8 animate-spin text-tertiary" aria-hidden />
+          <Loader2 className="size-8 animate-spin text-on-surface-variant" aria-hidden />
         }
         title={t("loading")}
         action={backToSessions}
@@ -138,7 +152,7 @@ export function Review() {
           <button
             type="button"
             onClick={load}
-            className="mt-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-fixed"
+            className="focus-ring mt-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:-translate-y-px hover:shadow-[var(--shadow-sheet-raised)]"
           >
             {t("retry")}
           </button>
@@ -162,12 +176,31 @@ export function Review() {
     <div className="flex h-full flex-col overflow-hidden">
       <main className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-6">
         {current && (
-          <QuizQuestion
-            question={current.question}
-            selected={null}
-            revealed={revealed}
-            shuffled
-          />
+          /* The deck card is a re-marked answer sheet: punch-hole margin,
+             red sheet number, ruled meta strip. */
+          <div className="animate-sheet-settle relative w-full max-w-3xl overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest shadow-[var(--shadow-sheet)]">
+            <span aria-hidden className="absolute left-2.5 top-0 bottom-0 flex flex-col justify-center gap-5">
+              {[0, 1, 2].map((i) => (
+                <span key={i} className="block size-2 rounded-full border border-outline-variant/70 bg-surface" />
+              ))}
+            </span>
+            <div className="flex items-baseline justify-between gap-4 border-b border-outline-variant/60 py-2 pr-6 pl-10">
+              <span className="font-mono text-xs font-semibold tracking-[0.14em] text-error">
+                No. {String(current.id).padStart(3, "0")}
+              </span>
+              <span className="font-mono text-xs text-on-surface-variant">
+                {t("title")}
+              </span>
+            </div>
+            <div className="px-6 py-8 pl-10 md:px-10">
+              <QuizQuestion
+                question={current.question}
+                selected={null}
+                revealed={revealed}
+                shuffled
+              />
+            </div>
+          </div>
         )}
       </main>
 
@@ -176,7 +209,7 @@ export function Review() {
           <button
             type="button"
             onClick={handleReveal}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-fixed"
+            className="focus-ring flex items-center gap-2 rounded-[3px] border-2 border-primary px-5 py-2 font-mono text-xs font-bold uppercase tracking-[0.14em] text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
           >
             <Eye className="size-4" aria-hidden />
             {t("reveal")}
@@ -186,15 +219,21 @@ export function Review() {
             <p className="text-xs text-on-surface-variant">
               {t("confidence")}
             </p>
-            <div className="flex items-center gap-2">
-              {CONFIDENCES.map((confidence) => (
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {CONFIDENCES.map(({ value: confidence, rule, hover }) => (
                 <button
                   key={confidence}
                   type="button"
                   onClick={() => handleConfidence(confidence)}
                   disabled={submitting}
-                  className="rounded-lg border border-outline-variant/60 bg-surface-container-low px-4 py-2 text-sm font-semibold text-on-surface transition-colors hover:border-outline-variant hover:bg-surface-container disabled:opacity-50"
+                  className={cn(
+                    "focus-ring relative overflow-hidden rounded-[3px] border border-outline-variant bg-surface-container-lowest px-4 py-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-on-surface transition-colors disabled:opacity-50",
+                    hover,
+                  )}
                 >
+                  {/* The graded top rule: red pen (recorded lapse) →
+                      pencil → ink → filled ink. */}
+                  <span aria-hidden className={cn("absolute inset-x-0 top-0 h-[3px]", rule)} />
                   {t(confidence)}
                 </button>
               ))}
@@ -206,17 +245,19 @@ export function Review() {
             )}
           </div>
         )}
-        {/* Progress pill: {index+1}/{total}, pinned to the bar's right. */}
+        {/* Progress chip: {index+1}/{total}, pinned to the bar's right. */}
         <div
-          className="absolute right-6 flex items-center gap-1.5 rounded-lg border border-outline-variant/50 bg-surface-container-low px-3 py-1.5 font-mono text-xs text-on-surface-variant"
+          className="absolute right-6 flex items-center gap-1.5 rounded-[3px] border border-outline-variant bg-surface-container-lowest px-3 py-1.5 font-mono text-xs text-on-surface-variant"
           aria-label={t("progress", {
             current: String(index + 1),
             total: String(total),
           })}
         >
-          <span className="font-semibold text-on-surface">{index + 1}</span>
-          <span>/</span>
-          <span>{total}</span>
+          <span className="font-bold text-primary">
+            {String(index + 1).padStart(2, "0")}
+          </span>
+          <span aria-hidden>/</span>
+          <span>{String(total).padStart(2, "0")}</span>
         </div>
       </footer>
     </div>

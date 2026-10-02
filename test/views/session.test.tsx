@@ -131,7 +131,7 @@ describe("Session", () => {
     expect(screen.getByText("Putting it together")).toBeTruthy();
     // One card per item: slide, question, question.
     expect(
-      screen.getByRole("button", { name: /^slide$/i }),
+      screen.getByRole("button", { name: /^slide 1$/i }),
     ).toBeTruthy();
     expect(
       screen.getByRole("button", { name: /what does f stand for\?/i }),

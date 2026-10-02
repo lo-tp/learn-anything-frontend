@@ -40,3 +40,8 @@ next-env.d.ts
 
 # next-intl generated messages declaration (regenerated on dev/build)
 messages/*.d.json.ts
+
+# Impeccable design-work process artifacts (captures, scratch, briefs).
+# The sidecar is exempt: it is the machine-readable half of design/DESIGN.md.
+.impeccable/*
+!.impeccable/design.json

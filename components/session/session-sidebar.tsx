@@ -48,6 +48,10 @@ const sandboxSrc = (slideId: string, theme: Theme) =>
  * target. The parent (the session view) owns the deck and the active
  * index; cards report clicks through `onSelect`.
  *
+ * The sidebar is a `md`-and-up affordance: below `md` it is hidden and the
+ * deck is walked with the footer's prev/next controls (the design's mobile
+ * rule — multi-pane workflows collapse).
+ *
  * Whenever `activeIndex` changes — including via the bottom-right
  * prev/next buttons — the active card is scrolled into view
  * (`scrollIntoView`, `block: "nearest"`, i.e. the minimal scroll that
@@ -77,20 +81,21 @@ export function SessionSidebar({
   }, [activeIndex]);
 
   return (
-    <aside className="flex h-full w-80 shrink-0 select-none flex-col border-r border-outline-variant bg-surface">
+    <aside className="hidden h-full w-80 shrink-0 select-none flex-col border-r border-outline-variant bg-surface md:flex">
       <div className="flex-1 overflow-y-auto p-3">
         <ul className="flex flex-col">
           {groups.map((group, stepNo) => (
             <li key={group.step.step_id} className="flex flex-col">
-              {/* Step divider — the step summary splitting the item groups. */}
+              {/* Step divider — the step summary splitting the item groups:
+                  a filled ink number block and a dashed rule. */}
               <div className="my-4 flex items-center gap-2 px-1">
-                <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary font-mono text-xs font-bold text-on-primary shadow-sm">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-[3px] bg-primary font-mono text-xs font-bold text-primary-foreground">
                   {stepNo + 1}
                 </span>
-                <span className="truncate text-xs font-semibold uppercase tracking-wide text-on-surface">
+                <span className="truncate font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-on-surface">
                   {group.step.summary.title}
                 </span>
-                <span aria-hidden className="ml-1 h-px flex-1 bg-outline-variant/60" />
+                <span aria-hidden className="ml-1 flex-1 border-t border-dashed border-outline-variant/70" />
               </div>
               <ul className="flex flex-col gap-2">
                 {group.items.map(({ index, item }) => {
@@ -105,7 +110,11 @@ export function SessionSidebar({
                         role="button"
                         tabIndex={0}
                         aria-current={active ? "true" : undefined}
-                        aria-label={item.type === "slide" ? undefined : item.text}
+                        aria-label={
+                          item.type === "slide"
+                            ? `${t("slide")} ${index + 1}`
+                            : item.text
+                        }
                         onClick={() => onSelect(index)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
@@ -114,10 +123,10 @@ export function SessionSidebar({
                           }
                         }}
                         className={cn(
-                          "cursor-pointer rounded-xl border p-2.5 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/50",
+                          "cursor-pointer rounded-md border p-2.5 outline-none transition-all focus-visible:ring-2 focus-visible:ring-primary/50",
                           active
-                            ? "border-primary/60 bg-gradient-to-b from-surface-container-low to-surface-container-lowest shadow-md shadow-primary/10"
-                            : "border-outline-variant/40 bg-surface-container-low/60 hover:border-outline-variant",
+                            ? "border-2 border-primary bg-surface-container-lowest shadow-[var(--shadow-sheet-raised)]"
+                            : "border border-outline-variant/50 bg-surface-container-lowest/60 hover:border-outline-variant",
                         )}
                       >
                         <div className="mb-2 flex items-center gap-2">
@@ -134,9 +143,9 @@ export function SessionSidebar({
                           )}
                           <span
                             className={cn(
-                              "truncate text-xs",
+                              "truncate font-mono text-[11px] uppercase tracking-[0.12em]",
                               active
-                                ? "font-medium text-primary"
+                                ? "font-semibold text-primary"
                                 : "text-on-surface-variant",
                             )}
                           >
@@ -145,7 +154,7 @@ export function SessionSidebar({
                         </div>
                         {item.type === "slide" ? (
                           /* Mini preview: the slide's sandbox route, scaled down. */
-                          <div className="relative h-40 w-full overflow-hidden rounded-lg border border-outline-variant/50 bg-background">
+                          <div className="relative h-40 w-full overflow-hidden rounded-[3px] border border-outline-variant/60 bg-background">
                             <SandboxFrame
                               src={sandboxSrc(item.slide_id, theme)}
                               mini
@@ -154,7 +163,7 @@ export function SessionSidebar({
                           </div>
                         ) : (
                           /* Mini preview: the question rendered as the main area shows it. */
-                          <div className="relative h-40 w-full overflow-hidden rounded-lg border border-outline-variant/50 bg-background">
+                          <div className="relative h-40 w-full overflow-hidden rounded-[3px] border border-outline-variant/60 bg-background">
                             <div
                               aria-hidden
                               className="pointer-events-none absolute top-0 left-0 w-[672px] origin-top-left scale-[0.41]"

@@ -21,7 +21,7 @@ export function ThemeToggle() {
       type="button"
       aria-label={t("toggleTheme")}
       onClick={toggle}
-      className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-highest"
+      className="focus-ring rounded-md p-2 text-on-surface-variant transition-colors hover:bg-accent hover:text-on-surface"
     >
       {theme === "dark" ? (
         <Sun className="size-5" />

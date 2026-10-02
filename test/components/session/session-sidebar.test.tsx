@@ -40,7 +40,7 @@ describe("SessionSidebar", () => {
   it("renders the step divider and one card per item", () => {
     renderWithLocale(<SessionSidebar groups={groups} activeIndex={0} onSelect={() => {}} />);
     expect(screen.getByText("Force and mass")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /^slide$/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^slide 1$/i })).toBeTruthy();
     expect(
       screen.getByRole("button", { name: /what does f stand for\?/i }),
     ).toBeTruthy();
@@ -137,7 +137,7 @@ describe("SessionSidebar", () => {
         .getAttribute("aria-current"),
     ).toBe("true");
     expect(
-      screen.getByRole("button", { name: /^slide$/i }).getAttribute("aria-current"),
+      screen.getByRole("button", { name: /^slide 1$/i }).getAttribute("aria-current"),
     ).toBeNull();
   });
 });

@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
+import { Bubble } from "@/components/bubble";
 import { cn } from "@/lib/utils";
 
 /**
@@ -11,8 +12,8 @@ import { cn } from "@/lib/utils";
  * list) and Review (the review deck). The active tab is derived from the
  * current pathname, so it stays in sync with the route; Study also owns the
  * session detail pages (a session lives under Study). Labels come from the
- * `topbar` namespace. Hidden on mobile (shown from the `md` breakpoint up),
- * matching the design.
+ * `topbar` namespace. Always visible — Review must stay reachable on small
+ * screens — so the tabs shrink below `md` (the wordmark steps aside there).
  */
 
 type Tab = {
@@ -31,7 +32,7 @@ export function TopBarTabs() {
   const pathname = usePathname();
 
   return (
-    <nav className="hidden items-center gap-1 md:flex">
+    <nav className="flex items-center gap-1">
       {TABS.map(({ key, href, isActive }) => {
         const active = isActive(pathname);
         return (
@@ -40,12 +41,13 @@ export function TopBarTabs() {
             href={href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "rounded px-3 py-2 text-base transition-colors hover:bg-surface-variant",
+              "flex items-center gap-2 rounded-md px-2 py-2 font-mono text-xs font-semibold uppercase tracking-[0.12em] transition-colors focus-ring md:px-3 md:text-sm",
               active
-                ? "border-b-2 border-primary font-bold text-primary"
-                : "text-on-surface-variant opacity-80 hover:opacity-100",
+                ? "text-primary"
+                : "text-on-surface-variant hover:text-on-surface",
             )}
           >
+            <Bubble state={active ? "filled" : "empty"} />
             {t(key)}
           </Link>
         );

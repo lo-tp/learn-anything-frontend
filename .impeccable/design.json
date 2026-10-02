@@ -1,0 +1,234 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-02T13:08:22Z",
+  "title": "Design System: Learn Anything — The Answer Sheet",
+  "extensions": {
+    "colorMeta": {
+      "print-ink": {
+        "role": "primary",
+        "displayName": "Print Ink",
+        "canonical": "#1f231a",
+        "note": "Maps to --primary. Action ink: buttons, filled bubbles, wordmark, caret, selection. Night-desk rendition inverts this role to paper ink #e7ebde on ground #191c15.",
+        "tonalRamp": ["oklch(15% 0.02 100)", "oklch(25% 0.02 100)", "oklch(35% 0.02 100)", "oklch(45% 0.02 100)", "oklch(60% 0.02 100)", "oklch(75% 0.02 100)", "oklch(88% 0.02 100)", "oklch(95% 0.015 100)"]
+      },
+      "paper-white": {
+        "role": "neutral",
+        "displayName": "Paper White",
+        "canonical": "#fcfaf1",
+        "note": "Maps to --surface-container-lowest / --on-primary. The sheet itself: cards, option boxes, chips. Night desk: #121510.",
+        "tonalRamp": ["oklch(30% 0.01 90)", "oklch(45% 0.01 90)", "oklch(60% 0.01 90)", "oklch(72% 0.01 90)", "oklch(82% 0.01 90)", "oklch(90% 0.01 90)", "oklch(95% 0.008 90)", "oklch(98% 0.008 90)"]
+      },
+      "exam-paper": {
+        "role": "neutral",
+        "displayName": "Exam Paper",
+        "canonical": "#f0eee3",
+        "note": "Maps to --background. Warm card-stock page ground, never pure white. Night desk: #191c15.",
+        "tonalRamp": ["oklch(25% 0.012 90)", "oklch(40% 0.012 90)", "oklch(55% 0.012 90)", "oklch(68% 0.012 90)", "oklch(78% 0.012 90)", "oklch(87% 0.013 90)", "oklch(94% 0.013 90)", "oklch(97% 0.01 90)"]
+      },
+      "sheet-stock": {
+        "role": "neutral",
+        "displayName": "Sheet Stock",
+        "canonical": "#f7f4e9",
+        "note": "Maps to --surface-container-low. Recessed form furniture: rail strip, control chips. Night desk: #1e2218.",
+        "tonalRamp": ["oklch(28% 0.01 90)", "oklch(42% 0.01 90)", "oklch(56% 0.01 90)", "oklch(70% 0.01 90)", "oklch(80% 0.01 90)", "oklch(90% 0.01 90)", "oklch(96% 0.01 90)", "oklch(98% 0.008 90)"]
+      },
+      "pencil": {
+        "role": "secondary",
+        "displayName": "Pencil",
+        "canonical": "#565141",
+        "note": "Maps to --secondary. Meta/pending graphite voice. Night desk: #aab69c.",
+        "tonalRamp": ["oklch(18% 0.03 85)", "oklch(28% 0.03 85)", "oklch(36% 0.03 85)", "oklch(42% 0.03 85)", "oklch(52% 0.03 85)", "oklch(64% 0.028 85)", "oklch(78% 0.025 85)", "oklch(92% 0.02 85)"]
+      },
+      "pencil-meta": {
+        "role": "secondary",
+        "displayName": "Pencil Meta",
+        "canonical": "#4b4839",
+        "note": "Maps to --on-surface-variant. Meta copy, timestamps, unreached labels. Night desk: #aab0a0.",
+        "tonalRamp": ["oklch(16% 0.025 85)", "oklch(26% 0.025 85)", "oklch(34% 0.025 85)", "oklch(38% 0.023 85)", "oklch(48% 0.023 85)", "oklch(60% 0.022 85)", "oklch(74% 0.02 85)", "oklch(90% 0.018 85)"]
+      },
+      "stamp-green": {
+        "role": "tertiary",
+        "displayName": "Stamp Green",
+        "canonical": "#2e6b45",
+        "note": "Maps to --tertiary. Reserved for verified/passed only. Night desk: #85b896.",
+        "tonalRamp": ["oklch(18% 0.11 155)", "oklch(28% 0.11 155)", "oklch(38% 0.11 155)", "oklch(50% 0.11 155)", "oklch(60% 0.11 155)", "oklch(70% 0.1 155)", "oklch(82% 0.08 155)", "oklch(93% 0.05 155)"]
+      },
+      "stamp-green-field": {
+        "role": "tertiary",
+        "displayName": "Verified Field",
+        "canonical": "#d5e4d9",
+        "note": "Maps to --tertiary-container. Background behind verified/correct marks. Night desk: #2d4734.",
+        "tonalRamp": ["oklch(20% 0.05 155)", "oklch(32% 0.05 155)", "oklch(45% 0.04 155)", "oklch(58% 0.04 155)", "oklch(70% 0.035 155)", "oklch(82% 0.03 155)", "oklch(89% 0.03 155)", "oklch(95% 0.02 155)"]
+      },
+      "red-pen": {
+        "role": "error",
+        "displayName": "Red Pen",
+        "canonical": "#b3382b",
+        "note": "Maps to --error. Reserved for misses, corrections, reveals, and the red sheet number only. Night desk: #e0765c.",
+        "tonalRamp": ["oklch(20% 0.14 30)", "oklch(30% 0.15 30)", "oklch(40% 0.16 30)", "oklch(53% 0.16 30)", "oklch(63% 0.15 30)", "oklch(74% 0.13 30)", "oklch(85% 0.09 30)", "oklch(94% 0.05 30)"]
+      },
+      "red-pen-field": {
+        "role": "error",
+        "displayName": "Correction Field",
+        "canonical": "#f1dcd5",
+        "note": "Maps to --error-container. Background behind struck/missed answers. Night desk: #4d2118.",
+        "tonalRamp": ["oklch(22% 0.07 30)", "oklch(34% 0.07 30)", "oklch(46% 0.06 30)", "oklch(60% 0.05 30)", "oklch(72% 0.045 30)", "oklch(83% 0.04 30)", "oklch(90% 0.035 30)", "oklch(96% 0.02 30)"]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "canonical": "#c9c5b4",
+        "note": "Maps to --outline-variant. Borders, ruled-paper lines, double rules, dashed ahead-connectors. Night desk: #3c4133.",
+        "tonalRamp": ["oklch(24% 0.025 90)", "oklch(36% 0.025 90)", "oklch(48% 0.025 90)", "oklch(60% 0.024 90)", "oklch(70% 0.022 90)", "oklch(81% 0.02 90)", "oklch(90% 0.015 90)", "oklch(96% 0.01 90)"]
+      },
+      "rule-strong": {
+        "role": "neutral",
+        "displayName": "Rule Strong",
+        "note": "Maps to --outline. Stronger printed rules, quote borders, neutral verdict top rule. Night desk: #8f9683.",
+        "canonical": "#6d6959",
+        "tonalRamp": ["oklch(20% 0.025 85)", "oklch(30% 0.025 85)", "oklch(40% 0.024 85)", "oklch(50% 0.023 85)", "oklch(60% 0.022 85)", "oklch(72% 0.02 85)", "oklch(84% 0.015 85)", "oklch(94% 0.01 85)"]
+      },
+      "highlighter": {
+        "role": "accent",
+        "displayName": "Highlighter",
+        "canonical": "#d9bd6e",
+        "note": "The --marker pigment. Applied only as a translucent wash (color-mix 52% light / 36% dark) on the learner's own narrowed goal in the intake transcript. Bounded exception; nothing else may use it.",
+        "tonalRamp": ["oklch(25% 0.1 85)", "oklch(38% 0.11 85)", "oklch(50% 0.12 85)", "oklch(62% 0.12 85)", "oklch(71% 0.12 85)", "oklch(79% 0.12 85)", "oklch(88% 0.09 85)", "oklch(95% 0.05 85)"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Record Header", "purpose": "The record header band title and dialog masthead: Archivo 700 uppercase, widened tracking, closed by a double rule." },
+      "headline": { "displayName": "Form Heading", "purpose": "Empty-state and status-panel headings." },
+      "title": { "displayName": "Sheet Title", "purpose": "Sheet card goal titles, quiz prompts, session workspace header line." },
+      "body": { "displayName": "Teaching Voice", "purpose": "All teaching copy and option text; plain Source Sans 3 at 15px+, legible at any age, never uppercase." },
+      "label": { "displayName": "Form Caps", "purpose": "Monospace uppercase caps: stamps, rail step names, REVEAL, AGAIN/HARD/GOOD/EASY, verdict lines. The build's extension of the mono vocabulary to FORM labels." },
+      "code": { "displayName": "Form Codes", "purpose": "Monospace data: red sheet numbers, zero-padded counters, timestamps, batch positions." }
+    },
+    "shadows": [
+      { "name": "sheet (night desk)", "value": "0 1px 0 color-mix(in oklab, #3c4133 80%, transparent), 0 2px 5px -2px color-mix(in oklab, #000 45%, transparent)", "purpose": "--shadow-sheet at rest: the sheet's edge contact on the desk." },
+      { "name": "sheet (exam paper)", "value": "0 1px 0 color-mix(in oklab, #c9c5b4 90%, transparent), 0 2px 5px -2px color-mix(in oklab, #1f231a 22%, transparent)", "purpose": "--shadow-sheet on paper: 1px edge line plus a tight ink-tinted drop." },
+      { "name": "sheet-raised (night desk)", "value": "0 2px 0 color-mix(in oklab, #3c4133 90%, transparent), 0 8px 18px -6px color-mix(in oklab, #000 55%, transparent)", "purpose": "--shadow-sheet-raised hover/attention state, paired with a -1px translate. The only second level." },
+      { "name": "sheet-raised (exam paper)", "value": "0 2px 0 #c9c5b4, 0 8px 18px -6px color-mix(in oklab, #1f231a 30%, transparent)", "purpose": "Raised sheet on paper." },
+      { "name": "stamp inner rule", "value": "inset 0 0 0 1px color-mix(in oklab, currentColor 35%, transparent)", "purpose": "The inner border of a real stamp's double outline, tinted from the stamp's own ink; 2px inset on the 96px completion stamp." }
+    ],
+    "motion": [
+      { "name": "ease-out-expo", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "The single easing shared by every authored moment; exponential ease-out from an already-visible default." },
+      { "name": "bubble-fill", "value": "200ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "A progress bubble inks in (scale 0.5→1, opacity 0.4→1). Quiz answers and rail steps." },
+      { "name": "stamp-press", "value": "220ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "A stamp settles from scale 1.08 / rotate -4° / 1px blur to rest at rotate -2°." },
+      { "name": "sheet-settle", "value": "240ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "A sheet card lands on the desk (6px rise); list cards stagger 40ms apart, capped at 320ms." },
+      { "name": "pen-draw", "value": "320ms cubic-bezier(0.16, 1, 0.3, 1); second stroke delayed 140ms", "purpose": "The red-pen cross: two hand-drawn pathLength strokes, never an icon dash trick." },
+      { "name": "dot-breathe", "value": "1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite", "purpose": "The breathing ink dot inside a current bubble." },
+      { "name": "reduced-motion guard", "value": "@media (prefers-reduced-motion: reduce) { animation: none }", "purpose": "Every authored animation is switched off; the flow never depends on motion to be understood." }
+    ],
+    "breakpoints": [
+      { "name": "md", "value": "768px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Ink Block Button",
+      "kind": "button",
+      "refersTo": "button-ink",
+      "description": "The page's single heavy primary CTA — a solid print-ink block resting at sheet contact, lifting one step on hover.",
+      "html": "<button class=\"ds-btn-ink\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg>Start New Session</button>",
+      "css": ".ds-btn-ink { display: inline-flex; align-items: center; gap: 8px; background: var(--primary, #1f231a); color: var(--primary-foreground, #fcfaf1); padding: 12px 20px; font-family: 'Source Sans 3', sans-serif; font-size: 15px; font-weight: 600; border: 0; border-radius: 4px; box-shadow: var(--shadow-sheet, 0 1px 0 #c9c5b4, 0 2px 5px -2px rgba(31,35,26,0.22)); transition: all 150ms; } .ds-btn-ink:hover { transform: translateY(-1px); box-shadow: var(--shadow-sheet-raised, 0 2px 0 #c9c5b4, 0 8px 18px -6px rgba(31,35,26,0.3)); } .ds-btn-ink:focus-visible { outline: 2px solid var(--ring, #1f231a); outline-offset: 2px; }"
+    },
+    {
+      "name": "Reveal Control (outline stamp)",
+      "kind": "button",
+      "refersTo": "button-reveal",
+      "description": "A hard 3px outline-stamp control with monospace caps; hover fills the block. Used for Reveal in the review deck footer.",
+      "html": "<button class=\"ds-btn-reveal\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/></svg>Reveal</button>",
+      "css": ".ds-btn-reveal { display: inline-flex; align-items: center; gap: 8px; background: transparent; color: var(--primary, #1f231a); border: 2px solid var(--primary, #1f231a); border-radius: 3px; padding: 8px 20px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; transition: all 150ms; } .ds-btn-reveal:hover { background: var(--primary, #1f231a); color: var(--primary-foreground, #fcfaf1); } .ds-btn-reveal:focus-visible { outline: 2px solid var(--ring, #1f231a); outline-offset: 2px; }"
+    },
+    {
+      "name": "Confidence Controls (AGAIN / HARD / GOOD / EASY)",
+      "kind": "button",
+      "refersTo": "button-confidence",
+      "description": "The graded scale chips: a 3px top rule carries the rung (red pen → pencil → ink container → filled ink); hover adopts the rung color. Disabled while a recording is in flight.",
+      "html": "<div class=\"ds-confidence-row\"><button class=\"ds-confidence ds-is-again\"><span class=\"ds-rule\"></span>Again</button><button class=\"ds-confidence ds-is-hard\"><span class=\"ds-rule\"></span>Hard</button><button class=\"ds-confidence ds-is-good\"><span class=\"ds-rule\"></span>Good</button><button class=\"ds-confidence ds-is-easy\"><span class=\"ds-rule\"></span>Easy</button></div>",
+      "css": ".ds-confidence-row { display: flex; gap: 8px; } .ds-confidence { position: relative; overflow: hidden; background: var(--surface-container-lowest, #fcfaf1); color: var(--on-surface, #1f231a); border: 1px solid var(--outline-variant, #c9c5b4); border-radius: 3px; padding: 8px 16px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; transition: all 150ms; } .ds-confidence .ds-rule { position: absolute; inset: 0 0 auto 0; height: 3px; } .ds-is-again .ds-rule { background: var(--error, #b3382b); } .ds-is-hard .ds-rule { background: var(--secondary, #565141); } .ds-is-good .ds-rule { background: var(--primary-container, #2c3125); } .ds-is-easy .ds-rule { background: var(--primary, #1f231a); } .ds-is-again:hover { border-color: var(--error, #b3382b); color: var(--error, #b3382b); } .ds-is-hard:hover { border-color: var(--secondary, #565141); color: var(--on-surface, #1f231a); } .ds-is-good:hover { border-color: var(--primary, #1f231a); color: var(--primary, #1f231a); } .ds-is-easy:hover { background: var(--primary, #1f231a); color: var(--primary-foreground, #fcfaf1); } .ds-confidence:focus-visible { outline: 2px solid var(--ring, #1f231a); outline-offset: 2px; } .ds-confidence:disabled { opacity: 0.5; }"
+    },
+    {
+      "name": "Quiz Option Box",
+      "kind": "card",
+      "refersTo": "option-box",
+      "description": "A printed lettered option, shown at rest and in its revealed states (correct marked green, wrong pick struck with the red-pen cross).",
+      "html": "<div class=\"ds-options\"><button class=\"ds-option\"><span class=\"ds-letter\">A</span><span class=\"ds-text\">The correct answer</span></button><button class=\"ds-option ds-reveal-correct\"><span class=\"ds-letter ds-letter-correct\">B</span><span class=\"ds-text\">The right one</span><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 6 9 17l-5-5\"/></svg></button><button class=\"ds-option ds-reveal-wrong\"><span class=\"ds-letter ds-letter-wrong\">C</span><span class=\"ds-text\">A lapse</span><svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\"><path d=\"M2.6 2.9 L13.1 13.4\" stroke=\"currentColor\" stroke-width=\"2.1\" stroke-linecap=\"round\"/><path d=\"M13.2 2.7 L2.9 13.2\" stroke=\"currentColor\" stroke-width=\"2.1\" stroke-linecap=\"round\"/></svg></button></div>",
+      "css": ".ds-options { display: flex; flex-direction: column; gap: 8px; } .ds-option { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: var(--surface-container-lowest, #fcfaf1); color: var(--on-surface, #1f231a); border: 1px solid var(--outline-variant, #c9c5b4); border-radius: 4px; padding: 12px 16px; transition: border-color 150ms; } .ds-option:hover { border-color: var(--primary, #1f231a); } .ds-option:focus-visible { outline: 2px solid var(--ring, #1f231a); outline-offset: 2px; } .ds-text { flex: 1; font-family: 'Source Sans 3', sans-serif; font-size: 15px; } .ds-letter { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1px solid var(--outline-variant, #c9c5b4); border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: var(--on-surface-variant, #4b4839); } .ds-reveal-correct { border-color: color-mix(in oklab, var(--tertiary, #2e6b45) 60%, transparent); background: color-mix(in oklab, var(--tertiary-container, #d5e4d9) 50%, transparent); color: var(--tertiary, #2e6b45); } .ds-letter-correct { border-color: var(--tertiary, #2e6b45); background: var(--tertiary, #2e6b45); color: var(--on-tertiary, #f7f4e9); } .ds-reveal-wrong { border-color: color-mix(in oklab, var(--error, #b3382b) 60%, transparent); background: color-mix(in oklab, var(--error-container, #f1dcd5) 40%, transparent); color: var(--error, #b3382b); } .ds-letter-wrong { border-color: var(--error, #b3382b); background: var(--error, #b3382b); color: var(--on-error, #fcfaf1); }"
+    },
+    {
+      "name": "Sheet Card (History / Review deck)",
+      "kind": "card",
+      "refersTo": "sheet-card",
+      "description": "A filed answer sheet: punch-hole margin, ruled header strip with a red monospace sheet number, title below. Carries no stage vocabulary (product decision #46).",
+      "html": "<a class=\"ds-sheet-card\"><span class=\"ds-punches\"><i></i><i></i><i></i></span><span class=\"ds-sheet-head\"><span class=\"ds-sheet-no\">No. 4F2A</span><span class=\"ds-sheet-time\">3 hours ago</span></span><h3 class=\"ds-sheet-title\">How gears actually work</h3></a>",
+      "css": ".ds-sheet-card { display: block; position: relative; overflow: hidden; background: var(--surface-container-lowest, #fcfaf1); color: var(--on-surface, #1f231a); border: 1px solid var(--outline-variant, #c9c5b4); border-radius: 6px; padding: 20px 20px 20px 32px; box-shadow: var(--shadow-sheet, 0 1px 0 #c9c5b4, 0 2px 5px -2px rgba(31,35,26,0.22)); transition: all 150ms; text-decoration: none; } .ds-sheet-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-sheet-raised, 0 2px 0 #c9c5b4, 0 8px 18px -6px rgba(31,35,26,0.3)); } .ds-sheet-card:focus-visible { outline: 2px solid var(--ring, #1f231a); outline-offset: 2px; } .ds-punches { position: absolute; left: 10px; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; gap: 20px; } .ds-punches i { display: block; width: 8px; height: 8px; border-radius: 9999px; border: 1px solid color-mix(in oklab, var(--outline-variant, #c9c5b4) 70%, transparent); background: var(--surface, #f0eee3); } .ds-sheet-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; border-bottom: 1px solid color-mix(in oklab, var(--outline-variant, #c9c5b4) 60%, transparent); padding-bottom: 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; } .ds-sheet-no { font-weight: 600; letter-spacing: 0.14em; color: var(--error, #b3382b); } .ds-sheet-time { color: var(--on-surface-variant, #4b4839); } .ds-sheet-title { margin-top: 12px; font-family: Archivo, sans-serif; font-size: 20px; font-weight: 600; }"
+    },
+    {
+      "name": "Phase Stamp",
+      "kind": "chip",
+      "refersTo": null,
+      "description": "The phase vocabulary: a rotated, double-outlined monospace-caps stamp. Shown working (pencil dashed), executing (filled ink), and verified (green).",
+      "html": "<div><span class=\"ds-stamp ds-stamp-working\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><circle cx=\"11\" cy=\"11\" r=\"7\"/><path d=\"m21 21-4.3-4.3\"/></svg>Probing</span> <span class=\"ds-stamp ds-stamp-executing\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M7 4l12 8-12 8V4z\"/></svg>Drilling</span> <span class=\"ds-stamp ds-stamp-complete\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"m9 12 2 2 4-4\"/></svg>Complete</span></div>",
+      "css": ".ds-stamp { display: inline-flex; align-items: center; gap: 6px; transform: rotate(-2deg); border: 1.5px solid currentColor; border-radius: 3px; padding: 4px 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; box-shadow: inset 0 0 0 1px color-mix(in oklab, currentColor 35%, transparent); } .ds-stamp-working { color: var(--on-surface-variant, #4b4839); border-style: dashed; } .ds-stamp-executing { color: var(--primary-foreground, #fcfaf1); background: var(--primary, #1f231a); border-color: var(--primary, #1f231a); } .ds-stamp-complete { color: var(--tertiary, #2e6b45); }"
+    },
+    {
+      "name": "Progress Rail & Bubbles",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "The sole progress device: a printed row of bubbles and mono-caps step labels; done steps join with a solid ink rule, ahead steps with a dashed rule.",
+      "html": "<div class=\"ds-rail\"><span class=\"ds-step\"><span class=\"ds-bubble ds-bubble-filled\"></span><span class=\"ds-step-label\">Clarifying</span></span><span class=\"ds-link ds-link-walked\"></span><span class=\"ds-step\"><span class=\"ds-bubble ds-bubble-current\"><i></i></span><span class=\"ds-step-label ds-current\">Probing</span></span><span class=\"ds-link\"></span><span class=\"ds-step\"><span class=\"ds-bubble\"></span><span class=\"ds-step-label ds-future\">Planning</span></span></div>",
+      "css": ".ds-rail { display: flex; align-items: flex-start; gap: 8px; width: 100%; background: var(--surface-container-low, #f7f4e9); padding: 12px 24px; border-bottom: 1px solid var(--outline-variant, #c9c5b4); box-shadow: 0 3px 0 -2px var(--outline-variant, #c9c5b4); } .ds-step { display: flex; flex: 1; align-items: center; gap: 8px; } .ds-bubble { position: relative; display: inline-flex; width: 14px; height: 14px; border-radius: 9999px; border: 1.5px solid var(--outline-variant, #c9c5b4); } .ds-bubble-filled { border-color: var(--primary, #1f231a); background: var(--primary, #1f231a); } .ds-bubble-current { border-color: var(--primary, #1f231a); } .ds-bubble-current i { position: absolute; inset: 0; margin: auto; width: 6px; height: 6px; border-radius: 9999px; background: var(--primary, #1f231a); } .ds-step-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: var(--on-surface-variant, #4b4839); } .ds-step-label.ds-current { color: var(--primary, #1f231a); } .ds-link { flex: 1; margin: 0 8px; margin-top: 7px; height: 2px; background: var(--primary, #1f231a); } .ds-link:not(.ds-link-walked) { height: 0; border-top: 1px dashed var(--outline-variant, #c9c5b4); background: none; }"
+    },
+    {
+      "name": "Counter Chip (form page number)",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Zero-padded monospace slide/progress counter, typeset like a printed form page number.",
+      "html": "<div class=\"ds-counter\"><b>03</b><span aria-hidden>/</span><span>12</span></div>",
+      "css": ".ds-counter { display: inline-flex; align-items: center; gap: 6px; background: var(--surface-container-lowest, #fcfaf1); border: 1px solid var(--outline-variant, #c9c5b4); border-radius: 3px; padding: 6px 12px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--on-surface-variant, #4b4839); } .ds-counter b { font-weight: 700; color: var(--primary, #1f231a); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Answer Sheet",
+    "overview": "Study is a sheet you fill in. Every surface is printed paper: a record header closed by a double rule, sessions as paper cards punched for a binder, questions as lettered option boxes, progress as a row of filled bubbles, phase as a rotated rubber stamp pressed onto the page. The system refuses the chat-hero arrangement and the progress-bar LMS dashboard outright; it holds instead to a two-ink press — print ink for action, red pen for correction, stamp green for verified, pencil for meta — on a paper ground with a faint grain (3.5% opacity) that says \"sheet\", not \"panel\".\n\nThe world ships in two complete renditions: exam paper (light, warm card stock with near-white sheets) and the night desk (dark, the exact same press inverted). No role changes meaning between them.\n\nType carries the same printed-form logic: Archivo sets record headers like a printed masthead; Source Sans 3 is the plain body voice legible at any age; JetBrains Mono is the form's own hand — codes, counters, and the caps pressed into stamps and controls.",
+    "keyCharacteristics": [
+      "Two-ink discipline: ink for action, red pen only for misses/corrections/reveals, stamp green only for verified/passed, pencil for meta/pending/rules.",
+      "Bubbles are the sole progress device — empty, filled, or current. No progress bars.",
+      "Stamps (slightly rotated, double-ruled, monospace caps) are the phase vocabulary; session cards carry no stage vocabulary at all (product decision #46).",
+      "Square-cut form geometry: form surfaces at or below 6px radius; full circles reserved for bubbles and punch holes.",
+      "Ruled-paper panels, double-rule dividers, and a ruled meta strip with a red monospace \"No.\" on every sheet card.",
+      "No glow, no gradients, no glass. Depth is the contact shadow of paper on a desk."
+    ],
+    "rules": [
+      { "name": "The Two-Ink Press Rule", "body": "Every color in the app is one of the press roles, and each role is reserved: ink acts, red pen corrects, stamp green verifies, pencil annotates. A color that crosses its reservation is a bug, not a variant.", "section": "colors" },
+      { "name": "The Red Sheet Number Rule", "body": "Every filed sheet prints its identity as a red monospace \"No.\" on its ruled header strip. It is the card's fingerprint, not decoration.", "section": "colors" },
+      { "name": "The Highlighter Exception", "body": "--marker is the one wash outside the press, bounded to the learner's own narrowed goal in the intake transcript. A highlighter belongs on an answer sheet — but only on the learner's own answer.", "section": "colors" },
+      { "name": "The Printed-Form Rule", "body": "Headings are set like a printed form: Archivo, uppercase where it is a form header or masthead, with widened tracking. The teaching voice itself is never uppercase and never the display face.", "section": "typography" },
+      { "name": "The Mono-Vocabulary Rule", "body": "JetBrains Mono is the form's hand: codes and counters per the brief, extended by the build to FORM labels — the caps on stamps and the REVEAL / AGAIN / HARD / GOOD / EASY controls. Mono never sets body copy or teaching prose.", "section": "typography" },
+      { "name": "The Sheet-Contact Rule", "body": "Every lifted thing shows its edge. A shadow is always a contact line plus a tight drop; anything diffuse, wide, or colored is outside this world.", "section": "elevation" },
+      { "name": "The One Ink Block Rule", "body": "Each page carries exactly one heavy solid-ink primary CTA; everything else is an outline, a chip, or a plain link.", "section": "components" },
+      { "name": "The Bubble-Only Progress Rule", "body": "Progress is a row of bubbles in three states only — empty, filled, current. There are no bars, rings, or percentage meters.", "section": "components" }
+    ],
+    "dos": [
+      "Do keep every color inside its press role: ink acts, red pen only corrects, stamp green only verifies, pencil only annotates.",
+      "Do mark progress with bubbles only — empty, filled, or current — and connect walked steps with solid ink rules, ahead steps with dashed ones.",
+      "Do set phase as a stamp: rotated -2 degrees, double-outlined, monospace caps, pressed in.",
+      "Do file every sheet the same way: punch-hole margin, ruled header strip, red monospace \"No.\", 6px corners, sheet-contact shadow.",
+      "Do give each page exactly one ink block — the heavy solid-ink primary CTA.",
+      "Do use the highlighter wash (--marker) on the learner's own narrowed goal in intake, and there only.",
+      "Do keep type legible at any age in both scripts: Source Sans 3 body at 15px+, uppercase Archivo only for form headers, mono only for codes/counters/form labels.",
+      "Do ship every surface in both renditions — exam paper and night desk — from the same role tokens."
+    ],
+    "donts": [
+      "Don't use red pen on anything that succeeded, or stamp green on anything unverified.",
+      "Don't put stage or phase vocabulary on session cards (product decision #46).",
+      "Don't round form surfaces past 8px; full circles are reserved for bubbles and punch holes.",
+      "Don't use glow, gradients, glass, or diffuse ambient shadows — depth is contact plus a tight drop.",
+      "Don't use progress bars, rings, or percentage meters; the bubble row is the progress device.",
+      "Don't treat LLM-authored slide content in the sandbox iframe as app chrome; the system frames it, never styles it from outside.",
+      "Don't invent a second highlighter, a second accent, or a decorative color; the press has its quota."
+    ]
+  }
+}

@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { Check } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useSearchParams, useRouter } from "next/navigation";
+import { Link } from "@/i18n/navigation";
+import { cn } from "@/lib/utils";
 import { loginAuth, registerAuth, ApiError } from "@/lib/api-client";
 
 type Tab = "signin" | "register";
@@ -73,113 +76,136 @@ export function LoginView() {
   }
 
   return (
-    <main className="flex h-full items-center justify-center p-6">
-      <div className="w-full max-w-sm">
-        {/* Tabs */}
-        <div className="mb-6 flex rounded-lg bg-surface-variant p-1">
-          <button
-            type="button"
-            aria-pressed={tab === "signin"}
-            onClick={() => { setTab("signin"); setError(null); }}
-            className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
-              tab === "signin"
-                ? "bg-primary text-on-primary-container"
-                : "text-on-surface-variant hover:text-on-surface"
-            }`}
-          >
-            {t("tabSignIn")}
-          </button>
-          <button
-            type="button"
-            aria-pressed={tab === "register"}
-            onClick={() => { setTab("register"); setError(null); }}
-            className={`flex-1 rounded-md py-2 text-sm font-medium transition-colors ${
-              tab === "register"
-                ? "bg-primary text-on-primary-container"
-                : "text-on-surface-variant hover:text-on-surface"
-            }`}
-          >
-            {t("tabCreateAccount")}
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {/* Email */}
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="email" className="text-sm font-medium text-on-surface">
-              {t("email")}
-            </label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="rounded-lg border border-surface-variant bg-surface px-3 py-2.5 text-sm text-on-surface outline-none focus:border-primary"
-            />
+    <main className="relative flex h-full items-center justify-center p-6">
+      <div className="relative z-10 w-full max-w-md">
+        {/* The registration sheet: a paper card whose masthead carries the
+            wordmark, closed with the printed double rule. */}
+        <div className="overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest shadow-[var(--shadow-sheet)]">
+          <div className="px-8 pt-8 pb-5 double-rule-b">
+            <Link
+              href="/"
+              className="focus-ring inline-block rounded-sm font-display text-lg font-bold uppercase tracking-[0.12em] text-primary"
+            >
+              Learn Anything
+            </Link>
           </div>
 
-          {/* Display name (register only) */}
-          {tab === "register" && (
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="displayName" className="text-sm font-medium text-on-surface">
-                {t("displayName")}
-              </label>
-              <input
-                id="displayName"
-                type="text"
-                autoComplete="name"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder={t("displayNamePlaceholder")}
-                className="rounded-lg border border-surface-variant bg-surface px-3 py-2.5 text-sm text-on-surface outline-none focus:border-primary"
-              />
+          <div className="p-8 pt-6">
+            {/* Tabs — form checkboxes: the picked tab is inked solid. */}
+            <div className="mb-6 flex gap-2">
+              <button
+                type="button"
+                aria-pressed={tab === "signin"}
+                onClick={() => { setTab("signin"); setError(null); }}
+                className={cn(
+                  "focus-ring flex flex-1 items-center gap-2 rounded-[3px] border px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.12em] transition-colors",
+                  tab === "signin"
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-outline-variant text-on-surface-variant hover:border-primary hover:text-on-surface",
+                )}
+              >
+                <span aria-hidden className="flex size-3.5 items-center justify-center rounded-[2px] border border-current">
+                  {tab === "signin" ? <Check className="size-3" strokeWidth={3} /> : null}
+                </span>
+                {t("tabSignIn")}
+              </button>
+              <button
+                type="button"
+                aria-pressed={tab === "register"}
+                onClick={() => { setTab("register"); setError(null); }}
+                className={cn(
+                  "focus-ring flex flex-1 items-center gap-2 rounded-[3px] border px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.12em] transition-colors",
+                  tab === "register"
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-outline-variant text-on-surface-variant hover:border-primary hover:text-on-surface",
+                )}
+              >
+                <span aria-hidden className="flex size-3.5 items-center justify-center rounded-[2px] border border-current">
+                  {tab === "register" ? <Check className="size-3" strokeWidth={3} /> : null}
+                </span>
+                {t("tabCreateAccount")}
+              </button>
             </div>
-          )}
 
-          {/* Password */}
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="password" className="text-sm font-medium text-on-surface">
-              {t("password")}
-            </label>
-            <input
-              id="password"
-              type="password"
-              autoComplete={tab === "signin" ? "current-password" : "new-password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-              className="rounded-lg border border-surface-variant bg-surface px-3 py-2.5 text-sm text-on-surface outline-none focus:border-primary"
-            />
-            {tab === "register" && password.length > 0 && passwordTooShort && (
-              <p className="text-xs text-error">
-                {t("passwordTooShort")}
-              </p>
-            )}
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              {/* Email */}
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="email" className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface">
+                  {t("email")}
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="rounded-md border border-input bg-surface-container-lowest px-3 py-2.5 text-[15px] text-on-surface outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25"
+                />
+              </div>
+
+              {/* Display name (register only) */}
+              {tab === "register" && (
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="displayName" className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface">
+                    {t("displayName")}
+                  </label>
+                  <input
+                    id="displayName"
+                    type="text"
+                    autoComplete="name"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder={t("displayNamePlaceholder")}
+                    className="rounded-md border border-input bg-surface-container-lowest px-3 py-2.5 text-[15px] text-on-surface outline-none transition-colors placeholder:text-on-surface-variant focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25"
+                  />
+                </div>
+              )}
+
+              {/* Password */}
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="password" className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface">
+                  {t("password")}
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  autoComplete={tab === "signin" ? "current-password" : "new-password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  className="rounded-md border border-input bg-surface-container-lowest px-3 py-2.5 text-[15px] text-on-surface outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25"
+                />
+                {tab === "register" && password.length > 0 && passwordTooShort && (
+                  <p className="font-mono text-xs font-semibold text-error">
+                    {t("passwordTooShort")}
+                  </p>
+                )}
+              </div>
+
+              {/* Error */}
+              {error && (
+                <p className="font-mono text-xs font-semibold text-error" role="alert">
+                  {error}
+                </p>
+              )}
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={!canSubmit}
+                className="focus-ring mt-2 rounded-md bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-sheet)] transition-all hover:-translate-y-px hover:shadow-[var(--shadow-sheet-raised)] disabled:opacity-50"
+              >
+                {submitting
+                  ? t("submitting")
+                  : tab === "signin"
+                    ? t("submitSignIn")
+                    : t("submitCreateAccount")}
+              </button>
+            </form>
           </div>
-
-          {/* Error */}
-          {error && (
-            <p className="text-sm text-error" role="alert">
-              {error}
-            </p>
-          )}
-
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            className="mt-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-on-primary-container transition-colors hover:bg-primary-fixed disabled:opacity-50"
-          >
-            {submitting
-              ? t("submitting")
-              : tab === "signin"
-                ? t("submitSignIn")
-                : t("submitCreateAccount")}
-          </button>
-        </form>
+        </div>
       </div>
     </main>
   );

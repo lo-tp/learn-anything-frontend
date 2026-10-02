@@ -105,7 +105,7 @@ export function Root() {
     return (
       <StatePanel
         icon={
-          <Loader2 className="size-8 animate-spin text-tertiary" aria-hidden />
+          <Loader2 className="size-8 animate-spin text-on-surface-variant" aria-hidden />
         }
         title={t("loading.title")}
         note={t("loading.note")}
@@ -123,7 +123,7 @@ export function Root() {
           <button
             type="button"
             onClick={() => void load()}
-            className="mt-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-fixed"
+            className="focus-ring mt-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:-translate-y-px hover:shadow-[var(--shadow-sheet-raised)]"
           >
             {t("retry")}
           </button>
@@ -134,31 +134,41 @@ export function Root() {
 
   return (
     <main className="flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-[1200px] p-8 md:p-margin-page">
+      <div className="mx-auto w-full max-w-[1200px] p-4 md:p-margin-page">
+        {/* Record header band: always the top of the page — the title
+            typeset as a printed form header, closed by the double rule.
+            With no sessions the CTA lives on the blank sheet instead, so
+            the page carries exactly one primary button either way. */}
+        <header className="mb-10 double-rule-b">
+          <div className="flex flex-col gap-6 pb-6 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h1 className="font-display text-3xl font-bold uppercase tracking-[0.04em] text-on-surface">
+                {t("title")}
+              </h1>
+              <p className="mt-3 max-w-2xl text-[15px] text-on-surface-variant">
+                {t("subtitle")}
+              </p>
+            </div>
+            {sessions.length > 0 ? (
+              <StartSessionButton onClick={() => setDialogOpen(true)} />
+            ) : null}
+          </div>
+        </header>
+
         {sessions.length === 0 ? (
           <EmptyState>
             <StartSessionButton onClick={() => setDialogOpen(true)} />
           </EmptyState>
         ) : (
-          <>
-            <div className="mb-12 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-              <div>
-                <h1 className="font-display text-3xl font-semibold tracking-tight text-on-surface">
-                  {t("title")}
-                </h1>
-                <p className="mt-2 max-w-2xl text-lg text-on-surface-variant">
-                  {t("subtitle")}
-                </p>
-              </div>
-              <StartSessionButton onClick={() => setDialogOpen(true)} />
-            </div>
-
-            <div className="flex flex-col gap-4">
-              {sessions.map((session) => (
-                <SessionCard key={session.session_id} session={session} />
+          <div className="flex flex-col gap-4">
+              {sessions.map((session, i) => (
+                <SessionCard
+                  key={session.session_id}
+                  session={session}
+                  delay={Math.min(i * 40, 320)}
+                />
               ))}
             </div>
-          </>
         )}
         <NewSessionDialog
           open={dialogOpen}

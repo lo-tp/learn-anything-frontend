@@ -40,7 +40,7 @@ export function LanguageSwitcher() {
         <button
           type="button"
           aria-label={t("chooseLanguage")}
-          className="flex h-8 items-center gap-1.5 rounded-full px-2.5 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container-highest"
+          className="focus-ring flex h-8 items-center gap-1.5 rounded-md px-2.5 font-mono text-xs font-semibold uppercase tracking-wider text-on-surface-variant transition-colors hover:bg-accent hover:text-on-surface"
         >
           <Globe className="size-4" />
           {currentLabel}

@@ -1,40 +1,49 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 /**
- * The empty History state, per `design/home/empty_state`: a subtle primary
- * glow, a double-ring medallion holding a Sparkles icon, the "No sessions
- * yet" heading, the design's body copy, and — at the bottom — the caller's CTA
- * (`children`), which is the shared primary button supplied by the page.
+ * The empty History state: a blank sheet waiting for its first entry — the
+ * sheet-number slot printed empty ("No. ____"), the title and body copy as
+ * the printed instructions at the top of the form, ruled lines running
+ * through the empty writing space, and the caller's CTA (`children`, the
+ * shared ink block button) at the foot of the sheet. The record header band
+ * above it is rendered by the page in this state too, so the first-time
+ * visitor still reads the page as a study record.
  */
 export function EmptyState({ children }: { children?: React.ReactNode }) {
   const t = useTranslations("home");
   return (
-    <div className="relative flex flex-col items-center justify-center overflow-hidden py-24 text-center">
-      {/* Subtle primary glow behind the content */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/5 blur-[120px]"
-      />
+    <div className="flex flex-col py-4">
+      <div className="relative w-full overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest shadow-[var(--shadow-sheet)]">
+        {/* Punch-hole margin, matching the filled sheets. */}
+        <span aria-hidden className="absolute left-2.5 top-0 bottom-0 flex flex-col justify-center gap-6">
+          {[0, 1, 2].map((i) => (
+            <span key={i} className="block size-2 rounded-full border border-outline-variant/70 bg-surface" />
+          ))}
+        </span>
 
-      <div className="relative z-10 flex w-full max-w-md flex-col items-center text-center">
-        {/* Double-ring icon medallion */}
-        <div className="relative mb-8 flex h-24 w-24 items-center justify-center">
-          <div className="absolute inset-0 rotate-3 rounded-full border border-outline-variant bg-surface-container-high shadow-[0_4px_20px_rgba(0,0,0,0.4)]" />
-          <div className="absolute inset-0 -rotate-6 rounded-full border border-outline-variant/50 bg-surface-container-highest" />
-          <Sparkles className="relative z-10 size-12 text-primary" strokeWidth={1.5} />
+        {/* Sheet header strip: the empty number slot, ruled from where a
+            date would sit on a filed sheet. */}
+        <div className="flex items-baseline justify-between gap-4 border-b border-outline-variant/60 py-2 pr-6 pl-10">
+          <span aria-hidden className="font-mono text-xs font-semibold tracking-[0.14em] text-error">
+            No. ____
+          </span>
         </div>
 
-        <h2 className="mb-4 font-display text-3xl font-semibold tracking-tight text-on-surface">
-          {t("emptyTitle")}
-        </h2>
-        <p className="mx-auto max-w-[360px] text-lg leading-relaxed text-on-surface-variant">
-          {t("emptyBody")}
-        </p>
+        <div className="px-6 pt-6 pb-4 pl-10 md:px-10">
+          <h2 className="font-display text-2xl font-bold text-on-surface">
+            {t("emptyTitle")}
+          </h2>
+          <p className="mt-2 max-w-md text-[15px] leading-relaxed text-on-surface-variant">
+            {t("emptyBody")}
+          </p>
+        </div>
 
-        {children ? <div className="mt-10">{children}</div> : null}
+        {/* The blank writing area: ruled paper, waiting. */}
+        <div aria-hidden className="ruled-paper mx-6 mb-6 h-28 border border-dashed border-outline-variant/60 rounded-md md:mx-10" />
+
+        {children ? <div className="px-6 pb-8 pl-10 md:px-10">{children}</div> : null}
       </div>
     </div>
   );

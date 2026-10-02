@@ -146,7 +146,7 @@ export function Session({ sessionId }: { sessionId: string }) {
   const backToSessions = (
     <Link
       href="/"
-      className="mt-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-fixed"
+      className="focus-ring mt-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:-translate-y-px hover:shadow-[var(--shadow-sheet-raised)]"
     >
       {t("backToSessions")}
     </Link>
@@ -185,7 +185,7 @@ export function Session({ sessionId }: { sessionId: string }) {
     return (
       <StatePanel
         icon={
-          <Loader2 className="size-8 animate-spin text-tertiary" aria-hidden />
+          <Loader2 className="size-8 animate-spin text-on-surface-variant" aria-hidden />
         }
         title={t("loading.title")}
         note={t("loading.note")}
@@ -239,7 +239,7 @@ export function Session({ sessionId }: { sessionId: string }) {
     return (
       <StatePanel
         icon={
-          <Loader2 className="size-8 animate-spin text-tertiary" aria-hidden />
+          <Loader2 className="size-8 animate-spin text-on-surface-variant" aria-hidden />
         }
         title={t("generating.title")}
         note={
@@ -260,8 +260,8 @@ export function Session({ sessionId }: { sessionId: string }) {
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-outline-variant bg-surface px-6">
-          <span className="truncate text-sm font-medium text-on-surface">
+        <header className="flex h-16 shrink-0 items-center justify-between gap-4 bg-surface px-6 double-rule-b">
+          <span className="min-w-0 flex-1 truncate font-display text-base font-semibold text-on-surface">
             {session.narrowed_goal ?? t("learningSession")}
           </span>
           <PhaseIndicator phase={phase} />

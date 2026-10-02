@@ -74,10 +74,12 @@ describe("Root (home History)", () => {
     mockListSessions.mockResolvedValue({ sessions: [] });
     renderWithLocale(<Root />);
     expect(await screen.findByText("No sessions yet")).toBeTruthy();
-    // Header hidden ⇒ the only 'Start New Session' button must be the one the
-    // empty state renders at the bottom.
-    expect(screen.queryByText("My Sessions")).toBeNull();
-    expect(screen.getByRole("button", { name: /Start New Session/ })).toBeTruthy();
+    // The record header band is present even when empty (the first viewport
+    // reads as a study record); the ONLY 'Start New Session' button is the
+    // one the empty sheet renders at the bottom.
+    expect(screen.getByText("My Sessions")).toBeTruthy();
+    const ctas = screen.getAllByRole("button", { name: /Start New Session/ });
+    expect(ctas).toHaveLength(1);
   });
 
   it("fetches the History on mount and shows the 'My Sessions' header with session cards", async () => {

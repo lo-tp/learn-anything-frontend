@@ -90,7 +90,7 @@ export function AccountMenu() {
           <button
             type="button"
             aria-label={displayName}
-            className="flex size-8 items-center justify-center rounded-full bg-primary text-sm font-semibold text-on-primary-container"
+            className="focus-ring flex size-8 items-center justify-center rounded-[3px] border border-outline-variant bg-surface-container-lowest font-mono text-sm font-bold text-primary shadow-[var(--shadow-sheet)]"
           >
             {initial}
           </button>
@@ -120,7 +120,7 @@ export function AccountMenu() {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               placeholder={t("namePlaceholder")}
-              className="rounded-lg border border-surface-variant bg-surface px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
+              className="rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/25"
             />
             {error && (
               <p className="text-sm text-error" role="alert">

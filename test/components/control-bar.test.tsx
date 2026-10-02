@@ -10,18 +10,18 @@ afterEach(() => {
 });
 
 describe("ControlBar", () => {
-  it("renders the counter as 'index / total'", () => {
+  it("renders the counter as zero-padded 'index / total'", () => {
     renderWithLocale(<ControlBar index={1} total={7} onPrev={noop} onNext={noop} />);
-    expect(screen.getByText("1")).toBeTruthy();
+    expect(screen.getByText("01")).toBeTruthy();
     expect(screen.getByText("/")).toBeTruthy();
-    expect(screen.getByText("7")).toBeTruthy();
+    expect(screen.getByText("07")).toBeTruthy();
   });
 
   it("drives the counter from its props", () => {
     cleanup();
     renderWithLocale(<ControlBar index={3} total={9} onPrev={noop} onNext={noop} />);
-    expect(screen.getByText("3")).toBeTruthy();
-    expect(screen.getByText("9")).toBeTruthy();
+    expect(screen.getByText("03")).toBeTruthy();
+    expect(screen.getByText("09")).toBeTruthy();
   });
 
   it("renders prev and next buttons", () => {

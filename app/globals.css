@@ -6,8 +6,40 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Keyboard focus ring — the single visible-focus treatment for the app's
+ * custom controls (shadcn primitives carry their own ring via Button).
+ * Uses the theme's --ring token: paper ink on the night desk, print ink on
+ * exam paper. */
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Ruled paper — the lined-form surface for the intake transcript, the
+ * goal textarea, and the empty sheet. `local` keeps the rules aligned to
+ * the panel's own scroll, the way a printed form does. */
+@utility ruled-paper {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 31px,
+    var(--outline-variant) 31px,
+    var(--outline-variant) 32px
+  );
+  background-attachment: local;
+}
+
+/* Double rule — the printed divider used under record headers and the top
+ * bar: a 1px rule with a hairline echo 3px below it. */
+@utility double-rule-b {
+  border-bottom: 1px solid var(--outline-variant);
+  box-shadow: 0 3px 0 -2px var(--outline-variant);
+}
+
 @theme inline {
-  /* Design tokens — palette ported from design/session/design.html */
+  /* Design tokens — palette ported from public/palette.css */
   --color-background: var(--background);
   --color-on-background: var(--on-background);
   --color-surface: var(--surface);
@@ -86,22 +118,32 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Fonts (loaded in app/layout.tsx via next/font/google) */
-  --font-sans: var(--font-geist);
-  --font-mono: var(--font-jetbrains-mono);
-  --font-display: var(--font-geist);
-  --font-label: var(--font-jetbrains-mono);
-  --font-code: var(--font-jetbrains-mono);
+  /* Fonts (loaded in app/[locale]/layout.tsx via next/font/google).
+   * CJK falls through to the platform's Chinese UI face after the Latin
+   * workhorse — the zh rendering is a system face, not a webfont. */
+  --font-sans: var(--font-source-sans), "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "PingFang SC", ui-monospace,
+    monospace;
+  --font-display: var(--font-archivo), "PingFang SC", "Microsoft YaHei",
+    ui-sans-serif, system-ui, sans-serif;
+  --font-label: var(--font-jetbrains-mono), "PingFang SC", ui-monospace,
+    monospace;
+  --font-code: var(--font-jetbrains-mono), ui-monospace, monospace;
 
   /* Spacing from the design system */
   --spacing-margin-page: 2rem;
   --spacing-gutter: 1.5rem;
 
-  /* Radii from the design system */
-  --radius-sm: 0.25rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
+  /* Radii from the design system — a pressed form is square-cut:
+   * form geometry stays at or below 8px; full rounding belongs to bubbles. */
+  --radius-sm: 0.125rem;
+  --radius-md: 0.25rem;
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.5rem;
+  --radius-3xl: 0.5rem;
+  --radius-4xl: 0.5rem;
   --radius-full: 9999px;
 }
 
@@ -111,36 +153,47 @@
   /* Native form controls & scrollbars follow the theme. */
   color-scheme: dark;
 
-  /* shadcn/ui semantic mappings onto the design palette */
-  --foreground: #d8e3fb;
-  --card: #152031;
-  --card-foreground: #d8e3fb;
-  --popover: #152031;
-  --popover-foreground: #d8e3fb;
-  --primary-foreground: #1000a9;
-  --secondary-foreground: #131b2e;
-  --muted: #1f2a3c;
-  --muted-foreground: #c7c4d7;
-  --accent: #3f465c;
-  --accent-foreground: #adb4ce;
-  --destructive: #ffb4ab;
-  --border: #464554;
-  --input: #464554;
-  --ring: #c0c1ff;
-  --chart-1: #c0c1ff;
-  --chart-2: #8083ff;
-  --chart-3: #bec6e0;
-  --chart-4: #8e9193;
-  --chart-5: #464554;
+  /* shadcn/ui semantic mappings onto the design palette (night desk) */
+  --foreground: #e7ebde;
+  --card: #242920;
+  --card-foreground: #e7ebde;
+  --popover: #242920;
+  --popover-foreground: #e7ebde;
+  --primary-foreground: #14170f;
+  --secondary-foreground: #14170f;
+  --muted: #22261c;
+  --muted-foreground: #aab0a0;
+  --accent: #333829;
+  --accent-foreground: #cdd4c0;
+  --destructive: #e0765c;
+  --border: #3c4133;
+  --input: #3c4133;
+  --ring: #cdd4c0;
+  --chart-1: #e7ebde;
+  --chart-2: #85b896;
+  --chart-3: #e0765c;
+  --chart-4: #aab69c;
+  --chart-5: #3c4133;
   --radius: 0.25rem;
-  --sidebar: #111c2d;
-  --sidebar-foreground: #d8e3fb;
-  --sidebar-primary: #c0c1ff;
-  --sidebar-primary-foreground: #1000a9;
-  --sidebar-accent: #3f465c;
-  --sidebar-accent-foreground: #adb4ce;
-  --sidebar-border: #464554;
-  --sidebar-ring: #c0c1ff;
+  --sidebar: #141710;
+  --sidebar-foreground: #e7ebde;
+  --sidebar-primary: #e7ebde;
+  --sidebar-primary-foreground: #14170f;
+  --sidebar-accent: #333829;
+  --sidebar-accent-foreground: #cdd4c0;
+  --sidebar-border: #3c4133;
+  --sidebar-ring: #cdd4c0;
+
+  /* Sheet elevation — the press depth of paper on a desk. Shadows carry an
+   * offset and a soft blur; the first line is the sheet's edge contact. */
+  --shadow-sheet: 0 1px 0 color-mix(in oklab, var(--outline-variant) 80%, transparent),
+    0 2px 5px -2px color-mix(in oklab, #000 45%, transparent);
+  --shadow-sheet-raised: 0 2px 0 color-mix(in oklab, var(--outline-variant) 90%, transparent),
+    0 8px 18px -6px color-mix(in oklab, #000 55%, transparent);
+
+  /* Highlighter — the pale marker wash that highlights the learner's own
+   * narrowed goal in the intake transcript. */
+  --marker: color-mix(in oklab, #d9bd6e 36%, transparent);
 }
 
 /* shadcn/ui semantic light mappings, applied when <html> carries the
@@ -148,45 +201,150 @@
  * the light palette tokens it pairs with live in public/palette.css. */
 .light {
   color-scheme: light;
-  --foreground: #131b2e;
-  --card: #ffffff;
-  --card-foreground: #131b2e;
-  --popover: #ffffff;
-  --popover-foreground: #131b2e;
-  --primary-foreground: #ffffff;
-  --secondary-foreground: #ffffff;
-  --muted: #f2f3ff;
-  --muted-foreground: #434655;
-  --accent: #eaedff;
-  --accent-foreground: #131b2e;
-  --destructive: #ba1a1a;
-  --border: #c3c6d7;
-  --input: #c3c6d7;
-  --ring: #004ac6;
-  --chart-1: #004ac6;
-  --chart-2: #2563eb;
-  --chart-3: #00687a;
-  --chart-4: #7d4ce7;
-  --chart-5: #c3c6d7;
-  --sidebar: #f2f3ff;
-  --sidebar-foreground: #131b2e;
-  --sidebar-primary: #004ac6;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #eaedff;
-  --sidebar-accent-foreground: #131b2e;
-  --sidebar-border: #c3c6d7;
-  --sidebar-ring: #004ac6;
+  --foreground: #1f231a;
+  --card: #fcfaf1;
+  --card-foreground: #1f231a;
+  --popover: #fcfaf1;
+  --popover-foreground: #1f231a;
+  --primary-foreground: #fcfaf1;
+  --secondary-foreground: #f7f4e9;
+  --muted: #e8e5da;
+  --muted-foreground: #4b4839;
+  --accent: #e4e1d4;
+  --accent-foreground: #1f231a;
+  --destructive: #b3382b;
+  --border: #c9c5b4;
+  --input: #c9c5b4;
+  --ring: #1f231a;
+  --chart-1: #1f231a;
+  --chart-2: #2e6b45;
+  --chart-3: #b3382b;
+  --chart-4: #565141;
+  --chart-5: #c9c5b4;
+  --sidebar: #f7f4e9;
+  --sidebar-foreground: #1f231a;
+  --sidebar-primary: #1f231a;
+  --sidebar-primary-foreground: #fcfaf1;
+  --sidebar-accent: #e4e1d4;
+  --sidebar-accent-foreground: #1f231a;
+  --sidebar-border: #c9c5b4;
+  --sidebar-ring: #1f231a;
+
+  --shadow-sheet: 0 1px 0 color-mix(in oklab, var(--outline-variant) 90%, transparent),
+    0 2px 5px -2px color-mix(in oklab, var(--on-surface) 22%, transparent);
+  --shadow-sheet-raised: 0 2px 0 var(--outline-variant),
+    0 8px 18px -6px color-mix(in oklab, var(--on-surface) 30%, transparent);
+
+  --marker: color-mix(in oklab, #d9bd6e 52%, transparent);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    /* Scrollbars carry the palette instead of the OS default. */
+    scrollbar-width: thin;
+    scrollbar-color: var(--outline-variant) transparent;
   }
   body {
     @apply bg-background text-on-background;
+    /* Paper grain — the 3% texture that says "sheet", not "panel". */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3Crect width='140' height='140' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
   }
   html {
     @apply font-sans;
+    caret-color: var(--primary);
+  }
+  ::selection {
+    background-color: color-mix(in oklab, var(--primary) 20%, transparent);
+  }
+}
+
+/* ── The Answer Sheet motion grammar ──────────────────────────────
+ * Three authored moments, used consistently, never scattered:
+ *  - bubble-fill: a progress bubble inks in (quiz answers, rail steps).
+ *  - stamp-press: a stamp control settles from a slight overshoot.
+ *  - sheet-settle: a sheet card lands on the desk on first paint.
+ * All exponential ease-out from an already-visible default. */
+@keyframes bubble-fill {
+  from {
+    transform: scale(0.5);
+    opacity: 0.4;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes stamp-press {
+  from {
+    transform: scale(1.08) rotate(-4deg);
+    opacity: 0.5;
+    filter: blur(1px);
+  }
+  to {
+    transform: scale(1) rotate(-2deg);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+@keyframes sheet-settle {
+  from {
+    transform: translateY(6px);
+    opacity: 0.85;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes pen-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes dot-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.animate-bubble-fill {
+  animation: bubble-fill 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-stamp-press {
+  animation: stamp-press 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-sheet-settle {
+  animation: sheet-settle 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+/* Red-pen strokes (PenCross): normalized pathLength dash, second stroke
+ * follows the first by 140ms. */
+.pen-stroke {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: pen-draw 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.pen-stroke-2 {
+  animation-delay: 140ms;
+}
+.animate-dot-breathe {
+  animation: dot-breathe 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-bubble-fill,
+  .animate-stamp-press,
+  .animate-sheet-settle,
+  .pen-stroke,
+  .animate-dot-breathe {
+    animation: none;
   }
 }
 
@@ -195,23 +353,11 @@
   --tw-prose-body: var(--on-surface-variant);
   --tw-prose-headings: var(--on-surface);
   --tw-prose-bold: var(--on-surface);
-  --tw-prose-links: var(--primary);
+  --tw-prose-links: var(--secondary);
   --tw-prose-code: var(--secondary);
   --tw-prose-counters: var(--on-surface-variant);
   --tw-prose-bullets: var(--outline);
   --tw-prose-quotes: var(--on-surface);
   --tw-prose-quote-borders: var(--outline);
   --tw-prose-hr: var(--outline-variant);
-}
-
-/* Slim scrollbars, per the design. */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 8px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: var(--outline-variant);
-  border-radius: 4px;
 }
