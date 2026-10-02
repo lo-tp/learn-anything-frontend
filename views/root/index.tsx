@@ -139,7 +139,13 @@ export function Root() {
             typeset as a printed form header, closed by the double rule.
             With no sessions the CTA lives on the blank sheet instead, so
             the page carries exactly one primary button either way. */}
-        <header className="mb-10 double-rule-b">
+        <header className="relative mb-10 double-rule-b">
+          {/* The Colour Press's dot screen behind the CTA end of the band —
+              the header is printed, not pasted on. */}
+          <span
+            aria-hidden
+            className="halftone pointer-events-none absolute top-0 right-0 hidden h-full w-56 text-engage opacity-[0.13] md:block"
+          />
           <div className="flex flex-col gap-6 pb-6 md:flex-row md:items-end md:justify-between">
             <div>
               <h1 className="font-display text-3xl font-bold uppercase tracking-[0.04em] text-on-surface">

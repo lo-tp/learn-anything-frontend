@@ -43,11 +43,11 @@ export function TopBarTabs() {
             className={cn(
               "flex items-center gap-2 rounded-md px-2 py-2 font-mono text-xs font-semibold uppercase tracking-[0.12em] transition-colors focus-ring md:px-3 md:text-sm",
               active
-                ? "text-primary"
+                ? "text-engage"
                 : "text-on-surface-variant hover:text-on-surface",
             )}
           >
-            <Bubble state={active ? "filled" : "empty"} />
+            <Bubble state={active ? "active" : "empty"} />
             {t(key)}
           </Link>
         );

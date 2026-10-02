@@ -363,7 +363,7 @@ function planSteps(plan: PlanBody) {
         <li key={step.id} className="flex items-start gap-2.5 py-2">
           <span
             aria-hidden
-            className="mt-0.5 font-mono text-xs font-bold text-primary"
+            className="mt-0.5 font-mono text-xs font-bold text-engage"
           >
             {step.letter}.
           </span>

@@ -1,133 +1,163 @@
 /* /palette.css — design palette tokens, served for cross-origin iframe use.
  *
- * The Answer Sheet world: a two-ink press on paper.
- * - Ink (near-black) carries primary actions and filled bubbles.
- * - Red pen marks ONLY misses, corrections, and reveals.
- * - Stamp green marks ONLY verified / passed states.
- * - Pencil (olive-gray) is meta, pending, and rules.
+ * The Colour Press world: a riso-style multicolor print on paper. The
+ * structure stays printed in ink; curiosity is carried by reserved spot
+ * colors, each with a strict role:
+ * - Ink (near-black) carries structure, primary actions, filled bubbles.
+ * - Engagement blue marks ONLY activity and interaction: focus, current
+ *   steps, running phases, active navigation.
+ * - Riso pink-red marks ONLY misses, corrections, and reveals.
+ * - Riso green marks ONLY verified / passed states.
+ * - Riso yellow is the highlighter on the learner's own words.
+ * - Pencil is meta, pending, and rules.
+ * - Inquiry inks (blue/flame/violet/ochre) give each inquiry its identity
+ *   on its sheets — a color-coded map of what you are curious about.
+ * Correction pink and verified green are never inquiry inks.
  *
- * `:root` is the dark palette — the "night desk" rendition — and the
- * default for any consumer that never adds a class (sandbox pages today,
- * no-JS fallback). The `.light` block below carries the light "exam paper"
- * values for consumers that opt in by adding the `light` class to `<html>`.
+ * `:root` is the dark palette — the "night desk" rendition with fluorescent
+ * inks — and the default for any consumer that never adds a class. The
+ * `.light` block carries the light "riso paper" values for consumers that
+ * opt in by adding the `light` class to `<html>`.
  */
 
 :root {
   /* Night desk & sheets */
-  --background: #191c15;
-  --on-background: #e7ebde;
-  --surface: #191c15;
-  --surface-dim: #141710;
-  --surface-bright: #2a2f23;
-  --surface-variant: #333829;
-  --surface-tint: #cdd4c0;
-  --surface-container-lowest: #121510;
-  --surface-container-low: #1e2218;
-  --surface-container: #242920;
-  --surface-container-high: #2a2f23;
-  --surface-container-highest: #333829;
-  --on-surface: #e7ebde;
-  --on-surface-variant: #aab0a0;
+  --background: #17131f;
+  --on-background: #f2e8d8;
+  --surface: #17131f;
+  --surface-dim: #120e19;
+  --surface-bright: #2c2439;
+  --surface-variant: #372e47;
+  --surface-tint: #d9cbb6;
+  --surface-container-lowest: #100c17;
+  --surface-container-low: #1d1727;
+  --surface-container: #241d30;
+  --surface-container-high: #2c2439;
+  --surface-container-highest: #372e47;
+  --on-surface: #f2e8d8;
+  --on-surface-variant: #b6ab9d;
 
-  /* Primary on the night desk: paper ink (inverted print) */
-  --primary: #e7ebde;
-  --on-primary: #14170f;
-  --primary-container: #cdd4c0;
-  --on-primary-container: #14170f;
-  --primary-fixed: #cdd4c0;
-  --primary-fixed-dim: #aab0a0;
-  --on-primary-fixed: #101309;
-  --on-primary-fixed-variant: #3a402f;
-  --inverse-primary: #3a402f;
+  /* Primary on the night desk: paper (inverted print) */
+  --primary: #f2e8d8;
+  --on-primary: #17131f;
+  --primary-container: #d9cbb6;
+  --on-primary-container: #17131f;
+  --primary-fixed: #d9cbb6;
+  --primary-fixed-dim: #b6ab9d;
+  --on-primary-fixed: #100c17;
+  --on-primary-fixed-variant: #372e47;
+  --inverse-primary: #3f3552;
 
   /* Pencil (meta / pending) */
-  --secondary: #aab69c;
-  --on-secondary: #14170f;
-  --secondary-container: #333a2b;
-  --on-secondary-container: #c2cbb4;
-  --secondary-fixed: #c2cbb4;
-  --secondary-fixed-dim: #aab69c;
-  --on-secondary-fixed: #10140a;
-  --on-secondary-fixed-variant: #3f4636;
+  --secondary: #a89b8a;
+  --on-secondary: #17131f;
+  --secondary-container: #3a3145;
+  --on-secondary-container: #d9cbb6;
+  --secondary-fixed: #d9cbb6;
+  --secondary-fixed-dim: #a89b8a;
+  --on-secondary-fixed: #100c17;
+  --on-secondary-fixed-variant: #453c55;
 
-  /* Stamp green (verified / passed only) */
-  --tertiary: #85b896;
-  --on-tertiary: #0f2417;
-  --tertiary-container: #2d4734;
-  --on-tertiary-container: #cde2d3;
-  --tertiary-fixed: #cde2d3;
-  --tertiary-fixed-dim: #85b896;
-  --on-tertiary-fixed: #0c2013;
-  --on-tertiary-fixed-variant: #1e3b28;
+  /* Riso green (verified / passed only) */
+  --tertiary: #3fc578;
+  --on-tertiary: #08170e;
+  --tertiary-container: #143821;
+  --on-tertiary-container: #b9e6c8;
+  --tertiary-fixed: #b9e6c8;
+  --tertiary-fixed-dim: #3fc578;
+  --on-tertiary-fixed: #08170e;
+  --on-tertiary-fixed-variant: #1c4d2e;
 
-  /* Red pen (misses / corrections / reveals only) */
-  --error: #e0765c;
-  --on-error: #2b0e07;
-  --error-container: #4d2118;
-  --on-error-container: #f2dbd4;
+  /* Riso pink-red (misses / corrections / reveals only) */
+  --error: #f5578d;
+  --on-error: #21060f;
+  --error-container: #4b1027;
+  --on-error-container: #f7c9d9;
 
-  --inverse-surface: #e7ebde;
-  --inverse-on-surface: #262b20;
-  --outline: #8f9683;
-  --outline-variant: #3c4133;
+  /* Engagement blue (activity / interaction only: focus, current, running) */
+  --engage: #58a6ff;
+  --on-engage: #0a1526;
+
+  /* Inquiry inks — per-inquiry identity spot colors (never pink/green) */
+  --inq-blue: #58a6ff;
+  --inq-flame: #ff8a4d;
+  --inq-violet: #b39aff;
+  --inq-ochre: #e8b95c;
+  --on-inq: #17131f;
+
+  --inverse-surface: #f2e8d8;
+  --inverse-on-surface: #241d30;
+  --outline: #9a8fa0;
+  --outline-variant: #453c55;
 }
 
 .light {
-  /* Exam paper ground & sheets — warm card stock, per the approved card */
-  --background: #f0eee3;
-  --on-background: #1f231a;
-  --surface: #f0eee3;
-  --surface-dim: #e8e5da;
-  --surface-bright: #e4e1d4;
-  --surface-variant: #e4e1d4;
-  --surface-tint: #1f231a;
-  --surface-container-lowest: #fcfaf1;
-  --surface-container-low: #f7f4e9;
-  --surface-container: #f2efe4;
-  --surface-container-high: #e9e5d8;
-  --surface-container-highest: #e1ddd0;
-  --on-surface: #1f231a;
-  --on-surface-variant: #4b4839;
+  /* Riso paper ground & sheets — warm press paper */
+  --background: #f8f2e6;
+  --on-background: #181420;
+  --surface: #f8f2e6;
+  --surface-dim: #f1e9da;
+  --surface-bright: #efe6d4;
+  --surface-variant: #efe6d4;
+  --surface-tint: #181420;
+  --surface-container-lowest: #fffaf0;
+  --surface-container-low: #fcf5e8;
+  --surface-container: #f7efdf;
+  --surface-container-high: #efe6d4;
+  --surface-container-highest: #e7dcc7;
+  --on-surface: #181420;
+  --on-surface-variant: #4d4438;
 
   /* Primary: print ink */
-  --primary: #1f231a;
-  --on-primary: #fcfaf1;
-  --primary-container: #2c3125;
-  --on-primary-container: #f7f4e9;
-  --primary-fixed: #2c3125;
-  --primary-fixed-dim: #3b4134;
-  --on-primary-fixed: #f7f4e9;
-  --on-primary-fixed-variant: #e9e5d8;
-  --inverse-primary: #d9decb;
+  --primary: #181420;
+  --on-primary: #fffaf0;
+  --primary-container: #2a2430;
+  --on-primary-container: #fcf5e8;
+  --primary-fixed: #2a2430;
+  --primary-fixed-dim: #3f3552;
+  --on-primary-fixed: #fcf5e8;
+  --on-primary-fixed-variant: #efe6d4;
+  --inverse-primary: #d9cbb6;
 
   /* Pencil (meta / pending) */
-  --secondary: #565141;
-  --on-secondary: #f7f4e9;
-  --secondary-container: #e1ddd0;
-  --on-secondary-container: #403c2f;
-  --secondary-fixed: #e1ddd0;
-  --secondary-fixed-dim: #565141;
-  --on-secondary-fixed: #262318;
-  --on-secondary-fixed-variant: #403c2f;
+  --secondary: #5f5643;
+  --on-secondary: #fcf5e8;
+  --secondary-container: #e7dcc7;
+  --on-secondary-container: #453c2e;
+  --secondary-fixed: #e7dcc7;
+  --secondary-fixed-dim: #5f5643;
+  --on-secondary-fixed: #241d10;
+  --on-secondary-fixed-variant: #453c2e;
 
-  /* Stamp green (verified / passed only) */
-  --tertiary: #2e6b45;
-  --on-tertiary: #f7f4e9;
-  --tertiary-container: #d5e4d9;
-  --on-tertiary-container: #1e4a2d;
-  --tertiary-fixed: #d5e4d9;
-  --tertiary-fixed-dim: #2e6b45;
-  --on-tertiary-fixed: #10281a;
-  --on-tertiary-fixed-variant: #1e4a2d;
+  /* Riso green (verified / passed only) */
+  --tertiary: #167a3f;
+  --on-tertiary: #fffaf0;
+  --tertiary-container: #c9e8d2;
+  --on-tertiary-container: #0d4d26;
+  --tertiary-fixed: #c9e8d2;
+  --tertiary-fixed-dim: #167a3f;
+  --on-tertiary-fixed: #072b14;
+  --on-tertiary-fixed-variant: #0d4d26;
 
-  /* Red pen (misses / corrections / reveals only) */
-  --error: #b3382b;
-  --on-error: #fcfaf1;
-  --error-container: #f1dcd5;
-  --on-error-container: #7a2317;
+  /* Riso pink-red (misses / corrections / reveals only) */
+  --error: #c81e5b;
+  --on-error: #fffaf0;
+  --error-container: #f9dbe4;
+  --on-error-container: #7c1233;
 
-  --inverse-surface: #1f231a;
-  --inverse-on-surface: #e8e5da;
-  --outline: #6d6959;
-  --outline-variant: #c9c5b4;
+  /* Engagement blue (activity / interaction only) */
+  --engage: #1450a3;
+  --on-engage: #fffaf0;
+
+  /* Inquiry inks — per-inquiry identity spot colors (deep print variants) */
+  --inq-blue: #1450a3;
+  --inq-flame: #c2410c;
+  --inq-violet: #5b3fb2;
+  --inq-ochre: #8a6a00;
+  --on-inq: #fffaf0;
+
+  --inverse-surface: #181420;
+  --inverse-on-surface: #efe6d4;
+  --outline: #6b6053;
+  --outline-variant: #d3c6b0;
 }

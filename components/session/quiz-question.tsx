@@ -135,7 +135,7 @@ export function QuizQuestion({
                       ? "border-error/60 bg-error-container/40"
                       : "border-outline-variant/50 opacity-45"
                   : interactive
-                    ? "border-outline-variant bg-surface-container-lowest hover:border-primary"
+                    ? "border-outline-variant bg-surface-container-lowest hover:border-engage"
                     : "border-outline-variant bg-surface-container-lowest",
               )}
             >

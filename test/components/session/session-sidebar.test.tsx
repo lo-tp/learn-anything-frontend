@@ -38,7 +38,7 @@ afterEach(() => {
 
 describe("SessionSidebar", () => {
   it("renders the step divider and one card per item", () => {
-    renderWithLocale(<SessionSidebar groups={groups} activeIndex={0} onSelect={() => {}} />);
+    renderWithLocale(<SessionSidebar groups={groups} activeIndex={0} onSelect={() => {}} inquiryId="sess-1" />);
     expect(screen.getByText("Force and mass")).toBeTruthy();
     expect(screen.getByRole("button", { name: /^slide 1$/i })).toBeTruthy();
     expect(
@@ -48,7 +48,7 @@ describe("SessionSidebar", () => {
 
   it("previews the slide card's sandbox route scaled down", () => {
     const { container } = renderWithLocale(
-      <SessionSidebar groups={groups} activeIndex={0} onSelect={() => {}} />,
+      <SessionSidebar groups={groups} activeIndex={0} onSelect={() => {}} inquiryId="sess-1" />,
     );
     const frame = container.querySelector("iframe");
     expect(frame).toBeTruthy();
@@ -59,14 +59,14 @@ describe("SessionSidebar", () => {
   });
 
   it("previews the question card's full content (prompt and options)", () => {
-    renderWithLocale(<SessionSidebar groups={groups} activeIndex={0} onSelect={() => {}} />);
+    renderWithLocale(<SessionSidebar groups={groups} activeIndex={0} onSelect={() => {}} inquiryId="sess-1" />);
     // The options exist only in the preview — the main area isn't rendered here.
     expect(screen.getByText("Friction")).toBeTruthy();
     expect(screen.getByText("Force")).toBeTruthy();
   });
 
   it("keeps the previews out of the accessibility tree", () => {
-    renderWithLocale(<SessionSidebar groups={groups} activeIndex={0} onSelect={() => {}} />);
+    renderWithLocale(<SessionSidebar groups={groups} activeIndex={0} onSelect={() => {}} inquiryId="sess-1" />);
     // The preview's option buttons are aria-hidden; only the two cards
     // plus nothing else expose the button role.
     expect(screen.queryAllByRole("button")).toHaveLength(2);
@@ -74,7 +74,7 @@ describe("SessionSidebar", () => {
 
   it("reports the clicked item's flat index", () => {
     const onSelect = vi.fn();
-    renderWithLocale(<SessionSidebar groups={groups} activeIndex={0} onSelect={onSelect} />);
+    renderWithLocale(<SessionSidebar groups={groups} activeIndex={0} onSelect={onSelect} inquiryId="sess-1" />);
     fireEvent.click(
       screen.getByRole("button", { name: /what does f stand for\?/i }),
     );
@@ -87,7 +87,7 @@ describe("SessionSidebar", () => {
     const scrollIntoView = vi.mocked(HTMLElement.prototype.scrollIntoView);
     const Harness = () => {
       const [i, setI] = useState(0);
-      return <SessionSidebar groups={groups} activeIndex={i} onSelect={setI} />;
+      return <SessionSidebar groups={groups} activeIndex={i} onSelect={setI} inquiryId="sess-1" />;
     };
     renderWithLocale(<Harness />);
     scrollIntoView.mockClear(); // ignore the mount scroll
@@ -106,7 +106,7 @@ describe("SessionSidebar", () => {
 
   it("selects the card on Enter, Space, and ignores other keys", () => {
     const onSelect = vi.fn();
-    renderWithLocale(<SessionSidebar groups={groups} activeIndex={0} onSelect={onSelect} />);
+    renderWithLocale(<SessionSidebar groups={groups} activeIndex={0} onSelect={onSelect} inquiryId="sess-1" />);
     const card = screen.getByRole("button", { name: /what does f stand for\?/i });
 
     fireEvent.keyDown(card, { key: "Enter" });
@@ -122,7 +122,7 @@ describe("SessionSidebar", () => {
   });
 
   it("routes a preview option click to the quiz preview's onSelect", () => {
-    renderWithLocale(<SessionSidebar groups={groups} activeIndex={0} onSelect={() => {}} />);
+    renderWithLocale(<SessionSidebar groups={groups} activeIndex={0} onSelect={() => {}} inquiryId="sess-1" />);
     // The preview's option buttons are aria-hidden, so reach them by text.
     const option = screen.getByText("Friction").closest("button")!;
     expect(option).toBeTruthy();
@@ -130,7 +130,7 @@ describe("SessionSidebar", () => {
   });
 
   it("marks the active card with aria-current", () => {
-    renderWithLocale(<SessionSidebar groups={groups} activeIndex={1} onSelect={() => {}} />);
+    renderWithLocale(<SessionSidebar groups={groups} activeIndex={1} onSelect={() => {}} inquiryId="sess-1" />);
     expect(
       screen
         .getByRole("button", { name: /what does f stand for\?/i })

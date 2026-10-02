@@ -81,13 +81,18 @@ export function LoginView() {
         {/* The registration sheet: a paper card whose masthead carries the
             wordmark, closed with the printed double rule. */}
         <div className="overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest shadow-[var(--shadow-sheet)]">
-          <div className="px-8 pt-8 pb-5 double-rule-b">
+          <div className="relative px-8 pt-8 pb-5 double-rule-b">
             <Link
               href="/"
               className="focus-ring inline-block rounded-sm font-display text-lg font-bold uppercase tracking-[0.12em] text-primary"
             >
               Learn Anything
             </Link>
+            {/* The press's own dot screen, printed beside the wordmark. */}
+            <span
+              aria-hidden
+              className="halftone absolute top-7 right-7 size-10 text-engage opacity-25"
+            />
           </div>
 
           <div className="p-8 pt-6">

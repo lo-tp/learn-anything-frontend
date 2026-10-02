@@ -8,8 +8,8 @@
 
 /* Keyboard focus ring — the single visible-focus treatment for the app's
  * custom controls (shadcn primitives carry their own ring via Button).
- * Uses the theme's --ring token: paper ink on the night desk, print ink on
- * exam paper. */
+ * Uses the theme's --ring token: engagement blue in both themes — focus is
+ * interaction, and interaction belongs to the blue. */
 @utility focus-ring {
   &:focus-visible {
     outline: 2px solid var(--ring);
@@ -36,6 +36,14 @@
 @utility double-rule-b {
   border-bottom: 1px solid var(--outline-variant);
   box-shadow: 0 3px 0 -2px var(--outline-variant);
+}
+
+/* Halftone — the riso press's dot screen. A field of dots in the current
+ * text color, kept at low opacity behind header bands. Decoration with a
+ * relationship: it names the press this world prints with. */
+@utility halftone {
+  background-image: radial-gradient(currentColor 1.1px, transparent 1.2px);
+  background-size: 7px 7px;
 }
 
 @theme inline {
@@ -87,6 +95,14 @@
   --color-error-container: var(--error-container);
   --color-on-error: var(--on-error);
   --color-on-error-container: var(--on-error-container);
+
+  /* Colour Press role colors — engagement blue and inquiry identity inks */
+  --color-engage: var(--engage);
+  --color-on-engage: var(--on-engage);
+  --color-inq-blue: var(--inq-blue);
+  --color-inq-flame: var(--inq-flame);
+  --color-inq-violet: var(--inq-violet);
+  --color-inq-ochre: var(--inq-ochre);
 
   /* shadcn/ui semantic tokens (mapped to the design palette) */
   --color-foreground: var(--foreground);
@@ -154,35 +170,35 @@
   color-scheme: dark;
 
   /* shadcn/ui semantic mappings onto the design palette (night desk) */
-  --foreground: #e7ebde;
-  --card: #242920;
-  --card-foreground: #e7ebde;
-  --popover: #242920;
-  --popover-foreground: #e7ebde;
-  --primary-foreground: #14170f;
-  --secondary-foreground: #14170f;
-  --muted: #22261c;
-  --muted-foreground: #aab0a0;
-  --accent: #333829;
-  --accent-foreground: #cdd4c0;
-  --destructive: #e0765c;
-  --border: #3c4133;
-  --input: #3c4133;
-  --ring: #cdd4c0;
-  --chart-1: #e7ebde;
-  --chart-2: #85b896;
-  --chart-3: #e0765c;
-  --chart-4: #aab69c;
-  --chart-5: #3c4133;
+  --foreground: #f2e8d8;
+  --card: #241d30;
+  --card-foreground: #f2e8d8;
+  --popover: #241d30;
+  --popover-foreground: #f2e8d8;
+  --primary-foreground: #17131f;
+  --secondary-foreground: #17131f;
+  --muted: #1d1727;
+  --muted-foreground: #b6ab9d;
+  --accent: #372e47;
+  --accent-foreground: #d9cbb6;
+  --destructive: #f5578d;
+  --border: #453c55;
+  --input: #453c55;
+  --ring: var(--engage);
+  --chart-1: #f2e8d8;
+  --chart-2: #3fc578;
+  --chart-3: #f5578d;
+  --chart-4: #58a6ff;
+  --chart-5: #453c55;
   --radius: 0.25rem;
-  --sidebar: #141710;
-  --sidebar-foreground: #e7ebde;
-  --sidebar-primary: #e7ebde;
-  --sidebar-primary-foreground: #14170f;
-  --sidebar-accent: #333829;
-  --sidebar-accent-foreground: #cdd4c0;
-  --sidebar-border: #3c4133;
-  --sidebar-ring: #cdd4c0;
+  --sidebar: #120e19;
+  --sidebar-foreground: #f2e8d8;
+  --sidebar-primary: #f2e8d8;
+  --sidebar-primary-foreground: #17131f;
+  --sidebar-accent: #372e47;
+  --sidebar-accent-foreground: #d9cbb6;
+  --sidebar-border: #453c55;
+  --sidebar-ring: var(--engage);
 
   /* Sheet elevation — the press depth of paper on a desk. Shadows carry an
    * offset and a soft blur; the first line is the sheet's edge contact. */
@@ -191,9 +207,9 @@
   --shadow-sheet-raised: 0 2px 0 color-mix(in oklab, var(--outline-variant) 90%, transparent),
     0 8px 18px -6px color-mix(in oklab, #000 55%, transparent);
 
-  /* Highlighter — the pale marker wash that highlights the learner's own
-   * narrowed goal in the intake transcript. */
-  --marker: color-mix(in oklab, #d9bd6e 36%, transparent);
+  /* Highlighter — the riso-yellow marker wash that highlights the
+   * learner's own narrowed goal in the intake transcript. */
+  --marker: color-mix(in oklab, #ffcb05 32%, transparent);
 }
 
 /* shadcn/ui semantic light mappings, applied when <html> carries the
@@ -201,41 +217,41 @@
  * the light palette tokens it pairs with live in public/palette.css. */
 .light {
   color-scheme: light;
-  --foreground: #1f231a;
-  --card: #fcfaf1;
-  --card-foreground: #1f231a;
-  --popover: #fcfaf1;
-  --popover-foreground: #1f231a;
-  --primary-foreground: #fcfaf1;
-  --secondary-foreground: #f7f4e9;
-  --muted: #e8e5da;
-  --muted-foreground: #4b4839;
-  --accent: #e4e1d4;
-  --accent-foreground: #1f231a;
-  --destructive: #b3382b;
-  --border: #c9c5b4;
-  --input: #c9c5b4;
-  --ring: #1f231a;
-  --chart-1: #1f231a;
-  --chart-2: #2e6b45;
-  --chart-3: #b3382b;
-  --chart-4: #565141;
-  --chart-5: #c9c5b4;
-  --sidebar: #f7f4e9;
-  --sidebar-foreground: #1f231a;
-  --sidebar-primary: #1f231a;
-  --sidebar-primary-foreground: #fcfaf1;
-  --sidebar-accent: #e4e1d4;
-  --sidebar-accent-foreground: #1f231a;
-  --sidebar-border: #c9c5b4;
-  --sidebar-ring: #1f231a;
+  --foreground: #181420;
+  --card: #fffaf0;
+  --card-foreground: #181420;
+  --popover: #fffaf0;
+  --popover-foreground: #181420;
+  --primary-foreground: #fffaf0;
+  --secondary-foreground: #fcf5e8;
+  --muted: #efe6d4;
+  --muted-foreground: #4d4438;
+  --accent: #efe6d4;
+  --accent-foreground: #181420;
+  --destructive: #c81e5b;
+  --border: #d3c6b0;
+  --input: #d3c6b0;
+  --ring: var(--engage);
+  --chart-1: #181420;
+  --chart-2: #167a3f;
+  --chart-3: #c81e5b;
+  --chart-4: #1450a3;
+  --chart-5: #d3c6b0;
+  --sidebar: #fcf5e8;
+  --sidebar-foreground: #181420;
+  --sidebar-primary: #181420;
+  --sidebar-primary-foreground: #fffaf0;
+  --sidebar-accent: #efe6d4;
+  --sidebar-accent-foreground: #181420;
+  --sidebar-border: #d3c6b0;
+  --sidebar-ring: var(--engage);
 
   --shadow-sheet: 0 1px 0 color-mix(in oklab, var(--outline-variant) 90%, transparent),
     0 2px 5px -2px color-mix(in oklab, var(--on-surface) 22%, transparent);
   --shadow-sheet-raised: 0 2px 0 var(--outline-variant),
     0 8px 18px -6px color-mix(in oklab, var(--on-surface) 30%, transparent);
 
-  --marker: color-mix(in oklab, #d9bd6e 52%, transparent);
+  --marker: color-mix(in oklab, #ffcb05 48%, transparent);
 }
 
 @layer base {
@@ -259,8 +275,9 @@
   }
 }
 
-/* ── The Answer Sheet motion grammar ──────────────────────────────
- * Three authored moments, used consistently, never scattered:
+/* ── The Colour Press motion grammar (unchanged from the press world it
+ * inherits) — three authored moments + the pen stroke and the breathing
+ * dot, used consistently, never scattered:
  *  - bubble-fill: a progress bubble inks in (quiz answers, rail steps).
  *  - stamp-press: a stamp control settles from a slight overshoot.
  *  - sheet-settle: a sheet card lands on the desk on first paint.
@@ -353,7 +370,7 @@
   --tw-prose-body: var(--on-surface-variant);
   --tw-prose-headings: var(--on-surface);
   --tw-prose-bold: var(--on-surface);
-  --tw-prose-links: var(--secondary);
+  --tw-prose-links: var(--engage);
   --tw-prose-code: var(--secondary);
   --tw-prose-counters: var(--on-surface-variant);
   --tw-prose-bullets: var(--outline);

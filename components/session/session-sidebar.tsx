@@ -7,7 +7,7 @@ import type { MaterialOut, QuestionItem, SlideItem } from "@/lib/api-client";
 import { QuizQuestion } from "@/components/session/quiz-question";
 import { SandboxFrame } from "@/components/sandbox/sandbox-frame";
 import { useTheme, type Theme } from "@/hooks/use-theme";
-import { cn } from "@/lib/utils";
+import { cn, inquiryInk } from "@/lib/utils";
 
 /** One item card in the sidebar, addressed by its flat deck index. */
 export interface SidebarItemEntry {
@@ -61,13 +61,18 @@ export function SessionSidebar({
   groups,
   activeIndex,
   onSelect,
+  inquiryId,
 }: {
   groups: SidebarGroup[];
   activeIndex: number;
   onSelect: (index: number) => void;
+  /** The session id — its hash picks the inquiry's identity spot color
+   *  this desk is printed in (Colour Press). */
+  inquiryId: string;
 }) {
   const t = useTranslations("session");
   const { theme } = useTheme();
+  const spot = inquiryInk(inquiryId);
 
   // Keep the active card visible (#81): the bottom-right prev/next buttons
   // change `activeIndex` without touching the sidebar's scroll position,
@@ -87,9 +92,16 @@ export function SessionSidebar({
           {groups.map((group, stepNo) => (
             <li key={group.step.step_id} className="flex flex-col">
               {/* Step divider — the step summary splitting the item groups:
-                  a filled ink number block and a dashed rule. */}
+                  a filled number block printed in the inquiry's identity
+                  spot and a dashed rule. */}
               <div className="my-4 flex items-center gap-2 px-1">
-                <span className="flex size-6 shrink-0 items-center justify-center rounded-[3px] bg-primary font-mono text-xs font-bold text-primary-foreground">
+                <span
+                  className="flex size-6 shrink-0 items-center justify-center rounded-[3px] font-mono text-xs font-bold"
+                  style={{
+                    backgroundColor: `var(--${spot})`,
+                    color: "var(--on-inq)",
+                  }}
+                >
                   {stepNo + 1}
                 </span>
                 <span className="truncate font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-on-surface">

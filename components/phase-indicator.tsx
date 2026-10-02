@@ -33,12 +33,12 @@ type PhaseStyle = {
 };
 
 const PHASE_STYLE: Record<Phase, PhaseStyle> = {
-  clarifying: { icon: MessageSquareText, ink: "text-on-surface-variant", working: true },
-  probing: { icon: Search, ink: "text-on-surface-variant", working: true },
-  planning: { icon: ListChecks, ink: "text-on-surface-variant", working: true },
-  reviewing: { icon: FilePen, ink: "text-on-surface-variant", working: true },
-  generating: { icon: Loader2, ink: "text-on-surface-variant", working: true },
-  executing: { icon: Play, ink: "text-primary", filled: true },
+  clarifying: { icon: MessageSquareText, ink: "text-engage", working: true },
+  probing: { icon: Search, ink: "text-engage", working: true },
+  planning: { icon: ListChecks, ink: "text-engage", working: true },
+  reviewing: { icon: FilePen, ink: "text-engage", working: true },
+  generating: { icon: Loader2, ink: "text-engage", working: true },
+  executing: { icon: Play, ink: "text-engage", filled: true },
   complete: { icon: CircleCheck, ink: "text-tertiary" },
   error: { icon: TriangleAlert, ink: "text-error" },
 };
@@ -80,7 +80,7 @@ export function PhaseIndicator({
       className={cn(
         "animate-stamp-press inline-flex -rotate-2 items-center gap-1.5 rounded-[3px] border-[1.5px] px-2.5 py-1",
         style.filled
-          ? "border-primary bg-primary text-primary-foreground"
+          ? "border-engage bg-engage text-on-engage"
           : [style.ink, "border-current"],
         style.working && "border-dashed",
         // The inner rule of a real stamp's double border.

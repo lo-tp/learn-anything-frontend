@@ -209,7 +209,7 @@ export function Review() {
           <button
             type="button"
             onClick={handleReveal}
-            className="focus-ring flex items-center gap-2 rounded-[3px] border-2 border-primary px-5 py-2 font-mono text-xs font-bold uppercase tracking-[0.14em] text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
+            className="focus-ring flex items-center gap-2 rounded-[3px] border-2 border-engage px-5 py-2 font-mono text-xs font-bold uppercase tracking-[0.14em] text-engage transition-colors hover:bg-engage hover:text-on-engage"
           >
             <Eye className="size-4" aria-hidden />
             {t("reveal")}

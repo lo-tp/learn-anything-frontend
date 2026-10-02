@@ -257,6 +257,7 @@ export function Session({ sessionId }: { sessionId: string }) {
         groups={groups}
         activeIndex={clampedIndex}
         onSelect={setActiveIndex}
+        inquiryId={session.session_id}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
