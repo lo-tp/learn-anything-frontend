@@ -31,16 +31,34 @@ export type ProbeCard = {
 };
 
 /** A render-ready unit of the "Recent Messages" history. The dialog renders
- *  each `kind` and does no per-entry branching on hidden state. */
+ *  each `kind` and does no per-entry branching on hidden state. A `you`
+ *  bubble sent with a request carries `optimistic: true`: it is on screen
+ *  immediately and is the one `apiFailed` rolls back (see the note on
+ *  `IntakeState`). */
 export type Bubble =
-  | { kind: "text"; from: "you" | "ai"; text: string | string[]; highlighted?: boolean }
+  | {
+      kind: "text";
+      from: "you" | "ai";
+      text: string | string[];
+      highlighted?: boolean;
+      optimistic?: boolean;
+    }
   | { kind: "probe"; card: ProbeCard; state: "active" | "answered"; picked?: number }
   | { kind: "plan"; plan: PlanBody };
 
 /** Which request is in flight (at most one at a time). */
 export type InFlight = "clarify" | "start" | "batch" | "plan" | "adjust" | "approve" | null;
 
-/** The intake state. `bubbles` are render-ready; `batch` is canonical. */
+/**
+ * The intake state. `bubbles` are render-ready; `batch` is canonical.
+ *
+ * A learner turn is recorded the moment it is SENT, not when the request
+ * resolves: every `submit` that fires a backend request appends its "you"
+ * bubble immediately and clears the textarea, so the transcript never shows a
+ * question answered while the answer is still missing. A you-turn sent with
+ * an in-flight request is flagged `optimistic`; `apiFailed` rolls that one
+ * bubble out and hands the learner's words back to the textarea to retry.
+ */
 export type IntakeState = {
   bubbles: Bubble[];
   batch: ProbeCard[] | null;
@@ -58,14 +76,6 @@ export type IntakeState = {
    * to the parent (a refetch) and resets the intake.
    */
   onTheWay: boolean;
-  /**
-   * The user's submitted text, committed as a "you" bubble when the
-   * request RESOLVES (so a failure preserves the textarea — the user's
-   * words are only recorded in the transcript once the turn succeeds).
-   */
-  pendingYou: string | string[] | null;
-  /** Clear the textarea on the resolving event (true for text submits). */
-  pendingClear: boolean;
   /**
    * The clarifying questions asked one at a time: the incoming
    * `clarifying_questions` array is presented a single question at a time
@@ -116,8 +126,14 @@ export type Translator = (key: string, params?: Record<string, unknown>) => stri
 export type ApplyResult = {
   state: IntakeState;
   effects: Effect[];
-  /** True when a "you" bubble was appended (the binding clears the textarea). */
+  /** True when the binding should clear the textarea. */
   clearInput: boolean;
+  /**
+   * Text the binding should put BACK in the textarea: the learner's words
+   * from an optimistic you-turn that a failed request rolled back. Set only
+   * on the failure path, and never together with `clearInput`.
+   */
+  restoreInput?: string | null;
 };
 
 /**
@@ -145,8 +161,6 @@ export function initialState(t: Translator): IntakeState {
     inFlight: null,
     error: null,
     onTheWay: false,
-    pendingYou: null,
-    pendingClear: false,
     clarifyBatch: null,
     clarifyPicks: [],
   };
@@ -187,18 +201,12 @@ function markLastProbeAnswered(bubbles: Bubble[], picked: number): Bubble[] {
   );
 }
 
-/**
- * Commit the pending you-turn at the moment a request RESOLVES: append the
- * "you" bubble (if any) before the resolving content and report whether the
- * binding should clear the textarea. A failure path discards these instead.
- */
-function commitYou(state: IntakeState): { base: Bubble[]; clearInput: boolean } {
-  const you = state.pendingYou;
-  const base =
-    you !== null
-      ? [...state.bubbles, { kind: "text", from: "you", text: you } as Bubble]
-      : state.bubbles;
-  return { base, clearInput: state.pendingClear };
+/** A "you" bubble. `optimistic` marks one sent with a request, i.e. the one
+ *  `apiFailed` may roll back. */
+function youBubble(text: string | string[], optimistic = false): Bubble {
+  return optimistic
+    ? { kind: "text", from: "you", text, optimistic: true }
+    : { kind: "text", from: "you", text };
 }
 
 /** Revert the most recent probe bubble to active (unlock after a failure). */
@@ -210,6 +218,33 @@ function markLastProbeActive(bubbles: Bubble[]): Bubble[] {
   return bubbles.map((bubble, i) =>
     i === last && bubble.kind === "probe" ? { ...bubble, state: "active", picked: undefined } : bubble,
   );
+}
+
+/** Roll the optimistic you-turn back out of the transcript: drop the last
+ *  optimistic "you" bubble and return its text so the binding can put it
+ *  back in the textarea (that turn never reached the backend). Safe to call
+ *  for any failure: `settleYou` clears the marker when a turn resolves, so
+ *  the only marked bubble left is the one whose request just failed. */
+function rollbackYou(bubbles: Bubble[]): { bubbles: Bubble[]; text: string | null } {
+  for (let i = bubbles.length - 1; i >= 0; i--) {
+    const bubble = bubbles[i];
+    if (bubble.kind !== "text" || bubble.from !== "you" || !bubble.optimistic) continue;
+    const text = Array.isArray(bubble.text) ? bubble.text.join("\n") : bubble.text;
+    return { bubbles: [...bubbles.slice(0, i), ...bubbles.slice(i + 1)], text };
+  }
+  return { bubbles, text: null };
+}
+
+/** The learner's words are in the transcript for good: clear the rollback
+ *  marker so a later, unrelated failure cannot roll this turn back too. */
+function settleYou(bubbles: Bubble[]): Bubble[] {
+  for (let i = bubbles.length - 1; i >= 0; i--) {
+    const bubble = bubbles[i];
+    if (bubble.kind === "text" && bubble.from === "you" && bubble.optimistic) {
+      return [...bubbles.slice(0, i), { ...bubble, optimistic: false }, ...bubbles.slice(i + 1)];
+    }
+  }
+  return bubbles;
 }
 
 export function apply(
@@ -254,16 +289,17 @@ export function apply(
         if (answer === "") return { state, effects: [], clearInput: false };
         const picks = [...state.clarifyPicks, answer];
         if (index === batch.length - 1) {
-          // Final question: the combined answer goes to the backend; the
-          // learner's words commit as a you-turn on success (a failure
-          // discards them and re-arms the last question).
+          // Final question: the combined answer goes to the backend. The
+          // answer itself is recorded in the transcript the instant it is
+          // sent (an optimistic you-turn) — the transcript never shows the
+          // question answered with the answer missing while the request is
+          // in flight. A failure rolls it back and re-arms the question.
           return {
             state: {
               ...clear,
               inFlight: "clarify",
-              pendingYou: answer,
-              pendingClear: true,
               clarifyPicks: picks,
+              bubbles: [...state.bubbles, youBubble(answer, true)],
             },
             effects: [
               {
@@ -273,17 +309,18 @@ export function apply(
                 answer: picks.join("\n"),
               },
             ],
-            clearInput: false,
+            clearInput: true,
           };
         }
-        // Non-final question: commit the answer and surface the next one.
+        // Non-final question: commit the answer locally (no request to roll
+        // it back to) and surface the next one.
         return {
           state: {
             ...clear,
             clarifyPicks: picks,
             bubbles: [
               ...state.bubbles,
-              { kind: "text", from: "you", text: answer } as Bubble,
+              youBubble(answer),
               { kind: "text", from: "ai", text: batch[index + 1] },
             ],
           },
@@ -303,11 +340,15 @@ export function apply(
           };
         }
         return {
-          state: { ...clear, inFlight: "adjust", pendingYou: text, pendingClear: true },
+          state: {
+            ...clear,
+            inFlight: "adjust",
+            bubbles: [...state.bubbles, youBubble(text, true)],
+          },
           effects: [
             { type: "api", call: "adjustPlan", sessionId: state.sessionId, adjustment: action.text },
           ],
-          clearInput: false,
+          clearInput: true,
         };
       }
 
@@ -332,28 +373,40 @@ export function apply(
           return { state, effects: [], clearInput: false };
         }
         return {
-          state: { ...clear, inFlight: "start", pendingYou: text, pendingClear: true },
+          state: {
+            ...clear,
+            inFlight: "start",
+            bubbles: [...state.bubbles, youBubble(text, true)],
+          },
           effects: [{ type: "api", call: "startProbe", sessionId: state.sessionId }],
-          clearInput: false,
+          clearInput: true,
         };
       }
 
-      // Clarifying / initial: the first send creates the session and
-      // records the learner's reply to the opening prompt — the "you"
-      // bubble is committed on success like every other turn.
+      // Clarifying / initial: the first send creates the session and records
+      // the learner's reply to the opening prompt — like every other turn,
+      // the "you" bubble goes on screen with the request.
       if (state.sessionId === null) {
         return {
-          state: { ...clear, inFlight: "clarify", pendingYou: text, pendingClear: true },
+          state: {
+            ...clear,
+            inFlight: "clarify",
+            bubbles: [...state.bubbles, youBubble(text, true)],
+          },
           effects: [{ type: "api", call: "createSession", goal: action.text }],
-          clearInput: false,
+          clearInput: true,
         };
       }
       return {
-        state: { ...clear, inFlight: "clarify", pendingYou: text, pendingClear: true },
+        state: {
+          ...clear,
+          inFlight: "clarify",
+          bubbles: [...state.bubbles, youBubble(text, true)],
+        },
         effects: [
           { type: "api", call: "clarifySession", sessionId: state.sessionId, answer: action.text },
         ],
-        clearInput: false,
+        clearInput: true,
       };
     }
 
@@ -403,7 +456,6 @@ export function apply(
     }
 
     case "clarifyResolved": {
-      const { base, clearInput } = commitYou(state);
       const result = action.result;
       const additions: Bubble[] = [];
       if (result.narrowed_goal) {
@@ -448,25 +500,27 @@ export function apply(
           phase,
           inFlight,
           error: null,
-          pendingYou: null,
-          pendingClear: false,
           clarifyBatch,
           clarifyPicks,
-          bubbles: [...base, ...additions],
+          bubbles: [...settleYou(state.bubbles), ...additions],
         },
         effects,
-        clearInput,
+        clearInput: false,
       };
     }
 
     case "probeStarted": {
-      const { base, clearInput } = commitYou(state);
       const questions = action.probe.questions;
       if (!questions) {
         return {
-          state: { ...state, inFlight: null, pendingYou: null, pendingClear: false, error: t("errorNoQuestions") },
+          state: {
+            ...state,
+            inFlight: null,
+            error: t("errorNoQuestions"),
+            bubbles: settleYou(state.bubbles),
+          },
           effects: [],
-          clearInput,
+          clearInput: false,
         };
       }
       const cards = questions.map(toProbeCard);
@@ -474,15 +528,13 @@ export function apply(
         state: {
           ...state,
           inFlight: null,
-          pendingYou: null,
-          pendingClear: false,
           batch: cards,
           picks: [],
           phase: "probing",
-          bubbles: [...base, { kind: "probe", card: cards[0], state: "active" }],
+          bubbles: [...settleYou(state.bubbles), { kind: "probe", card: cards[0], state: "active" }],
         },
         effects: [],
-        clearInput,
+        clearInput: false,
       };
     }
 
@@ -524,20 +576,17 @@ export function apply(
 
     case "planResolved":
     case "planAdjusted": {
-      const { base, clearInput } = commitYou(state);
       const plan = action.plan;
       return {
         state: {
           ...state,
           inFlight: null,
-          pendingYou: null,
-          pendingClear: false,
           phase: plan.phase,
           plan: plan.plan,
-          bubbles: [...base, { kind: "plan", plan: plan.plan }],
+          bubbles: [...settleYou(state.bubbles), { kind: "plan", plan: plan.plan }],
         },
         effects: [],
-        clearInput,
+        clearInput: false,
       };
     }
 
@@ -556,8 +605,6 @@ export function apply(
           inFlight: null,
           onTheWay: true,
           error: null,
-          pendingYou: null,
-          pendingClear: false,
         },
         effects: [],
         clearInput: false,
@@ -577,19 +624,21 @@ export function apply(
         // unwind — just drop the last pick).
         clarifyPicks = clarifyPicks.slice(0, -1);
       }
+      // A typed turn that never reached the backend comes back out of the
+      // transcript and back into the textarea, ready to send again.
+      const rolled = rollbackYou(bubbles);
       return {
         state: {
           ...state,
           inFlight: null,
-          pendingYou: null,
-          pendingClear: false,
           error: action.message,
           picks,
           clarifyPicks,
-          bubbles,
+          bubbles: rolled.bubbles,
         },
         effects: [],
         clearInput: false,
+        restoreInput: rolled.text,
       };
     }
   }

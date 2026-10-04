@@ -45,26 +45,36 @@ describe("intake core — splitAnswer", () => {
   });
 });
 
-describe("intake core — submit (stores the pending you-turn)", () => {
-  it("creates the session on the first send, recording the learner's reply", () => {
-    const { state, effects } = step(mk(), { type: "submit", text: "goal" });
+describe("intake core — submit (records the you-turn at send time)", () => {
+  it("creates the session on the first send, recording the learner's reply at once", () => {
+    const { state, effects, clearInput } = step(mk(), { type: "submit", text: "goal" });
     expect(effects).toEqual([{ type: "api", call: "createSession", goal: "goal" }]);
     expect(state.inFlight).toBe("clarify");
-    // The learner's reply to the opening prompt is recorded (committed as
-    // a "you" bubble when the request resolves).
-    expect(state.pendingYou).toBe("goal");
-    expect(state.pendingClear).toBe(true);
+    // The reply to the opening prompt goes on screen WITH the request, so the
+    // transcript is never mid-turn with the learner's words missing.
+    expect(state.bubbles.at(-1)).toEqual({
+      kind: "text",
+      from: "you",
+      text: "goal",
+      optimistic: true,
+    });
+    expect(clearInput).toBe(true);
   });
 
   it("resumes the clarify loop once a session exists, recording the learner's words", () => {
     const s0 = mk({ sessionId: "s-1", phase: "clarifying" });
-    const { state, effects } = step(s0, { type: "submit", text: "more" });
+    const { state, effects, clearInput } = step(s0, { type: "submit", text: "more" });
     expect(effects).toEqual([
       { type: "api", call: "clarifySession", sessionId: "s-1", answer: "more" },
     ]);
     expect(state.inFlight).toBe("clarify");
-    expect(state.pendingYou).toBe("more");
-    expect(state.pendingClear).toBe(true);
+    expect(state.bubbles.at(-1)).toEqual({
+      kind: "text",
+      from: "you",
+      text: "more",
+      optimistic: true,
+    });
+    expect(clearInput).toBe(true);
   });
 
   it("is a no-op while a request is in flight", () => {
@@ -79,25 +89,33 @@ describe("intake core — submit (stores the pending you-turn)", () => {
     const { state, effects } = step(s0, { type: "submit", text: "  APPROVE " });
     expect(effects).toEqual([{ type: "api", call: "approvePlan", sessionId: "s-1" }]);
     expect(state.inFlight).toBe("approve");
-    expect(state.pendingYou).toBeNull();
+    // The approve command is a control, not a learner turn.
+    expect(state.bubbles).toHaveLength(1);
   });
 
-  it("treats other review text as a plan adjustment pending commit", () => {
+  it("treats other review text as a plan adjustment the learner can see at once", () => {
     const s0 = mk({ sessionId: "s-1", phase: "reviewing", plan: PLAN_OUT.plan });
-    const { state, effects } = step(s0, { type: "submit", text: "drop the last step" });
+    const { state, effects, clearInput } = step(s0, { type: "submit", text: "drop the last step" });
     expect(effects).toEqual([
       { type: "api", call: "adjustPlan", sessionId: "s-1", adjustment: "drop the last step" },
     ]);
     expect(state.inFlight).toBe("adjust");
-    expect(state.pendingYou).toBe("drop the last step");
+    expect(state.bubbles.at(-1)).toEqual({
+      kind: "text",
+      from: "you",
+      text: "drop the last step",
+      optimistic: true,
+    });
+    expect(clearInput).toBe(true);
   });
 
   it("triggers generation when awaiting a plan (text ignored, no you-turn)", () => {
     const s0 = mk({ sessionId: "s-1", phase: "planning" });
-    const { state, effects } = step(s0, { type: "submit", text: "go" });
+    const { state, effects, clearInput } = step(s0, { type: "submit", text: "go" });
     expect(effects).toEqual([{ type: "api", call: "generatePlan", sessionId: "s-1" }]);
     expect(state.inFlight).toBe("plan");
-    expect(state.pendingYou).toBeNull();
+    expect(state.bubbles).toHaveLength(1);
+    expect(clearInput).toBe(false);
   });
 
   it("re-fetches the probe batch when probing with no batch on screen", () => {
@@ -105,7 +123,12 @@ describe("intake core — submit (stores the pending you-turn)", () => {
     const { state, effects } = step(s0, { type: "submit", text: "again" });
     expect(effects).toEqual([{ type: "api", call: "startProbe", sessionId: "s-1" }]);
     expect(state.inFlight).toBe("start");
-    expect(state.pendingYou).toBe("again");
+    expect(state.bubbles.at(-1)).toEqual({
+      kind: "text",
+      from: "you",
+      text: "again",
+      optimistic: true,
+    });
   });
 
   it("no-ops when a probe card is on screen (the click is the answer)", () => {
@@ -123,18 +146,24 @@ describe("intake core — submit (stores the pending you-turn)", () => {
   });
 });
 
-describe("intake core — clarifyResolved (commits the you-turn on success)", () => {
-  it("records the learner's words then the first clarifying question (one at a time)", () => {
-    const s0 = mk({ sessionId: "s-1", phase: "clarifying", pendingYou: "more", pendingClear: true });
+describe("intake core — clarifyResolved (settles the you-turn, appends the reply)", () => {
+  it("keeps the learner's words, then the first clarifying question (one at a time)", () => {
+    const s0 = step(mk({ sessionId: "s-1", phase: "clarifying" }), { type: "submit", text: "more" })
+      .state;
     const { state, effects } = step(s0, {
       type: "clarifyResolved",
       result: { session_id: "s-1", phase: "clarifying", clarifying_questions: ["a?"] },
     });
     expect(effects).toEqual([]);
     expect(state.inFlight).toBe(null);
-    expect(state.pendingYou).toBeNull();
-    expect(state.pendingClear).toBe(false);
-    expect(state.bubbles.at(-2)).toEqual({ kind: "text", from: "you", text: "more" });
+    // The you-turn was already on screen; resolving settles it (no later
+    // failure can roll it back) and the reply lands under it.
+    expect(state.bubbles.at(-2)).toEqual({
+      kind: "text",
+      from: "you",
+      text: "more",
+      optimistic: false,
+    });
     // The question is presented one at a time — a single string, not a list.
     expect(state.bubbles.at(-1)).toEqual({ kind: "text", from: "ai", text: "a?" });
     expect(state.clarifyBatch).toEqual(["a?"]);
@@ -224,11 +253,11 @@ describe("intake core — clarifying questions one at a time", () => {
     expect(state.bubbles.at(-1)).toEqual({ kind: "text", from: "ai", text: "What depth?" });
   });
 
-  it("sends the combined answer to the backend for the final question", () => {
+  it("sends the combined answer to the backend, with the final answer on screen at once", () => {
     const afterFirst = step(clarifying(), { type: "submit", text: "physics" }).state;
     const { state, effects, clearInput } = step(afterFirst, { type: "submit", text: "an overview" });
     expect(state.inFlight).toBe("clarify");
-    expect(clearInput).toBe(false);
+    expect(clearInput).toBe(true);
     expect(effects).toEqual([
       {
         type: "api",
@@ -237,9 +266,33 @@ describe("intake core — clarifying questions one at a time", () => {
         answer: "physics\nan overview",
       },
     ]);
-    // The final answer is a pending you-turn (committed on success).
-    expect(state.pendingYou).toBe("an overview");
-    expect(state.pendingClear).toBe(true);
+    // The final answer is in the transcript the moment it is sent, while the
+    // combined answer is still in flight.
+    expect(state.bubbles.at(-1)).toEqual({
+      kind: "text",
+      from: "you",
+      text: "an overview",
+      optimistic: true,
+    });
+  });
+
+  it("keeps every answer of a three-question batch visible during the combined submit", () => {
+    let state = mk({
+      sessionId: "s-1",
+      phase: "clarifying",
+      clarifyBatch: ["q1?", "q2?", "q3?"],
+      clarifyPicks: [],
+    });
+    for (const answer of ["a1", "a2", "a3"]) {
+      state = step(state, { type: "submit", text: answer }).state;
+    }
+    expect(state.inFlight).toBe("clarify");
+    // Nothing waits for the response: the transcript already carries all
+    // three answers in order.
+    const you = deriveViewModel(state, t).bubbles.flatMap((bubble) =>
+      bubble.kind === "text" && bubble.from === "you" ? [bubble.text] : [],
+    );
+    expect(you).toEqual(["a1", "a2", "a3"]);
   });
 
   it("is a no-op once the batch is exhausted", () => {
@@ -264,28 +317,37 @@ describe("intake core — clarifying questions one at a time", () => {
     expect(state.bubbles).toEqual(s0.bubbles);
   });
 
-  it("re-arms the final question on a failed combined submit (discards the answer)", () => {
+  it("re-arms the final question on a failed combined submit (rolls the answer back)", () => {
     const afterFirst = step(clarifying(), { type: "submit", text: "physics" }).state;
     const afterSecond = step(afterFirst, { type: "submit", text: "an overview" }).state;
-    const { state } = step(afterSecond, { type: "apiFailed", message: "boom" });
+    const { state, restoreInput } = step(afterSecond, { type: "apiFailed", message: "boom" });
     expect(state.inFlight).toBe(null);
     expect(state.error).toBe("boom");
     // The final pick is dropped so the last question is answerable again.
     expect(state.clarifyPicks).toEqual(["physics"]);
     expect(state.clarifyBatch).toEqual(["What topic?", "What depth?"]);
-    // The final answer was never committed as a you-turn.
+    // The rolled-back answer leaves the transcript and goes back to the
+    // textarea, ready to send again.
     expect(state.bubbles.at(-1)).toEqual({ kind: "text", from: "ai", text: "What depth?" });
+    expect(restoreInput).toBe("an overview");
   });
 });
 
 describe("intake core — probe loop", () => {
-  it("commits the you-turn then surfaces the first card (probe resubmit)", () => {
-    const s0 = mk({ sessionId: "s-1", phase: "probing", pendingYou: "again", pendingClear: true });
+  it("surfaces the first card under the learner's re-request (probe resubmit)", () => {
+    const s0 = step(mk({ sessionId: "s-1", phase: "probing" }), { type: "submit", text: "again" })
+      .state;
     const { state, clearInput } = step(s0, { type: "probeStarted", probe: probe([Q1, Q2]) });
     expect(state.batch).toHaveLength(2);
-    expect(state.bubbles.at(-2)).toEqual({ kind: "text", from: "you", text: "again" });
+    expect(state.bubbles.at(-2)).toEqual({
+      kind: "text",
+      from: "you",
+      text: "again",
+      optimistic: false,
+    });
     expect(state.bubbles.at(-1)).toMatchObject({ kind: "probe", state: "active" });
-    expect(clearInput).toBe(true);
+    // The input was already cleared when the turn was sent.
+    expect(clearInput).toBe(false);
   });
 
   it("surfaces the no-questions error when the batch is empty", () => {
@@ -346,13 +408,16 @@ describe("intake core — probe loop", () => {
 });
 
 describe("intake core — plan", () => {
-  it("commits the you-turn then lands the adjusted plan", () => {
-    const s0 = mk({ sessionId: "s-1", phase: "reviewing", plan: PLAN_OUT.plan, pendingYou: "drop", pendingClear: true });
+  it("lands the adjusted plan under the learner's adjustment", () => {
+    const s0 = step(
+      mk({ sessionId: "s-1", phase: "reviewing", plan: PLAN_OUT.plan }),
+      { type: "submit", text: "drop" },
+    ).state;
     const revised: PlanOut = { phase: "reviewing", plan: { ...PLAN_OUT.plan, prose_summary: "v2" } };
     const { state, clearInput } = step(s0, { type: "planAdjusted", plan: revised });
-    expect(state.bubbles.at(-2)).toEqual({ kind: "text", from: "you", text: "drop" });
+    expect(state.bubbles.at(-2)).toEqual({ kind: "text", from: "you", text: "drop", optimistic: false });
     expect(state.bubbles.at(-1)).toMatchObject({ kind: "plan", plan: revised.plan });
-    expect(clearInput).toBe(true);
+    expect(clearInput).toBe(false);
   });
 
   it("lands the generated plan in a plan bubble (no you-turn)", () => {
@@ -391,17 +456,41 @@ describe("intake core — approve (the post-approval 'on the way' state)", () =>
   });
 });
 
-describe("intake core — failures (discard the pending you-turn, preserve input)", () => {
-  it("records the transport fallback and clears nothing", () => {
-    const s0 = mk({ inFlight: "clarify", pendingYou: "goal", pendingClear: true });
-    const { state, clearInput } = step(s0, { type: "apiFailed", message: "Something went wrong." });
+describe("intake core — failures (roll the you-turn back into the input)", () => {
+  it("records the transport fallback and hands the learner's words back", () => {
+    const s0 = step(mk(), { type: "submit", text: "goal" }).state;
+    const { state, clearInput, restoreInput } = step(s0, {
+      type: "apiFailed",
+      message: "Something went wrong.",
+    });
     expect(state.inFlight).toBe(null);
     expect(state.error).toBe("Something went wrong.");
-    expect(state.pendingYou).toBeNull();
-    expect(state.pendingClear).toBe(false);
     expect(clearInput).toBe(false);
-    // The user's words were never committed as a bubble.
+    // The un-sent turn is out of the transcript and returned to the textarea.
     expect(state.bubbles).toHaveLength(1);
+    expect(restoreInput).toBe("goal");
+  });
+
+  it("leaves a you-turn that already resolved where it is", () => {
+    const asked = step(mk({ sessionId: "s-1", phase: "clarifying" }), {
+      type: "submit",
+      text: "more",
+    }).state;
+    const resolved = step(asked, {
+      type: "clarifyResolved",
+      result: { session_id: "s-1", phase: "probing", narrowed_goal: "Newton" },
+    }).state;
+    // The next request (the probe start) fails — it must not roll the
+    // settled clarify answer back out of the transcript.
+    const { state, restoreInput } = step(resolved, { type: "apiFailed", message: "boom" });
+    expect(state.bubbles).toHaveLength(resolved.bubbles.length);
+    expect(state.bubbles.at(-2)).toMatchObject({ kind: "text", from: "you", text: "more" });
+    expect(state.bubbles.at(-1)).toMatchObject({
+      kind: "text",
+      from: "ai",
+      text: t("yourNarrowedGoal", { goal: "Newton" }),
+    });
+    expect(restoreInput ?? null).toBeNull();
   });
 
   it("unlocks the active probe card and reverts the last pick on a batch failure", () => {

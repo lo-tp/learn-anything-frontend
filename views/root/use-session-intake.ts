@@ -120,7 +120,13 @@ export function useSessionIntake({
     const result = apply(stateRef.current, action, translator);
     stateRef.current = result.state;
     setState(result.state);
-    if (result.clearInput) setParagraph("");
+    // The textarea follows the transcript: emptied when a you-turn is
+    // recorded, refilled when a failed request rolls that turn back.
+    if (result.restoreInput !== null && result.restoreInput !== undefined) {
+      setParagraph(result.restoreInput);
+    } else if (result.clearInput) {
+      setParagraph("");
+    }
     for (const effect of result.effects) runEffect(effect);
   }
 

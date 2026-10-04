@@ -138,6 +138,49 @@ describe("NewSessionDialog", () => {
     });
   });
 
+  it("shows the final clarify answer while the combined answer is still in flight", async () => {
+    // A three-question clarify batch: the first two answers are local, the
+    // third fires the combined request — which never resolves here.
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: [
+        "First question?",
+        "Second question?",
+        "Third question?",
+      ],
+    });
+    mockClarifySession.mockReturnValue(new Promise(() => {}));
+    await openDialog(SHORT);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    await screen.findByText("First question?");
+    for (const answer of ["First answer.", "Second answer."]) {
+      fireEvent.change(screen.getByLabelText(LABEL), { target: { value: answer } });
+      fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+      await screen.findByText(
+        answer === "First answer." ? "Second question?" : "Third question?",
+      );
+    }
+
+    fireEvent.change(screen.getByLabelText(LABEL), {
+      target: { value: "Third answer." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    // The request is in flight…
+    await screen.findByRole("status", {
+      name: /we're working through what you shared/i,
+    });
+    // …and the learner's third reply is already in the transcript: no answer
+    // ever waits for the backend to be shown.
+    expect(screen.getByText("Third answer.")).toBeTruthy();
+    expect(mockClarifySession).toHaveBeenCalledWith(
+      "s-1",
+      "First answer.\nSecond answer.\nThird answer.",
+    );
+  });
+
   it("explains that the plan is being drafted while plan generation is in flight", async () => {
     // The backend skips probing and auto-generates the plan.
     mockCreateSession.mockResolvedValue({
@@ -510,6 +553,30 @@ describe("NewSessionDialog", () => {
     const error = await screen.findByText(/went wrong|try again/i);
     expect(error).toBeTruthy();
     expect(screen.getByRole("heading", { name: TITLE })).toBeTruthy();
+  });
+
+  it("returns a failed clarify answer to the textarea instead of the transcript", async () => {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: ["A bit more, please."],
+    });
+    mockClarifySession.mockRejectedValue(new Error("network down"));
+    await openDialog(SHORT);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    await screen.findByText("A bit more, please.");
+
+    // The answer is on screen with the request, then rolls back when it fails.
+    fireEvent.change(screen.getByLabelText(LABEL), { target: { value: "My answer." } });
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    await screen.findByText(/went wrong|try again/i);
+
+    // The rolled-back answer is not left in the transcript (the transcript's
+    // text is in spans; the textarea itself holds the restored value).
+    expect(screen.queryByText("My answer.", { selector: "span" })).toBeNull();
+    expect(
+      (screen.getByLabelText(LABEL)) as HTMLTextAreaElement,
+    ).toHaveProperty("value", "My answer.");
   });
 
   it("shows the backend's validation message on an ApiError", async () => {
