@@ -543,6 +543,39 @@ describe("NewSessionDialog", () => {
     expect(setScrollTop).toHaveBeenCalledWith(panel.scrollHeight);
   });
 
+  it("bounds the sheet so the transcript scrolls instead of overflowing it", async () => {
+    // jsdom has no layout engine, so this guards the height contract the
+    // scrolling depends on: the sheet is a bounded flex column, the form is
+    // allowed to shrink to it, and the transcript is the flex child that
+    // absorbs the overflow. (The shared DialogContent is a grid; a grid row
+    // only stretches into free space, so a long transcript used to grow the
+    // sheet past the viewport and clip the footer off-screen.)
+    await openDialog();
+    const sheet = document.querySelector(
+      '[data-slot="dialog-content"]',
+    ) as HTMLElement;
+    expect(sheet.classList.contains("flex")).toBe(true);
+    expect(sheet.classList.contains("grid")).toBe(false);
+
+    const form = sheet.querySelector("form") as HTMLElement;
+    expect(form.classList.contains("flex-1")).toBe(true);
+    expect(form.classList.contains("min-h-0")).toBe(true);
+
+    const panel = document.querySelector(".overflow-y-auto") as HTMLElement;
+    expect(panel.classList.contains("flex-1")).toBe(true);
+    expect(panel.classList.contains("min-h-0")).toBe(true);
+
+    // The sheet chrome (masthead + rail via `double-rule-b`, footer as the
+    // form's last child) never shrinks: the transcript absorbs every height
+    // change.
+    const rules = sheet.querySelectorAll(".double-rule-b");
+    expect(rules).toHaveLength(2);
+    for (const el of Array.from(rules)) {
+      expect(el.classList.contains("shrink-0")).toBe(true);
+    }
+    expect((form.lastElementChild as HTMLElement).classList.contains("shrink-0")).toBe(true);
+  });
+
   it("shows a transport error and stays open when the request fails", async () => {
     mockCreateSession.mockRejectedValue(new Error("network down"));
     await openDialog(

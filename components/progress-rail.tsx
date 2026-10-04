@@ -38,7 +38,7 @@ export function ProgressRail({ rail }: { rail: RailData }) {
     <div
       role="status"
       aria-label={rail.counter}
-      className="flex w-full items-start gap-2 bg-surface-container-low px-6 py-3 double-rule-b"
+      className="flex w-full shrink-0 items-start gap-2 bg-surface-container-low px-6 py-3 double-rule-b"
     >
       {/* Steps */}
       <ol className="flex flex-1 items-start gap-0">

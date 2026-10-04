@@ -113,14 +113,28 @@ export function NewSessionDialog({
         // the binding owns focus and puts it in the textarea when enabled.
         onOpenAutoFocus={(event) => event.preventDefault()}
         // Full-screen: override the centered, max-width default content
-        // (`fixed top-1/2 left-1/2 -translate-* max-w-*`) with inset + full
-        // dimensions so the sheet fills the viewport.
-        className="inset-0 flex-col gap-0 h-full w-full max-h-none max-w-none sm:max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-none border-0 bg-surface p-0 text-on-surface"
+        // (`fixed top-1/2 left-1/2 -translate-* max-w-* grid`) with inset +
+        // full dimensions so the sheet fills the viewport. `flex` has to be
+        // restated: the base content is a GRID, and `flex-col` alone is inert.
+        // A grid row only stretches into FREE space, so once the transcript is
+        // taller than the viewport the row becomes content-sized, the sheet
+        // overflows and `overflow-hidden` clips the footer off-screen with
+        // nothing left to scroll. As a flex column the sheet stays
+        // viewport-sized and the transcript shrinks to scroll inside itself.
+        className="inset-0 flex flex-col gap-0 h-full w-full max-h-none max-w-none sm:max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-none border-0 bg-surface p-0 text-on-surface"
       >
-        <form onSubmit={handleSubmit} className="flex w-full flex-col">
+        {/* The form is the sheet's only flex child: `min-h-0` lets it shrink
+            to the viewport (a flex item's automatic minimum size is its own
+            content, which is what made the sheet overflow) and `flex-1` makes
+            it fill the viewport, so the transcript gets a bounded height. */}
+        <form
+          onSubmit={handleSubmit}
+          className="flex min-h-0 w-full flex-1 flex-col"
+        >
           {/* Masthead — title on the left, close on the right; closed with
-              the printed double rule. */}
-          <div className="flex items-center justify-between gap-4 px-6 py-4 double-rule-b">
+              the printed double rule. The sheet chrome never shrinks; the
+              transcript absorbs every height change. */}
+          <div className="flex shrink-0 items-center justify-between gap-4 px-6 py-4 double-rule-b">
             <DialogTitle className="text-left font-display text-xl font-bold uppercase tracking-[0.06em] text-on-surface">
               {view.onTheWay ? t("railCounterGenerating") : t("title")}
             </DialogTitle>
@@ -168,7 +182,7 @@ export function NewSessionDialog({
             <>
             {view.bubbles.length > 0 && (
               <div className="flex min-h-0 flex-1 flex-col gap-3">
-                <div className="flex items-center justify-between">
+                <div className="flex shrink-0 items-center justify-between">
                   <span className="flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
                     <History className="size-4 text-primary" aria-hidden />
                     {t("recentMessages")}
@@ -302,7 +316,7 @@ export function NewSessionDialog({
           {/* Footer — Cancel + Send, or a single Confirm in the legacy
               confirm step (the review step sends its adjustments and the
               `approve` command through the same Send path). */}
-          <div className="border-t border-outline-variant bg-surface-container-low py-4">
+          <div className="shrink-0 border-t border-outline-variant bg-surface-container-low py-4">
             <div className="mx-auto flex w-full max-w-3xl justify-end gap-3 px-6">
             {view.onTheWay ? (
               <Button
