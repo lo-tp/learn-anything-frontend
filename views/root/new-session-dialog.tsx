@@ -322,7 +322,7 @@ export function NewSessionDialog({
               <Button
                 type="button"
                 onClick={close}
-                className="gap-2 rounded-[3px] border-2 border-primary px-5 py-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-primary hover:bg-primary hover:text-primary-foreground"
+                className="gap-2 rounded-[3px] border-2 border-primary bg-transparent px-5 py-2 font-mono text-xs font-bold uppercase tracking-[0.12em] text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
               >
                 <History className="size-4" aria-hidden />
                 {t("backToSessions")}

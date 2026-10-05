@@ -1,6 +1,8 @@
 # Issue tracker
 
-GitHub Issues on `lo-tp/learn-anything`, operated via the `gh` CLI (auth as `lo-tp`).
+GitHub Issues on `lo-tp/learn-anything-frontend`, operated via the `gh` CLI (auth
+as `lo-tp`). Issues filed on the private `lo-tp/learn-anything` are historical: do
+not seek or update them there.
 
 ## Wayfinding operations
 
