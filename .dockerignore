@@ -1,0 +1,26 @@
+# What must not reach the build context. The first three are the ones that change
+# the result rather than the speed: a host `node_modules` or a copied `.next` gets
+# used instead of what the lockfile and the build say, and a host `.env` carries a
+# localhost backend URL into an image that is supposed to be configured by its
+# build args and its environment.
+node_modules
+.next
+out
+dist
+.env
+.env.*
+!.env.example
+
+.git
+.github
+.husky
+coverage
+.venv
+.impeccable
+*.log
+*.tsbuildinfo
+next-env.d.ts
+messages/*.d.json.ts
+clear-cache.sh
+Dockerfile
+.dockerignore

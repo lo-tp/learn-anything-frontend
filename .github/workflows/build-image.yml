@@ -1,0 +1,109 @@
+# Builds the frontend image and pushes it to Artifact Registry.
+#
+# Same authentication path as the backend's workflow: the job trades its GitHub OIDC
+# token for a federated token as `deploy-ci` (Workload Identity Federation set up in
+# lo-tp/learn-anything-infra, `gcp/ci_identity.tf`), so there is no stored
+# credential and no `gcloud` install of a key. Two details that were learned rather
+# than known, kept here so the next repository does not repeat them:
+#
+#   * the provider is addressed by **project number** (`terraform output
+#     workload_identity_provider_names` in the infra root); the project-id form gets
+#     `invalid_target` from STS and a message claiming the provider is missing;
+#   * the registry token is minted with `gcloud auth print-access-token`. Passing
+#     `auth`'s `access_token` output to login-action delivered an empty password and
+#     the unhelpful error "Password required".
+#
+# This image is environment-specific: `NEXT_PUBLIC_*` is inlined at build time, so
+# the origins are build args and the artifact for staging is a different artifact.
+# Only the production one is built today, because the staging hostnames are declared
+# by neither DNS nor Terraform yet (infra PLAN.md M6) — a build arg invented before
+# the record exists is how an image ends up pointing at a name nobody owns.
+
+name: build image
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # the OIDC token the workload identity provider trusts
+
+env:
+  PROJECT_ID: learn-anything-510905
+  REGISTRY: asia-east2-docker.pkg.dev/learn-anything-510905/learn-anything
+  IMAGE: learn-anything-frontend
+  WIF_PROVIDER: projects/358071090957/locations/global/workloadIdentityPools/learn-anything-github/providers/lo-tp-learn-anything-frontend
+  WIF_SERVICE_ACCOUNT: deploy-ci@learn-anything-510905.iam.gserviceaccount.com
+
+  # The origins this artifact is baked with, and the reason they live in this file
+  # rather than in the image: they are what a browser is told to call, so they are
+  # part of what a review approves. They must agree with the infra side
+  # (learn-anything-infra `manifests/overlays/prod` sets the backend's
+  # FRONTEND_DOMAIN and the sandbox's allowlist); when the two disagree, the browser
+  # gets one answer and the server another, which shows up as CORS and cookie
+  # errors rather than a failed build.
+  NEXT_PUBLIC_BACKEND_URL: https://api.lotp.xyz
+  NEXT_PUBLIC_SANDBOX_ORIGIN: https://sandbox.lotp.xyz
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
+          # Long enough to build and push, no longer.
+          access_token_lifetime: 1800s
+
+      - id: ar_token
+        name: Access token for Artifact Registry
+        run: |
+          token=$(gcloud auth print-access-token)
+          [ -n "$token" ] || { echo "::error::no access token; the workload identity step did not leave a usable credential" >&2; exit 1; }
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: oauth2accesstoken
+          password: ${{ steps.ar_token.outputs.token }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        id: build
+        with:
+          context: .
+          # The cluster schedules amd64; stating the platform also keeps a local
+          # build on an Apple-silicon laptop from producing something the cluster
+          # would never run.
+          platforms: linux/amd64
+          build-args:
+            NEXT_PUBLIC_BACKEND_URL=${{ env.NEXT_PUBLIC_BACKEND_URL }}
+            NEXT_PUBLIC_SANDBOX_ORIGIN=${{ env.NEXT_PUBLIC_SANDBOX_ORIGIN }}
+          push: ${{ github.event_name == 'push' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE }}:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # The infra side pins a digest, not a tag: a tag can be re-pointed under a
+      # running rollout and a digest cannot. Surfaced so promoting an image is a
+      # copy, not a guess.
+      - if: github.event_name == 'push'
+        run: |
+          {
+            echo "## Image"
+            echo "- tag: \`${{ env.REGISTRY }}/${{ env.IMAGE }}:sha-${{ github.sha }}\`"
+            echo "- digest: \`${{ steps.build.outputs.digest }}\`"
+            echo "- baked origins: backend \`${{ env.NEXT_PUBLIC_BACKEND_URL }}\`, sandbox \`${{ env.NEXT_PUBLIC_SANDBOX_ORIGIN }}\`"
+            echo
+            echo "Pin the digest in learn-anything-infra \`manifests/overlays/prod/kustomization.yaml\`."
+          } >> "$GITHUB_STEP_SUMMARY"
