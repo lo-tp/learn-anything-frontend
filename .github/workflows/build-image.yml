@@ -89,10 +89,42 @@ jobs:
             NEXT_PUBLIC_BACKEND_URL=${{ env.NEXT_PUBLIC_BACKEND_URL }}
             NEXT_PUBLIC_SANDBOX_ORIGIN=${{ env.NEXT_PUBLIC_SANDBOX_ORIGIN }}
           push: ${{ github.event_name == 'push' }}
+          # Load it into the runner's Docker as well, so the step below can run the
+          # artifact this job just built. A successful build proves the bundler ran;
+          # it does not prove the image can serve a page.
+          load: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE }}:sha-${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # The image's contract, checked against the artifact: it starts as its own
+      # user, sends an anonymous visitor to sign-in (that is what proxy.ts does),
+      # renders that page with real translated text — the proof that `messages/` is
+      # inside the image, since i18n/request.ts imports it through a runtime-computed
+      # specifier that file tracing cannot see — and the origins baked in at build
+      # time are the ones this workflow declared.
+      - name: Smoke test the image
+        run: |
+          set -euo pipefail
+          docker run -d --name fe-smoke -p 3000:3000 -e JWT_SECRET=smoke-test-only \
+            ${{ env.REGISTRY }}/${{ env.IMAGE }}:sha-${{ github.sha }}
+          code=0
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/ || true)
+            if [ "$code" = 307 ] || [ "$code" = 200 ]; then break; fi
+            sleep 2
+            if [ "$i" = 30 ]; then echo "never became ready (last code: $code)"; docker logs fe-smoke; exit 1; fi
+          done
+          # An anonymous request is redirected to the sign-in page, not served a page.
+          test "$code" = 307
+          page=$(curl -sL http://127.0.0.1:3000/en/login)
+          printf '%s' "$page" | grep -qi '<title>'
+          printf '%s' "$page" | grep -qi 'sign in'
+          # Inside the image, not on the runner: the built chunks must carry the
+          # origins this workflow passed in as build args.
+          docker exec fe-smoke sh -c "grep -rq \"${{ env.NEXT_PUBLIC_BACKEND_URL }}\" .next/static"
+          docker rm -f fe-smoke
 
       # The infra side pins a digest, not a tag: a tag can be re-pointed under a
       # running rollout and a digest cannot. Surfaced so promoting an image is a
