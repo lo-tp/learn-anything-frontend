@@ -56,3 +56,13 @@ The state of a review card whose scheduled review time has arrived, making it el
 **Review deck**:
 The user's set of due review cards, served in scheduled order.
 _Avoid_: queue
+
+## Memory
+
+**Boundary map**:
+The outcome of a Session's probing phase: for each prerequisite strand the plan will depend on, where the learner's understanding starts (floor) and ends (ceiling). Scoped to one Session.
+_Avoid_: knowledge profile, skill assessment
+
+**Learner map**:
+A User's persistent record of their understanding across Sessions. Each Session's boundary map is seeded from it and written back to it; it outlives every Session.
+_Avoid_: user memory, long-term memory, learner profile, knowledge graph
