@@ -1,0 +1,5 @@
+# Store the Learner map and Personal RAG chunks in Postgres with pgvector
+
+Long-term memory (the **Learner map**), per-user retrieval ("Personal RAG" over a User's past research, plans, slides and review cards), and cross-Session strand canonicalization all need vector + relational storage. We enable the `vector` extension on the **existing** Postgres instance and keep every store — records, chunks and embeddings — in it, with OpenAI `text-embedding-3-small` as the embedding model.
+
+Considered and rejected: a dedicated vector database (Qdrant/Chroma/pgvector-as-a-sidecar) — every extra service is paid for twice in our infra (replica floor plus per-pod billing floor, ADRs 0001/0003 in the infrastructure context), and nothing here needs a query engine Postgres cannot serve; a hand-built concept registry with IDs — there is no corpus to seed it, so strands are canonicalized by embedding similarity instead. Consequence: the embedding dimension is a schema commitment; changing embedding model is a migration, not a config change.
