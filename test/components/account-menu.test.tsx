@@ -41,6 +41,20 @@ describe("AccountMenu", () => {
     expect(screen.getByRole("button", { name: "Alice" }).textContent).toBe("A");
   });
 
+  it("stays hidden when getMe fails, instead of throwing through the shell", async () => {
+    // The `.catch(() => {})` in the effect is deliberate (#132 gap 5): a transient
+    // /me failure leaves the menu hidden rather than breaking the page. This pins
+    // that contract, so the empty catch is not mistaken for an unhandled
+    // rejection — and it is the branch the coverage floor was measuring on CI.
+    getMe.mockRejectedValue(new Error("connection reset"));
+    renderWithLocale(<AccountMenu />);
+
+    await waitFor(() => {
+      expect(getMe).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
   it("opens a dropdown showing the display name, edit-name, and sign out", async () => {
     getMe.mockResolvedValue(USER);
     renderWithLocale(<AccountMenu />);
