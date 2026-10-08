@@ -37,6 +37,21 @@ When writing a Git commit message:
 
 <!-- BEGIN:nextjs-agent-rules -->
 
+## How a change here reaches a browser
+
+`main` is checked — lint, typecheck, the coverage-gated test suite — and never builds
+an image. Merging `main` into `release` is the act that ships: the image is built,
+its smoke step runs it and asserts that an anonymous visitor is redirected to
+`/en/login` and that the page renders copy from `messages/`, it is published under a
+`sha-<commit>` tag, and `lo-tp/learn-anything-infra` pins the digest and deploys it,
+with no human step in between. `release` is protected and moves only by merging
+`main` into it, so every commit production runs stays reachable on `main`.
+
+Two rules follow: never commit directly to `release`, and never expect a push to
+`main` to change what is serving. What production runs is recorded in the
+infrastructure repository's `manifests/overlays/prod/kustomization.yaml`, and
+reverting that pin commit is the rollback.
+
 # This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
