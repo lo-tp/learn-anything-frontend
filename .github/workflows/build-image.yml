@@ -85,7 +85,14 @@ jobs:
           # build on an Apple-silicon laptop from producing something the cluster
           # would never run.
           platforms: linux/amd64
-          build-args:
+          # `|` is load-bearing, not style. Without it this is a plain multi-line
+          # YAML scalar, and YAML **folds the newlines into spaces**: the action
+          # receives one string, passes one `--build-arg`, and the Dockerfile's first
+          # ARG swallows the rest of the line. The first shipped image baked
+          # `NEXT_PUBLIC_BACKEND_URL` as
+          # `https://api.lotp.xyz NEXT_PUBLIC_SANDBOX_ORIGIN=https://sandbox.lotp.xyz`,
+          # so every browser request went to `https://api.lotp.xyz%20…/auth/login`.
+          build-args: |
             NEXT_PUBLIC_BACKEND_URL=${{ env.NEXT_PUBLIC_BACKEND_URL }}
             NEXT_PUBLIC_SANDBOX_ORIGIN=${{ env.NEXT_PUBLIC_SANDBOX_ORIGIN }}
           # Not pushed from here: the smoke step below has to pass first. An image
@@ -126,8 +133,26 @@ jobs:
           printf '%s' "$page" | grep -qi '<title>'
           printf '%s' "$page" | grep -qi 'sign in'
           # Inside the image, not on the runner: the built chunks must carry the
-          # origins this workflow passed in as build args.
-          docker exec fe-smoke sh -c "grep -rq \"${{ env.NEXT_PUBLIC_BACKEND_URL }}\" .next/static"
+          # origins this workflow passed in as build args. Asserted at the string
+          # boundary on purpose — the substring version of this check
+          # (`grep -q "$URL"`) passed on an image whose baked value was that origin
+          # *plus a space and more text*, which is the exact defect it is supposed
+          # to catch. A prefix is not the value.
+          docker exec -e WANT_BACKEND="${{ env.NEXT_PUBLIC_BACKEND_URL }}" \
+                      -e WANT_SANDBOX="${{ env.NEXT_PUBLIC_SANDBOX_ORIGIN }}" \
+            fe-smoke sh -c '
+              set -eu
+              # No quoted origin may contain whitespace or another assignment:
+              # that is what a folded build-args looks like from the inside.
+              bad=$(grep -rhoE "\"https?://[^\"]*\"" .next/static |
+                    grep -E "[[:space:]]|NEXT_PUBLIC_[A-Z_]*=" || true)
+              if [ -n "$bad" ]; then
+                printf "baked origin is malformed:\n%s\n" "$bad"; exit 1
+              fi
+              # And each wanted origin has to appear as a whole string.
+              grep -rq "\"$WANT_BACKEND\"" .next/static
+              grep -rq "\"$WANT_SANDBOX\"" .next/static
+            '
           docker rm -f fe-smoke
 
       # The infra side pins a digest, not a tag: a tag can be re-pointed under a
