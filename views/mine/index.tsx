@@ -18,8 +18,7 @@ import { CONFIRMING_PHASES } from "./intake";
  * refresh runs after the new-session dialog accepts an intake), and the
  * dialog's open state, and renders the page directly from the pure leaf
  * components in `components/*`. The route is a static shell — the view does
- * the fetching in the browser (#87). The root temporary-redirects here until
- * the public surface takes it over (#148).
+ * the fetching in the browser (#87).
  *
  * Three fetch-driven states (#132): **loading** (the initial fetch in
  * flight — a friendly panel, never the empty state), **error** (a failed
@@ -32,6 +31,9 @@ import { CONFIRMING_PHASES } from "./intake";
  * Visitor's (its fetch answers 401) — no navigation (#147). The refresh
  * after the dialog accepts an intake is a silent re-fetch — it keeps the
  * current list on failure.
+ *
+ * The site root is the public Explore surface (#150); this list keeps its
+ * own address at `/mine`.
  *
  * With sessions: the "My Sessions" header (title + CTA) above the cards.
  * When empty: the header is hidden and the empty state carries the CTA at
@@ -171,7 +173,7 @@ export function Mine() {
         </header>
 
         {sessions.length === 0 ? (
-          <EmptyState>
+          <EmptyState title={t("emptyTitle")} body={t("emptyBody")}>
             <StartSessionButton onClick={() => setDialogOpen(true)} />
           </EmptyState>
         ) : (

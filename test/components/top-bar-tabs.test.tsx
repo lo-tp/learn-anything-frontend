@@ -21,22 +21,33 @@ afterEach(() => {
 });
 
 describe("TopBarTabs", () => {
-  it("renders the Study and Review tabs", () => {
+  it("renders the Explore, Study, and Review tabs", () => {
     renderWithLocale(<TopBarTabs />);
+    expect(screen.getByRole("link", { name: "Explore" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Study" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Review" })).toBeTruthy();
   });
 
-  it("points Study to /mine and Review to /review", () => {
+  it("points Explore to the root, Study to /mine, and Review to /review", () => {
     renderWithLocale(<TopBarTabs />);
+    expect(screen.getByRole("link", { name: "Explore" }).getAttribute("href")).toBe("/");
     expect(screen.getByRole("link", { name: "Study" }).getAttribute("href")).toBe("/mine");
     expect(screen.getByRole("link", { name: "Review" }).getAttribute("href")).toBe("/review");
+  });
+
+  it("marks Explore active at the root", () => {
+    nav.pathname = "/";
+    renderWithLocale(<TopBarTabs />);
+    expect(screen.getByRole("link", { name: "Explore" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: "Study" }).getAttribute("aria-current")).toBeNull();
+    expect(screen.getByRole("link", { name: "Review" }).getAttribute("aria-current")).toBeNull();
   });
 
   it("marks Study active at /mine", () => {
     nav.pathname = "/mine";
     renderWithLocale(<TopBarTabs />);
     expect(screen.getByRole("link", { name: "Study" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: "Explore" }).getAttribute("aria-current")).toBeNull();
     expect(screen.getByRole("link", { name: "Review" }).getAttribute("aria-current")).toBeNull();
   });
 
@@ -45,6 +56,7 @@ describe("TopBarTabs", () => {
     renderWithLocale(<TopBarTabs />);
     expect(screen.getByRole("link", { name: "Review" }).getAttribute("aria-current")).toBe("page");
     expect(screen.getByRole("link", { name: "Study" }).getAttribute("aria-current")).toBeNull();
+    expect(screen.getByRole("link", { name: "Explore" }).getAttribute("aria-current")).toBeNull();
   });
 
   it("marks Study active on a session page", () => {
@@ -52,10 +64,12 @@ describe("TopBarTabs", () => {
     renderWithLocale(<TopBarTabs />);
     expect(screen.getByRole("link", { name: "Study" }).getAttribute("aria-current")).toBe("page");
     expect(screen.getByRole("link", { name: "Review" }).getAttribute("aria-current")).toBeNull();
+    expect(screen.getByRole("link", { name: "Explore" }).getAttribute("aria-current")).toBeNull();
   });
 
   it("labels the tabs from the zh catalog under the zh locale", () => {
     renderWithLocale(<TopBarTabs />, { locale: "zh" });
+    expect(screen.getByRole("link", { name: "探索" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "学习" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "复习" })).toBeTruthy();
   });

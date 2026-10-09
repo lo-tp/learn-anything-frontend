@@ -7,8 +7,8 @@ import { hasLocale, routing } from "@/i18n/routing";
  * renders the personal list view and nothing else — the view owns its
  * Session fetch (initial and refresh) in the browser (#87). A Visitor's
  * list fetch answers 401 and the sign-in modal asks in place over the page
- * (#147); the root temporary-redirects here until the public surface takes
- * it over (#148). The shared frame is applied by the app layout.
+ * (#147); the site root is the public Explore surface (#150). The shared
+ * frame is applied by the app layout.
  */
 export default async function MinePage({
   params,

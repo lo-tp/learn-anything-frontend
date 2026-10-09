@@ -7,6 +7,7 @@
     "chooseLanguage": "Choose language",
     "toggleTheme": "Toggle theme",
     "reviewDue": "{count} cards due for review",
+    "explore": "Explore",
     "study": "Study",
     "review": "Review",
     "signIn": "Sign in"
@@ -33,6 +34,21 @@
     "error": {
       "title": "Can't load your sessions",
       "note": "We couldn't reach the backend. Your sessions are safe — try again."
+    },
+    "retry": "Retry"
+  },
+  "explore": {
+    "title": "Explore",
+    "subtitle": "What people are learning — the twenty newest sessions, goal first, no names.",
+    "emptyTitle": "Learn anything, one question at a time",
+    "emptyBody": "Declare a knowledge point and we'll walk you to mastery — an AI conversation, one question at a time. Start your first session, and what you learn will show up here.",
+    "loading": {
+      "title": "Loading the feed…",
+      "note": "Hang tight — what people are learning is loading."
+    },
+    "error": {
+      "title": "Can't load the feed",
+      "note": "We couldn't reach the backend — try again."
     },
     "retry": "Retry"
   },

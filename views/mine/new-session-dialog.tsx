@@ -23,7 +23,8 @@ import { QuizQuestion } from "@/components/session/quiz-question";
 import { useSessionIntake } from "./use-session-intake";
 
 /**
- * The new-session intake sheet over the History (#26): a full-screen
+ * The new-session intake sheet (#26) — opened over the personal list at
+ * `/mine` and over the public Explore surface at the root (#150): a full-screen
  * printed form — a masthead, the progress rail as a row of answer bubbles,
  * the transcript of the conversation (the learner's entries marked with a
  * print-ink margin rule, Lumina's with a pencil rule, the narrowed goal

@@ -161,6 +161,19 @@ function guardUnauthorized(response: Response | undefined, error: unknown, statu
   return describeError(error, status);
 }
 
+/**
+ * `GET /explore/sessions` — the public Explore feed (#144): the newest
+ * Sessions that reached materials, newest first, capped at 20 by the
+ * backend. Unauthenticated by design — a Visitor is a normal caller, and
+ * the payload carries no owner identity (#145). No credentials, no 401
+ * handling: the endpoint cannot refuse a request.
+ */
+export async function listExploreSessions(): Promise<SessionList> {
+  const { data, error, response } = await api.GET("/explore/sessions");
+  if (!data) throw describeError(error, response?.status);
+  return data;
+}
+
 /** `GET /sessions` — list sessions (newest first), optionally filtered by phase(s). */
 export async function listSessions(phases?: Phase[]): Promise<SessionList> {
   const { data, error, response } = await api.GET("/sessions", {
@@ -297,10 +310,9 @@ export async function getMaterials(sessionId: string): Promise<MaterialsOut> {
 }
 
 // ── Review (spaced repetition) ──────────────────────────────────────────────
-// Types match the agreed §3.9 shape; once the backend is live and
-// `npm run generate:types` runs, these can be lifted to `components["schemas"]`.
-// The review paths are not yet in the generated OpenAPI spec, so these use
-// raw `fetch` (the same transport `openapi-fetch` wraps).
+// The review paths are in the generated OpenAPI spec (regenerated in #150),
+// but these endpoints keep their hand-rolled types and raw `fetch` (the
+// same transport `openapi-fetch` wraps).
 
 export type ReviewQuestionIn = {
   text: string;

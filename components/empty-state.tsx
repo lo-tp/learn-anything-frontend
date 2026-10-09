@@ -1,18 +1,25 @@
 "use client";
 
-import { useTranslations } from "next-intl";
-
 /**
- * The empty History state: a blank sheet waiting for its first entry — the
- * sheet-number slot printed empty ("No. ____"), the title and body copy as
- * the printed instructions at the top of the form, ruled lines running
- * through the empty writing space, and the caller's CTA (`children`, the
- * shared ink block button) at the foot of the sheet. The record header band
- * above it is rendered by the page in this state too, so the first-time
- * visitor still reads the page as a study record.
+ * A blank sheet waiting for its first entry: the sheet-number slot printed
+ * empty ("No. ____"), the caller's title and body copy as the printed
+ * instructions at the top of the form, ruled lines running through the empty
+ * writing space, and the caller's CTA (`children`, the shared ink block
+ * button) at the foot of the sheet. Pure leaf — the view owns the i18n
+ * strings, so the personal list (#148) and the public Explore surface (#150)
+ * each pass their own copy. The record header band above it is rendered by
+ * the page in this state too, so the first-time visitor still reads the page
+ * as a study record.
  */
-export function EmptyState({ children }: { children?: React.ReactNode }) {
-  const t = useTranslations("mine");
+export function EmptyState({
+  title,
+  body,
+  children,
+}: {
+  title: string;
+  body: string;
+  children?: React.ReactNode;
+}) {
   return (
     <div className="flex flex-col py-4">
       <div className="relative w-full overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest shadow-[var(--shadow-sheet)]">
@@ -33,10 +40,10 @@ export function EmptyState({ children }: { children?: React.ReactNode }) {
 
         <div className="px-6 pt-6 pb-4 pl-10 md:px-10">
           <h2 className="font-display text-2xl font-bold text-on-surface">
-            {t("emptyTitle")}
+            {title}
           </h2>
           <p className="mt-2 max-w-md text-[15px] leading-relaxed text-on-surface-variant">
-            {t("emptyBody")}
+            {body}
           </p>
         </div>
 

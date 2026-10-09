@@ -97,7 +97,12 @@ export interface paths {
         };
         /**
          * List Sessions
-         * @description List all sessions, newest first, optionally filtered by phase(s).
+         * @description List History: every Session record, newest first, optionally filtered by
+         *     phase(s).
+         *
+         *     Requires a sign-in cookie (#145). Records are not scoped per User yet: every
+         *     signed-in caller is shown the same list (see
+         *     ``tests/routers/test_auth_gate.TestSessionsSharedAcrossUsers``).
          */
         get: operations["list_sessions_sessions_get"];
         put?: never;
@@ -124,6 +129,31 @@ export interface paths {
          * @description Get current session state & progress.
          */
         get: operations["get_session_sessions__session_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/explore/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Explore Sessions
+         * @description List the public Explore feed: Sessions that reached materials.
+         *
+         *     Newest first, capped at ``EXPLORE_LIMIT``. Reuses the ``SessionList`` /
+         *     ``SessionListItem`` schema from ``/sessions`` and carries no owner
+         *     identity — no email, display name, or user id — so a Visitor sees what
+         *     people are learning without being told who they are.
+         */
+        get: operations["list_explore_sessions_explore_sessions_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -289,6 +319,68 @@ export interface paths {
         get: operations["get_slide_slides__slide_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/review/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record Card
+         * @description Capture a missed question (material misses from the client; probe
+         *     misses are recorded server-side). Re-miss resets the card's SRS.
+         */
+        post: operations["record_card_review_cards_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/review/due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Due Cards
+         * @description The learner's due cards ordered by ``due_at``.
+         */
+        get: operations["due_cards_review_due_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/review/cards/{card_id}/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer Card
+         * @description Submit a confidence rating: update the card's FSRS state and return
+         *     the new due date, derived interval, and lapse count.
+         */
+        post: operations["answer_card_review_cards__card_id__answer_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -472,6 +564,81 @@ export interface components {
             password: string;
             /** Display Name */
             display_name?: string | null;
+        };
+        /** ReviewAnswerIn */
+        ReviewAnswerIn: {
+            /**
+             * Rating
+             * @enum {string}
+             */
+            rating: "again" | "hard" | "good" | "easy";
+        };
+        /** ReviewAnswerOut */
+        ReviewAnswerOut: {
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /** Interval Days */
+            interval_days: number;
+            /** Lapses */
+            lapses: number;
+        };
+        /** ReviewCardIn */
+        ReviewCardIn: {
+            /** Source */
+            source: string;
+            /** Session Id */
+            session_id: string;
+            /** Question Id */
+            question_id: string;
+            question: components["schemas"]["ReviewQuestionIn"];
+            /** Step Id */
+            step_id?: string | null;
+            /** Selected Index */
+            selected_index?: number | null;
+        };
+        /** ReviewCardOut */
+        ReviewCardOut: {
+            /** Id */
+            id: number;
+            /** Source */
+            source: string;
+            question: components["schemas"]["ReviewQuestionOut"];
+            /** Session Id */
+            session_id: string;
+            /** Step Id */
+            step_id?: string | null;
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /** Lapses */
+            lapses: number;
+        };
+        /** ReviewQuestionIn */
+        ReviewQuestionIn: {
+            /** Text */
+            text: string;
+            /** Options */
+            options: string[];
+            /** Correct Index */
+            correct_index: number;
+            /** Explanation */
+            explanation: string;
+        };
+        /** ReviewQuestionOut */
+        ReviewQuestionOut: {
+            /** Text */
+            text: string;
+            /** Options */
+            options: string[];
+            /** Correct Index */
+            correct_index: number;
+            /** Explanation */
+            explanation: string;
         };
         /** SessionList */
         SessionList: {
@@ -816,6 +983,26 @@ export interface operations {
             };
         };
     };
+    list_explore_sessions_explore_sessions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionList"];
+                };
+            };
+        };
+    };
     clarify_session_sessions__session_id__clarify_post: {
         parameters: {
             query?: never;
@@ -1063,6 +1250,105 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SlideOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_card_review_cards_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewCardIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewCardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    due_cards_review_due_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewCardOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answer_card_review_cards__card_id__answer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                card_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewAnswerIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewAnswerOut"];
                 };
             };
             /** @description Validation Error */
