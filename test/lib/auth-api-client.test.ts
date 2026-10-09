@@ -9,7 +9,7 @@ vi.stubGlobal("fetch", fetchMock);
 const {
   registerAuth,
   loginAuth,
-  getMe,
+  getSignedInUser,
   updateMe,
   logoutAuth,
   handleUnauthorized,
@@ -79,20 +79,18 @@ describe("loginAuth", () => {
   });
 });
 
-describe("getMe", () => {
-  it("sends GET /auth/me with credentials and returns UserOut", async () => {
+describe("getSignedInUser", () => {
+  it("sends GET /auth/me with credentials and returns the UserOut", async () => {
     fetchMock.mockResolvedValue(json(USER));
-    const result = await getMe();
+    const result = await getSignedInUser();
     const url = new URL(fetchMock.mock.calls[0][0].url);
     expect(url.origin + url.pathname).toBe(`${BACKEND}/auth/me`);
     expect(result).toEqual(USER);
   });
 
-  it("throws an ApiError with the status on 401", async () => {
+  it("resolves null on 401 — that is a Visitor, not a failed request", async () => {
     fetchMock.mockResolvedValue(json({ detail: "Not authenticated" }, 401));
-    const err = await getMe().catch((e) => e);
-    expect(err).toBeInstanceOf(ApiError);
-    expect(err.status).toBe(401);
+    expect(await getSignedInUser()).toBeNull();
   });
 });
 

@@ -30,6 +30,7 @@ export type Phase = components["schemas"]["Phase"];
 export type ProbeOut = components["schemas"]["ProbeOut"];
 export type SessionList = components["schemas"]["SessionList"];
 export type SessionListItem = components["schemas"]["SessionListItem"];
+export type UserOut = components["schemas"]["UserOut"];
 export type ProbeQuestionOut = components["schemas"]["ProbeQuestionOut"];
 export type AnswerIn = components["schemas"]["AnswerIn"];
 export type PlanOut = components["schemas"]["PlanOut"];
@@ -106,35 +107,31 @@ export async function loginAuth(
   }
 }
 
-/** `GET /auth/me` — current user's profile. */
-export async function getMe(): Promise<components["schemas"]["UserOut"]> {
-  const { data, error, response } = await api.GET("/auth/me", {
-    credentials: "include",
-  });
-  if (!data) {
-    if (response?.status === 401) handleUnauthorized();
-    throw describeError(error, response?.status);
-  }
-  return data;
-}
-
 /**
- * The viewer's sign-in state, probed against `GET /auth/me` (#151).
+ * `GET /auth/me` as an identity probe (#143): the current User, or `null`
+ * for a Visitor.
  *
- * Unlike `getMe`, a 401 is the expected answer for a Visitor, not an
- * error to react to: it resolves `false` without asking for the sign-in
- * modal. The modal is an ownership ask (#143) — a probe that expects a
- * Visitor must not open it. Any other failure throws, as `getMe` does.
+ * A 401 is the expected answer for a Visitor, not an error to react to: it
+ * resolves `null` and does **not** ask for the sign-in modal. The modal is
+ * an ownership ask — a probe that expects a Visitor must not open it, or
+ * every page would greet a Visitor with a sign-in form they never asked for
+ * (#143). Any other failure throws, as the other endpoints do: the caller
+ * decides how to degrade, and the caller holding the sign-in state treats a
+ * failed probe as a Visitor (#143).
+ *
+ * This is the only identity read in the app: the cookie is `HttpOnly`, so
+ * the answer of this endpoint — `200` with the profile, `401` without — is
+ * the whole signal (ADR-0004/0005).
  */
-export async function isSignedIn(): Promise<boolean> {
+export async function getSignedInUser(): Promise<components["schemas"]["UserOut"] | null> {
   const { data, error, response } = await api.GET("/auth/me", {
     credentials: "include",
   });
   if (!data) {
     if (response?.status !== 401) throw describeError(error, response?.status);
-    return false;
+    return null;
   }
-  return true;
+  return data;
 }
 
 /** `PATCH /auth/me` — update display name. */

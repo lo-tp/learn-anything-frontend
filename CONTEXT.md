@@ -29,8 +29,8 @@ The public list of Session records — the newest Sessions that reached material
 _Avoid_: gallery
 
 **History**:
-A User's own Sessions, listed at `/mine`. Requires sign-in, unlike Explore — it is owned data, not the public feed.
-_Avoid_: Explore
+A User's own Sessions, listed at `/mine` and labelled Study in the top bar. Requires sign-in, unlike Explore — it is owned data, not the public feed.
+_Avoid_: Explore, Study (which is only the tab's label for it)
 
 **Visitor deck view**:
 The projection of a Session's deck that a Visitor may browse and answer. Their answers stay local to the view and no review card is written for them; what they earned is retained only if they sign in and become a User.

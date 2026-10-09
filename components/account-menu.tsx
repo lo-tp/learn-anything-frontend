@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { getMe, updateMe, logoutAuth } from "@/lib/api-client";
+import { updateMe, logoutAuth } from "@/lib/api-client";
 import { notifySignedOut } from "@/lib/auth-events";
+import { setSignInUser, useSignInState } from "@/hooks/use-sign-in-state";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -26,26 +27,31 @@ import { Button } from "@/components/ui/button";
  * Account menu in the top bar: a circular avatar (display-name initial)
  * opens a dropdown with the display name, an edit-name dialog, and sign out.
  *
- * Client component — fetches the current user's profile on mount (#92).
+ * Client component. It does not probe identity itself: it prints the User
+ * from the page's one sign-in state (`useSignInState`, #143) and hides
+ * itself while that state holds no User — which is every Visitor's case, and
+ * a probe the backend could not answer (a transient `/me` failure) is treated
+ * the same way rather than breaking the shell (#132 gap 5). An edited name
+ * is written back into that state, so the avatar and the rest of the chrome
+ * stay in step.
  */
 export function AccountMenu() {
   const t = useTranslations("account");
-  const [displayName, setDisplayName] = useState<string | null>(null);
+  const { user } = useSignInState();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    getMe().then((user) => setDisplayName(user.display_name)).catch(() => {});
-  }, []);
+  // No profile in the state: a Visitor, or a probe the backend could not
+  // answer. Either way there is nothing to print, and the menu hides.
+  if (!user) return null;
 
-  if (!displayName) return null;
-
+  const displayName = user.display_name;
   const initial = displayName.charAt(0).toUpperCase();
 
   function openEditDialog() {
-    setInputValue(displayName!);
+    setInputValue(displayName);
     setError(null);
     setDialogOpen(true);
   }
@@ -57,8 +63,8 @@ export function AccountMenu() {
     setSaving(true);
     setError(null);
     try {
-      const user = await updateMe(name);
-      setDisplayName(user.display_name);
+      const updated = await updateMe(name);
+      setSignInUser(updated);
       setDialogOpen(false);
     } catch {
       setError(t("error"));
@@ -69,15 +75,15 @@ export function AccountMenu() {
 
   async function handleSignOut() {
     // #147: signing out leaves the person where they are — no navigation to
-    // a login route. The menu hides itself (the Visitor view of the top
-    // bar), and the current surface is told to re-render as a Visitor
-    // (its next auth-gated fetch answers 401, which opens the sign-in
-    // modal — the standing way back in). A failed sign-out leaves the user
-    // signed in — the least-harmful outcome; there is no toast surface to
-    // report it (#132 gap 1).
+    // a login route. The sign-in state flips to a Visitor's, which hides
+    // this menu and turns the top bar into the Visitor chrome (#143), and
+    // the current surface is told to re-render as a Visitor's (its next
+    // auth-gated fetch answers 401, which opens the sign-in modal — the
+    // standing way back in). A failed sign-out leaves the user signed in —
+    // the least-harmful outcome; there is no toast surface to report it
+    // (#132 gap 1).
     try {
       await logoutAuth();
-      setDisplayName(null);
       notifySignedOut();
     } catch {
       /* stay signed in */

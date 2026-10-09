@@ -5,14 +5,18 @@ import { renderWithLocale } from "@/test/test-utils";
 import { AccountMenu } from "@/components/account-menu";
 import { onSignedOut } from "@/lib/auth-events";
 
-const { getMe, updateMe, logoutAuth } = vi.hoisted(() => ({
-  getMe: vi.fn(),
+// The menu prints whoever the page's sign-in state holds (#143), and that
+// state is settled by one `GET /auth/me` probe. So these tests drive the
+// probe's answer through the API client and let the real state do the rest:
+// who the menu shows, and when it hides itself.
+const { getSignedInUser, updateMe, logoutAuth } = vi.hoisted(() => ({
+  getSignedInUser: vi.fn(),
   updateMe: vi.fn(),
   logoutAuth: vi.fn(),
 }));
 
 vi.mock("@/lib/api-client", () => ({
-  getMe,
+  getSignedInUser,
   updateMe,
   logoutAuth,
 }));
@@ -23,6 +27,11 @@ vi.mock("@/i18n/navigation", () => ({
 
 const USER = { id: 1, email: "test@example.com", display_name: "Alice" };
 
+/** Wait for this test's probe to answer, so the state is settled. */
+async function probeSettled() {
+  await waitFor(() => expect(getSignedInUser).toHaveBeenCalledTimes(1));
+}
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -30,9 +39,10 @@ afterEach(() => {
 
 describe("AccountMenu", () => {
   it("renders a circular avatar with the display name initial", async () => {
-    getMe.mockResolvedValue(USER);
+    getSignedInUser.mockResolvedValue(USER);
     renderWithLocale(<AccountMenu />);
 
+    await probeSettled();
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Alice" })).toBeTruthy();
     });
@@ -40,22 +50,29 @@ describe("AccountMenu", () => {
     expect(screen.getByRole("button", { name: "Alice" }).textContent).toBe("A");
   });
 
-  it("stays hidden when getMe fails, instead of throwing through the shell", async () => {
-    // The `.catch(() => {})` in the effect is deliberate (#132 gap 5): a transient
-    // /me failure leaves the menu hidden rather than breaking the page. This pins
-    // that contract, so the empty catch is not mistaken for an unhandled
-    // rejection — and it is the branch the coverage floor was measuring on CI.
-    getMe.mockRejectedValue(new Error("connection reset"));
+  it("stays hidden for a Visitor — the probe answered 401, so there is no profile", async () => {
+    getSignedInUser.mockResolvedValue(null);
     renderWithLocale(<AccountMenu />);
 
-    await waitFor(() => {
-      expect(getMe).toHaveBeenCalledTimes(1);
-    });
-    expect(screen.queryByRole("button")).toBeNull();
+    await probeSettled();
+    await waitFor(() => expect(screen.queryByRole("button")).toBeNull());
+  });
+
+  it("stays hidden when the probe fails, instead of throwing through the shell", async () => {
+    // The sign-in state treats a probe the backend could not answer as a
+    // Visitor (#143): the menu hides rather than breaking the page, and no
+    // write is attempted on someone we cannot identify. This pins that
+    // contract, so the tolerated failure is not mistaken for an unhandled
+    // rejection — and it is the branch the coverage floor measures on CI.
+    getSignedInUser.mockRejectedValue(new Error("connection reset"));
+    renderWithLocale(<AccountMenu />);
+
+    await probeSettled();
+    await waitFor(() => expect(screen.queryByRole("button")).toBeNull());
   });
 
   it("opens a dropdown showing the display name, edit-name, and sign out", async () => {
-    getMe.mockResolvedValue(USER);
+    getSignedInUser.mockResolvedValue(USER);
     renderWithLocale(<AccountMenu />);
 
     const trigger = await screen.findByRole("button", { name: "Alice" });
@@ -68,7 +85,7 @@ describe("AccountMenu", () => {
   });
 
   it("opens the edit-name dialog from the dropdown", async () => {
-    getMe.mockResolvedValue(USER);
+    getSignedInUser.mockResolvedValue(USER);
     renderWithLocale(<AccountMenu />);
 
     const trigger = await screen.findByRole("button", { name: "Alice" });
@@ -80,8 +97,8 @@ describe("AccountMenu", () => {
     expect(screen.getByRole("dialog")).toBeTruthy();
   });
 
-  it("saves a new display name via updateMe and reflects it", async () => {
-    getMe.mockResolvedValue(USER);
+  it("saves a new display name via updateMe and reflects it in the state", async () => {
+    getSignedInUser.mockResolvedValue(USER);
     updateMe.mockResolvedValue({ ...USER, display_name: "Bob" });
     renderWithLocale(<AccountMenu />);
 
@@ -98,14 +115,15 @@ describe("AccountMenu", () => {
     await waitFor(() => {
       expect(updateMe).toHaveBeenCalledWith("Bob");
     });
-    // The avatar updates to the new initial.
+    // The avatar updates to the new initial: the edited profile is written
+    // back into the sign-in state the whole chrome reads.
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Bob" })).toBeTruthy();
     });
   });
 
   it("shows an inline error when updateMe fails", async () => {
-    getMe.mockResolvedValue(USER);
+    getSignedInUser.mockResolvedValue(USER);
     updateMe.mockRejectedValue(new Error("boom"));
     renderWithLocale(<AccountMenu />);
 
@@ -124,7 +142,7 @@ describe("AccountMenu", () => {
   });
 
   it("does not call updateMe when the name is blank", async () => {
-    getMe.mockResolvedValue(USER);
+    getSignedInUser.mockResolvedValue(USER);
     renderWithLocale(<AccountMenu />);
 
     const trigger = await screen.findByRole("button", { name: "Alice" });
@@ -141,13 +159,15 @@ describe("AccountMenu", () => {
   });
 
   it("signs out via logoutAuth and stays put — the menu hides itself and the surface is told, no navigation", async () => {
-    // #147: signing out leaves the person where they are. The menu hides
-    // itself (the Visitor view of the top bar) and tells the current surface
-    // to re-render as a Visitor; the page does not navigate to a login route
-    // — the standing way back in is the top-bar Sign in.
+    // #147: signing out leaves the person where they are. The sign-out
+    // announcement settles the sign-in state to a Visitor's, which hides the
+    // menu (the top bar becomes the Visitor chrome, #143) and tells the
+    // current surface to re-render as a Visitor's; the page does not
+    // navigate to a login route — the standing way back in is the top-bar
+    // Sign in.
     const signedOut = vi.fn();
     const unsubscribe = onSignedOut(signedOut);
-    getMe.mockResolvedValue(USER);
+    getSignedInUser.mockResolvedValue(USER);
     logoutAuth.mockResolvedValue(undefined);
     renderWithLocale(<AccountMenu />);
 
@@ -163,7 +183,7 @@ describe("AccountMenu", () => {
     await waitFor(() => {
       expect(signedOut).toHaveBeenCalledTimes(1);
     });
-    // …and the avatar is gone — the menu cannot identify anyone anymore.
+    // …and the avatar is gone — the state now holds no profile.
     await waitFor(() => {
       expect(screen.queryByRole("button", { name: "Alice" })).toBeNull();
     });
@@ -171,7 +191,7 @@ describe("AccountMenu", () => {
   });
 
   it("keeps the menu when sign-out fails (the user stays signed in)", async () => {
-    getMe.mockResolvedValue(USER);
+    getSignedInUser.mockResolvedValue(USER);
     logoutAuth.mockRejectedValue(new Error("backend down"));
     renderWithLocale(<AccountMenu />);
 

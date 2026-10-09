@@ -48,8 +48,9 @@ Navigate to the new route — the frame/top bar come free from the layout.
 - **`"use client"`**: only on the view and any leaf that uses state/hooks/events. Pure leaves stay server-compatible.
 - **Content frame**: reuse the standard wrapper verbatim — a scrollable `main` holding a centered, max-width, padded `div` (see `views/mine/index.tsx`).
 - **Styling**: use the design tokens, not raw hex — `text-on-surface`, `text-on-surface-variant`, `bg-surface-container`, `bg-surface-container-high`, `text-primary`, `border-outline-variant`, `text-error`, `font-display`, `font-mono`. (Full list in `app/globals.css`.)
-- **Data flow**: the view is the **single state owner** — and the single **fetcher**; leaves receive props and report back via callbacks (see `NewSessionDialog` → `onAccept` → parent `refresh()`). The exception is **shared chrome**: frame-level components mounted in `components/frame.tsx` (top-bar widgets, dialogs) may own their own state and fetches, because they live outside any single page's view (e.g. `account-menu.tsx`, `sign-in-form.tsx`, `sign-in-modal.tsx` — the sign-in form is shared by the modal and the login page, #147).
+- **Data flow**: the view is the **single state owner** — and the single **fetcher**; leaves receive props and report back via callbacks (see `NewSessionDialog` → `onAccept` → parent `refresh()`). The exception is **shared chrome**: frame-level components mounted in `components/frame.tsx` (top-bar widgets, dialogs) may own their own state and fetches, because they live outside any single page's view (e.g. `account-menu.tsx`, `sign-in-form.tsx`, `sign-in-modal.tsx` — the sign-in form belongs to the modal, which replaces the old login page, #147).
 - **Cross-component signals**: components outside each other's trees communicate through the plain event bus in `lib/auth-events.ts` (#147) — e.g. the API client asks the sign-in modal to open on a 401; surfaces re-fetch on sign-in/sign-out.
+- **Identity**: the viewer's sign-in state is settled once per page load by `hooks/use-sign-in-state.ts` — the `GET /auth/me` probe, where a 401 is a Visitor and never opens the modal. Chrome and views read that hook; nothing probes identity for itself, and the top bar offers Explore to a Visitor or Study to a User, never both (#143, ADR-0005).
 - **Docs/comments**: each file opens with a short doc block; reference the design doc and ticket (e.g. `per design/progress/card` or `(#31)`) — matching the style of the existing files.
 
 ## Backend interactions: loading and error states
@@ -70,5 +71,6 @@ Every backend interaction the view owns (#87) gets a loading state, an error sta
 - ❌ Don't re-wrap in `<Frame>`/`<TopBar>` in the page.
 - ❌ Don't fetch data in a route entry — views own their fetches (#87).
 - ❌ Don't put state in a leaf, or data-fetching in a component that isn't the view (shared chrome mounted in the frame is the exception — see Conventions).
+- ❌ Don't probe `GET /auth/me` from a component — read `useSignInState()` (#143/ADR-0005).
 - ✅ Session data comes from the typed backend client (`lib/api-client`); `types/api.d.ts` is generated (`npm run generate:types`), never hand-edited.
 - ✅ Give every fetch a loading state and an error state with Retry (`components/state-panel.tsx`) — no silent failures, no swallowed write errors (#132).

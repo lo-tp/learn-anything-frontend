@@ -19,12 +19,11 @@ const {
   approvePlan,
   clarifySession,
   createSession,
-  getMe,
+  getSignedInUser,
   getMaterials,
   generatePlan,
   getSession,
   getReviewDue,
-  isSignedIn,
   listExploreSessions,
   listSessions,
   logoutAuth,
@@ -273,44 +272,24 @@ describe("auth endpoints", () => {
     expect(err).toBeInstanceOf(ApiError);
   });
 
-  it("getMe throws on a non-401 failure", async () => {
+  it("getSignedInUser throws on a non-401 failure", async () => {
     fetchMock.mockResolvedValue(json({ detail: [{ msg: "x" }] }, 500));
-    const err = await getMe().catch((e) => e);
+    const err = await getSignedInUser().catch((e) => e);
     expect(err).toBeInstanceOf(ApiError);
     expect(err.message).toBe("x");
   });
 
-  it("getMe asks for the sign-in modal on a 401 — no navigation (and still throws)", async () => {
+  it("getSignedInUser resolves null on a 401 — a Visitor — without asking for sign-in", async () => {
+    // The identity probe is the app's only identity read (#143): a 401 is
+    // the expected answer for a Visitor, so it must not open the sign-in
+    // modal — no page should greet a Visitor with a form they never asked
+    // for.
     const ask = vi.fn();
     const unsubscribe = onRequestSignIn(ask);
     fetchMock.mockResolvedValue(json({ detail: "Not authenticated" }, 401));
-    const err = await getMe().catch((e) => e);
-    unsubscribe();
-    expect(ask).toHaveBeenCalledTimes(1);
-    expect(err).toBeInstanceOf(ApiError);
-  });
-
-  it("isSignedIn resolves true for a signed-in caller", async () => {
-    fetchMock.mockResolvedValue(
-      json({ id: 1, email: "a@b.c", display_name: "A" }),
-    );
-    expect(await isSignedIn()).toBe(true);
-  });
-
-  it("isSignedIn resolves false on a 401 — a Visitor, without asking for sign-in", async () => {
-    const ask = vi.fn();
-    const unsubscribe = onRequestSignIn(ask);
-    fetchMock.mockResolvedValue(json({ detail: "Not authenticated" }, 401));
-    expect(await isSignedIn()).toBe(false);
+    expect(await getSignedInUser()).toBeNull();
     unsubscribe();
     expect(ask).not.toHaveBeenCalled();
-  });
-
-  it("isSignedIn throws an ApiError on a non-401 failure", async () => {
-    fetchMock.mockResolvedValue(json({ detail: [{ msg: "x" }] }, 500));
-    const err = await isSignedIn().catch((e) => e);
-    expect(err).toBeInstanceOf(ApiError);
-    expect(err.message).toBe("x");
   });
 
   it("updateMe throws an ApiError on failure", async () => {

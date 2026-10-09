@@ -14,13 +14,13 @@ import { useTheme, type Theme } from "@/hooks/use-theme";
 import {
   getMaterials,
   getSession,
-  isSignedIn,
   postReviewCard,
   type MaterialsOut,
   type ReviewCardIn,
   type SessionState,
 } from "@/lib/api-client";
-import { onSignedIn, onSignedOut, requestSignIn } from "@/lib/auth-events";
+import { onSignedIn, requestSignIn } from "@/lib/auth-events";
+import { useSignInState } from "@/hooks/use-sign-in-state";
 
 /** How often the view polls while materials are still generating. */
 const POLL_INTERVAL_MS = 3000;
@@ -57,10 +57,11 @@ const sandboxSrc = (slideId: string, theme: Theme) =>
  * a Visitor the same deck — the reads are public, so both open it by
  * address or from an Explore card. The audiences differ in what a miss
  * keeps: a User's missed question becomes a review card, a Visitor's
- * answer stays local to this view and no write is attempted. The view
- * settles the audience once on mount (`isSignedIn`, the `GET /auth/me`
- * probe — a 401 is a Visitor, not an error) and flips it in place on
- * sign-in/out (#147), with no navigation.
+ * answer stays local to this view and no write is attempted. The view reads
+ * the page's sign-in state (`useSignInState`, #143) rather than probing for
+ * itself: while that state is unsettled, or its probe failed, the deck is a
+ * Visitor's and writes nothing; it flips in place on sign-in/out (#147),
+ * with no navigation.
  *
  * A Visitor's missed questions are held in a pending set and replayed
  * into the Review deck on sign-in (#152); the first miss raises a nudge
@@ -73,9 +74,9 @@ export function Session({ sessionId }: { sessionId: string }) {
   const [pollError, setPollError] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
-  // The viewer is a Visitor until the identity probe confirms a User
-  // (#151) — a miss becomes a review card only from a confirmed User.
-  const [isUser, setIsUser] = useState(false);
+  // The viewer is a Visitor until the page's sign-in state confirms a User
+  // (#151/#143) — a miss becomes a review card only from a confirmed User.
+  const { signedIn: isUser } = useSignInState();
   // Held misses from this deck visit, replayed on sign-in (#152)
   const [pendingMisses, setPendingMisses] = useState<ReviewCardIn[]>([]);
   // True once the nudge has been shown this deck visit (#152)
@@ -119,40 +120,19 @@ export function Session({ sessionId }: { sessionId: string }) {
     };
   }, [sessionId]);
 
-  /**
-   * Settle the viewer's audience once (#151): the `GET /auth/me` probe
-   * confirms a signed-in User, and a 401 leaves the view as a Visitor's —
-   * it never writes from a miss, and it never asks for the sign-in modal
-   * (an unsigned visitor is the expected caller of this route, not an
-   * error). A transient probe failure settles the same way: no write.
-   */
-  useEffect(() => {
-    let cancelled = false;
-    isSignedIn()
-      .then((signedIn) => {
-        if (!cancelled) setIsUser(signedIn);
-      })
-      .catch(() => {
-        /* a Visitor — no error surface, no sign-in request */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   /** Keep the ref in sync with the state for the sign-in handler (#152). */
   useEffect(() => {
     pendingMissesRef.current = pendingMisses;
   }, [pendingMisses]);
 
   /**
-   * Sign-in and sign-out flip the audience in place (#147): no navigation.
-   * On sign-in, held misses from the deck visit are replayed into the
-   * Review deck (#152).
+   * Sign-in and sign-out flip the audience in place (#147) — the sign-in
+   * state itself is held for the page, so this handler owns only what this
+   * view owes the change: held misses from the deck visit are replayed into
+   * the Review deck on sign-in (#152). No navigation.
    */
   useEffect(() => {
     const stopIn = onSignedIn(() => {
-      setIsUser(true);
       const misses = pendingMissesRef.current;
       if (misses.length === 0) return;
       Promise.allSettled(misses.map((m) => postReviewCard(m))).then(
@@ -169,10 +149,8 @@ export function Session({ sessionId }: { sessionId: string }) {
         },
       );
     });
-    const stopOut = onSignedOut(() => setIsUser(false));
     return () => {
       stopIn();
-      stopOut();
     };
   }, []);
 

@@ -6,7 +6,7 @@ import { Session } from "@/views/session";
 import {
   getMaterials,
   getSession,
-  isSignedIn,
+  getSignedInUser,
   postReviewCard,
   type MaterialsOut,
   type ReviewCardOut,
@@ -17,14 +17,20 @@ import { notifySignedIn, notifySignedOut } from "@/lib/auth-events";
 vi.mock("@/lib/api-client", () => ({
   getSession: vi.fn(),
   getMaterials: vi.fn(),
-  isSignedIn: vi.fn(),
+  getSignedInUser: vi.fn(),
   postReviewCard: vi.fn(),
   ApiError: class ApiError extends Error {},
 }));
 
+// The deck's audience is the page's sign-in state (#143/#151), which one
+// `GET /auth/me` probe settles. These tests answer that probe: a profile for
+// a User, `null` for a Visitor (the 401 answer), a never-settling promise for
+// a viewer not yet known.
+const USER = { id: 1, email: "a@b.c", display_name: "Alice" };
+
 const mockGetSession = vi.mocked(getSession);
 const mockGetMaterials = vi.mocked(getMaterials);
-const mockIsSignedIn = vi.mocked(isSignedIn);
+const mockGetSignedInUser = vi.mocked(getSignedInUser);
 const mockPostReviewCard = vi.mocked(postReviewCard);
 
 beforeEach(() => {
@@ -35,10 +41,10 @@ beforeEach(() => {
     .mockReset()
     .mockResolvedValue(materials());
   // The default viewer is a signed-in User (#151): a miss becomes a review
-  // card. The visitor tests override this to `false`.
-  mockIsSignedIn
+  // card. The visitor tests answer the probe with `null` instead.
+  mockGetSignedInUser
     .mockReset()
-    .mockResolvedValue(true);
+    .mockResolvedValue(USER);
   mockPostReviewCard
     .mockReset()
     .mockResolvedValue({
@@ -117,11 +123,18 @@ function renderSession(props: Partial<React.ComponentProps<typeof Session>> = {}
 }
 
 /**
- * Settle the view's mount fetches (both resolve in microtasks), then assert
- * the first step's divider rendered — from here the deck state is current.
+ * Settle the view's mount fetches (both resolve in microtasks) and the
+ * sign-in probe, then assert the first step's divider rendered — from here
+ * the deck state and the viewer's audience are both current.
  */
 async function settle() {
   await screen.findByText("Force and mass");
+  await act(async () => {});
+}
+
+/** Answer the probe as a Visitor: the 401 answer, no profile (#151). */
+function asVisitor() {
+  mockGetSignedInUser.mockResolvedValue(null);
 }
 
 /** The ControlBar counter, labelled `Slide {index} of {total}`. */
@@ -296,9 +309,9 @@ describe("Session", () => {
   });
 
   it("serves a Visitor the same deck — reading and answering work, no write is attempted", async () => {
-    // An unsigned visitor: the identity probe answers 401, but the reads
+    // An unsigned visitor: the sign-in state holds no User, but the reads
     // are public, so the deck renders exactly as a User's (#151).
-    mockIsSignedIn.mockResolvedValue(false);
+    asVisitor();
     renderSession();
     await settle();
     expect(screen.getByText("Force and mass")).toBeTruthy();
@@ -312,10 +325,14 @@ describe("Session", () => {
     expect(mockPostReviewCard).not.toHaveBeenCalled();
   });
 
-  it("keeps the view a Visitor's when the identity probe fails", async () => {
-    // A transient probe failure settles like a 401: the deck still renders,
-    // and a miss never attempts a write (#151).
-    mockIsSignedIn.mockRejectedValue(new Error("backend down"));
+  it("is a Visitor's deck while the viewer is not yet known", async () => {
+    // Before the probe answers — and if it never can — the state holds no
+    // User, so the deck still renders, and a miss never attempts a write
+    // (#151).
+    let answerProbe: ((user: typeof USER | null) => void) | undefined;
+    mockGetSignedInUser.mockImplementation(
+      () => new Promise((resolve) => { answerProbe = resolve; }),
+    );
     renderSession();
     await settle();
     expect(screen.getByText("Force and mass")).toBeTruthy();
@@ -325,17 +342,25 @@ describe("Session", () => {
     fireEvent.click(screen.getByRole("button", { name: /^b\s*friction$/i }));
     expect(screen.getByText("Not quite.")).toBeTruthy();
     expect(mockPostReviewCard).not.toHaveBeenCalled();
+    // Let the held probe answer, so it does not sit in flight for the tests
+    // that follow.
+    answerProbe?.(null);
+    await act(async () => {});
   });
 
   it("flips to a User on sign-in — a miss then writes its review card", async () => {
     // A Visitor browsing the deck signs in in place (#147): the audience
     // flips without navigation, and the next miss persists (#151).
-    mockIsSignedIn.mockResolvedValue(false);
+    asVisitor();
     renderSession();
     await settle();
+    // The sign-in is announced, and the probe it triggers now answers with a
+    // profile: the deck becomes a User's, without navigation (#143/#147).
+    mockGetSignedInUser.mockResolvedValue(USER);
     act(() => {
       notifySignedIn();
     });
+    await act(async () => {});
     fireEvent.click(
       screen.getByRole("button", { name: /what does f stand for\?/i }),
     );
@@ -348,8 +373,9 @@ describe("Session", () => {
   });
 
   it("flips to a Visitor on sign-out — a miss no longer writes", async () => {
-    // A signed-in User signs out in place (#147): the audience flips to a
-    // Visitor's, and the next miss stays local (#151).
+    // A signed-in User signs out in place (#147): the sign-out announcement
+    // settles the state back to a Visitor's — no probe needed, we already
+    // know — and the next miss stays local (#151).
     renderSession();
     await settle();
     act(() => {
@@ -482,7 +508,7 @@ describe("Session", () => {
   });
 
   it("shows the nudge on the first miss only, and holds all misses locally", async () => {
-    mockIsSignedIn.mockResolvedValue(false);
+    asVisitor();
     renderSession();
     await settle();
 
@@ -505,7 +531,7 @@ describe("Session", () => {
   });
 
   it("replays the held misses into the Review deck on sign-in", async () => {
-    mockIsSignedIn.mockResolvedValue(false);
+    asVisitor();
     renderSession();
     await settle();
 
@@ -540,7 +566,7 @@ describe("Session", () => {
   });
 
   it("keeps held misses retryable when the replay fails", async () => {
-    mockIsSignedIn.mockResolvedValue(false);
+    asVisitor();
     renderSession();
     await settle();
 
