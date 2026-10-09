@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { EmptyState } from "@/components/empty-state";
@@ -9,28 +9,41 @@ import { StartSessionButton } from "@/components/start-session-button";
 import { StatePanel } from "@/components/state-panel";
 import { NewSessionDialog } from "@/views/mine/new-session-dialog";
 import { listExploreSessions, type SessionListItem } from "@/lib/api-client";
+import { onSignedIn, requestSignIn } from "@/lib/auth-events";
+import { useSignInState } from "@/hooks/use-sign-in-state";
 
 /**
  * The public Explore surface at the site root (#150): what people are
  * learning — the newest twenty Sessions that reached materials, goal text
  * first, no names, no pager. The feed is public (#144), so signed-in and
- * Visitor look the same here: no credentials are sent, no 401 can land, and
- * there is no auth-events re-fetch. Like the personal list (#148), the view
- * owns its feed fetch in the browser (#87); the route is a static shell.
+ * Visitor look the same here: the feed fetch sends no credentials, no 401
+ * can land, and there is no auth-events re-fetch of the list. Like the
+ * personal list (#148), the view owns its feed fetch in the browser (#87);
+ * the route is a static shell.
  *
  * Three fetch-driven states (#132): **loading** (a friendly panel — never
  * the empty state), **error** (a panel with a Retry that re-runs the
  * fetch), and **ready** (the cards, or — when the deployment has nothing to
  * show yet — the pitch: the record header band stays put, and the blank
  * sheet carries the start-a-Session invitation instead of a bare empty
- * frame). The invitation reuses the personal list's intake dialog (it lives
- * under `views/mine` and is imported here rather than duplicated).
+ * frame). Either way there is exactly one primary button on the page.
+ *
+ * Starting a Session is an act of ownership, so the CTA's target depends on
+ * who is looking (#143): a User opens the intake dialog (shared with the
+ * personal list, imported from `views/mine` rather than duplicated), a
+ * Visitor is asked to sign in — the form appears over the feed they are
+ * reading. The click carries their intent: once they are signed in, the
+ * intake opens without them having to ask twice.
  */
 export function Explore() {
   const t = useTranslations("explore");
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const { signedIn } = useSignInState();
+  // A Visitor's CTA click is an intent, not a dialog: it is held here so the
+  // intake opens when the sign-in it asked for succeeds (#143).
+  const wantsToStart = useRef(false);
 
   /** The error state's Retry: re-run the fetch with full status tracking. */
   const load = useCallback(async () => {
@@ -63,6 +76,29 @@ export function Explore() {
       cancelled = true;
     };
   }, []);
+
+  /** The primary CTA, in the header band or on the blank sheet: a User
+   *  starts a Session, a Visitor is asked to sign in first (#143). */
+  const startSession = useCallback(() => {
+    if (!signedIn) {
+      wantsToStart.current = true;
+      requestSignIn();
+      return;
+    }
+    setDialogOpen(true);
+  }, [signedIn]);
+
+  // The sign-in a CTA asked for is answered by opening the intake the person
+  // was aiming at — no second click, no navigation (#143/#147).
+  useEffect(
+    () =>
+      onSignedIn(() => {
+        if (!wantsToStart.current) return;
+        wantsToStart.current = false;
+        setDialogOpen(true);
+      }),
+    [],
+  );
 
   /** Silent re-fetch after an accepted intake (#132): keep the current list
    *  on failure — a new session joins the feed once it starts generating. */
@@ -127,12 +163,19 @@ export function Explore() {
                 {t("subtitle")}
               </p>
             </div>
+            {/* With no sessions the CTA lives on the blank sheet instead, so
+                the page carries exactly one primary button either way. It is
+                here for a Visitor too: reading is public, starting a Session
+                is what asks them to sign in (#143). */}
+            {sessions.length > 0 ? (
+              <StartSessionButton onClick={startSession} />
+            ) : null}
           </div>
         </header>
 
         {sessions.length === 0 ? (
           <EmptyState title={t("emptyTitle")} body={t("emptyBody")}>
-            <StartSessionButton onClick={() => setDialogOpen(true)} />
+            <StartSessionButton onClick={startSession} />
           </EmptyState>
         ) : (
           <div className="flex flex-col gap-4">

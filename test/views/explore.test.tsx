@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   screen,
@@ -10,10 +11,12 @@ import { Explore } from "@/views/explore";
 import {
   approvePlan,
   createSession,
+  getSignedInUser,
   generatePlan,
   listExploreSessions,
   type SessionListItem,
 } from "@/lib/api-client";
+import { notifySignedIn, onRequestSignIn } from "@/lib/auth-events";
 
 // The Explore surface reads the public feed through the typed backend
 // client, and the start-a-Session invitation opens the personal list's
@@ -29,6 +32,7 @@ vi.mock("@/lib/api-client", () => ({
   adjustPlan: vi.fn(),
   approvePlan: vi.fn(),
   listExploreSessions: vi.fn(),
+  getSignedInUser: vi.fn(),
   ApiError: class ApiError extends Error {
     constructor(
       message: string,
@@ -44,12 +48,30 @@ const mockCreateSession = vi.mocked(createSession);
 const mockGeneratePlan = vi.mocked(generatePlan);
 const mockApprovePlan = vi.mocked(approvePlan);
 const mockListExploreSessions = vi.mocked(listExploreSessions);
+const mockGetSignedInUser = vi.mocked(getSignedInUser);
+
+const USER = { id: 1, email: "a@b.c", display_name: "Alice" };
+
+/** Who the page's identity probe answers with: a User, or nobody (#143). */
+function asUser() {
+  mockGetSignedInUser.mockResolvedValue(USER);
+}
+function asVisitor() {
+  mockGetSignedInUser.mockResolvedValue(null);
+}
+
+/** Let an in-flight probe settle before acting on the page. */
+async function flush() {
+  await act(async () => {});
+}
 
 beforeEach(() => {
   mockCreateSession.mockReset();
   mockGeneratePlan.mockReset();
   mockApprovePlan.mockReset();
   mockListExploreSessions.mockReset();
+  // The default viewer of a public surface is a Visitor.
+  mockGetSignedInUser.mockReset().mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -101,13 +123,94 @@ describe("Explore (the public feed at the site root)", () => {
       await screen.findByText("Learn anything, one question at a time"),
     ).toBeTruthy();
     expect(screen.getByText(/Declare a knowledge point/)).toBeTruthy();
-    // The invitation: the same Start New Session CTA the personal list
-    // wears, and it opens the intake dialog.
-    const cta = screen.getByRole("button", { name: /Start New Session/ });
-    fireEvent.click(cta);
+    // The invitation is the same Start New Session CTA the personal list
+    // wears — one primary button on the page either way.
+    expect(screen.getAllByRole("button", { name: /Start New Session/ })).toHaveLength(1);
+  });
+
+  it("a filled feed carries the same Start New Session CTA in its header band", async () => {
+    // Starting a Session is offered to whoever is reading the list, not only
+    // to the person whose list is empty (#143).
+    mockListExploreSessions.mockResolvedValue({ sessions: [session()] });
+    renderWithLocale(<Explore />);
+    await screen.findByText("React Hooks Deep Dive");
+    expect(screen.getByRole("button", { name: /Start New Session/ })).toBeTruthy();
+  });
+
+  it("a Visitor's CTA opens the sign-in ask over the feed, not the intake (#143)", async () => {
+    asVisitor();
+    const asked = vi.fn();
+    const unsubscribe = onRequestSignIn(asked);
+    mockListExploreSessions.mockResolvedValue({ sessions: [session()] });
+    renderWithLocale(<Explore />);
+    await screen.findByText("React Hooks Deep Dive");
+    await flush();
+
+    fireEvent.click(screen.getByRole("button", { name: /Start New Session/ }));
+
+    expect(asked).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("What would you like to explore or learn?")).toBeNull();
+    unsubscribe();
+  });
+
+  it("opens the intake for a signed-in User, and resumes it after the sign-in a Visitor asked for", async () => {
+    // The CTA's intent survives the sign-in: the person who clicked Start
+    // New Session lands in the intake, not back on the feed (#143/#147).
+    asVisitor();
+    mockListExploreSessions.mockResolvedValue({ sessions: [session()] });
+    renderWithLocale(<Explore />);
+    await screen.findByText("React Hooks Deep Dive");
+    await flush();
+
+    fireEvent.click(screen.getByRole("button", { name: /Start New Session/ }));
+    asUser();
+    act(() => {
+      notifySignedIn();
+    });
+    await flush();
+
     expect(
-      await screen.findByRole("heading", { name: "Start New Session" }),
+      await screen.findByLabelText("What would you like to explore or learn?"),
     ).toBeTruthy();
+  });
+
+  it("does not open the intake for a sign-in the CTA did not ask for", async () => {
+    // The held intent belongs to the click that asked for sign-in. A
+    // sign-in from anywhere else — the top bar, a 401 from another surface
+    // — changes nothing on this one (#147).
+    asVisitor();
+    mockListExploreSessions.mockResolvedValue({ sessions: [session()] });
+    renderWithLocale(<Explore />);
+    await screen.findByText("React Hooks Deep Dive");
+    await flush();
+
+    asUser();
+    act(() => {
+      notifySignedIn();
+    });
+    await flush();
+
+    expect(
+      screen.queryByLabelText("What would you like to explore or learn?"),
+    ).toBeNull();
+  });
+
+  it("a signed-in User's CTA opens the intake directly", async () => {
+    asUser();
+    mockListExploreSessions.mockResolvedValue({ sessions: [session()] });
+    renderWithLocale(<Explore />);
+    await screen.findByText("React Hooks Deep Dive");
+    await flush();
+
+    const asked = vi.fn();
+    const unsubscribe = onRequestSignIn(asked);
+    fireEvent.click(screen.getByRole("button", { name: /Start New Session/ }));
+
+    expect(
+      await screen.findByLabelText("What would you like to explore or learn?"),
+    ).toBeTruthy();
+    expect(asked).not.toHaveBeenCalled();
+    unsubscribe();
   });
 
   it("shows the loading state while the initial fetch is in flight", async () => {
@@ -178,6 +281,7 @@ describe("Explore (the public feed at the site root)", () => {
     // An intake accepted from the empty-state invitation: the new session
     // joins the public feed once it starts generating (#144), so the view
     // silently refetches — keeping the current list on failure (#132).
+    asUser();
     const fresh: SessionListItem = {
       session_id: "s-newton",
       // Just approved → the backend transitions it to `generating`.
@@ -223,6 +327,7 @@ describe("Explore (the public feed at the site root)", () => {
 
     renderWithLocale(<Explore />);
     await screen.findByText("Learn anything, one question at a time");
+    await flush();
     fireEvent.click(
       screen.getByRole("button", { name: /Start New Session/ }),
     );
