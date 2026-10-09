@@ -5,7 +5,7 @@ An AI conversation-driven learning app: a learner declares a knowledge point and
 ## Language
 
 **Session**:
-One learning journey from goal declaration through to generated materials (phases: clarifying → probing → planning → reviewing → generating).
+One learning journey from goal declaration through to generated materials (phases: clarifying → probing → planning → reviewing → generating). A Session has a **public record** — the generated materials deck, browsable and answerable by anyone — and a **private working surface** — the intake (clarify, probe, plan), its in-progress state, and the owned review data — reachable only by its User. "A public Session" is the record, not the whole thing.
 _Avoid_: conversation, course, unit
 
 **Session intake**:
@@ -16,9 +16,25 @@ _Avoid_: intake dialog, new-session flow, onboarding
 A person who can sign in to the app: a unique email address, a display name, and a password.
 _Avoid_: account, member, learner
 
+**Visitor**:
+A person who has not signed in to the app: they browse the public surfaces — Explore, and a Session's deck — without credentials.
+_Avoid_: guest, anonymous user
+
 **Sign-in state**:
-The fact that a visitor is a signed-in user. Every function of the app requires it; the app has no usable surface without it.
+The fact that a visitor is a signed-in user. It is required only where data is owned — a User's History, a Session's intake, and the review writes that attach to a Session — not for the app's public surfaces, which a Visitor uses.
 _Avoid_: session, login session, auth session (in this repo "session" is always a learning Session)
+
+**Explore**:
+The public list of Session records — the newest Sessions that reached materials, goal text first, with no owner. Served at the site root; a Visitor and a signed-in User see the same feed.
+_Avoid_: gallery
+
+**History**:
+A User's own Sessions, listed at `/mine`. Requires sign-in, unlike Explore — it is owned data, not the public feed.
+_Avoid_: Explore
+
+**Visitor deck view**:
+The projection of a Session's deck that a Visitor may browse and answer. Their answers stay local to the view and no review card is written for them; what they earned is retained only if they sign in and become a User.
+_Avoid_: guest deck, anonymous deck
 
 **Service principal**:
 A non-human caller of the backend that is not a signed-in User: the Sandbox, which fetches shared (unscoped) content on its own behalf. It is a distinct principal from the User and is scoped to internal endpoints only.

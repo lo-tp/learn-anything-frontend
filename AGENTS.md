@@ -10,7 +10,7 @@ The five canonical triage roles, one label per name: `needs-triage`, `needs-info
 
 ### Domain docs
 
-Architecture and domain language live in `ArchitectureRevamp.md` at the repo root (the prior `CONTEXT.md` glossary and `docs/adr/` set were removed in favor of it). See `docs/agents/domain.md`.
+The domain language lives in the `CONTEXT.md` glossary at the repo root, and the decisions live in the `docs/adr/` ADR set.
 
 ## Commit messages
 
