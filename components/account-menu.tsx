@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { useRouter, usePathname } from "@/i18n/navigation";
 import { updateMe, logoutAuth } from "@/lib/api-client";
 import { notifySignedOut } from "@/lib/auth-events";
 import { setSignInUser, useSignInState } from "@/hooks/use-sign-in-state";
@@ -23,6 +24,9 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
+/** Explore — the site root — the same href the top bar's Explore tab uses. */
+const EXPLORE_PATH = "/";
+
 /**
  * Account menu in the top bar: a circular avatar (display-name initial)
  * opens a dropdown with the display name, an edit-name dialog, and sign out.
@@ -34,10 +38,15 @@ import { Button } from "@/components/ui/button";
  * the same way rather than breaking the shell (#132 gap 5). An edited name
  * is written back into that state, so the avatar and the rest of the chrome
  * stay in step.
+ *
+ * Signing out hands the person the Visitor's entry point: the public Explore
+ * list at the site root (see `handleSignOut`).
  */
 export function AccountMenu() {
   const t = useTranslations("account");
   const { user } = useSignInState();
+  const router = useRouter();
+  const pathname = usePathname();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -74,20 +83,23 @@ export function AccountMenu() {
   }
 
   async function handleSignOut() {
-    // #147: signing out leaves the person where they are — no navigation to
-    // a login route. The sign-in state flips to a Visitor's, which hides
-    // this menu and turns the top bar into the Visitor chrome (#143), and
-    // the current surface is told to re-render as a Visitor's (its next
-    // auth-gated fetch answers 401, which opens the sign-in modal — the
-    // standing way back in). A failed sign-out leaves the user signed in —
-    // the least-harmful outcome; there is no toast surface to report it
+    // A failed sign-out leaves the user signed in and where they are — the
+    // least-harmful outcome; there is no toast surface to report it
     // (#132 gap 1).
     try {
       await logoutAuth();
-      notifySignedOut();
     } catch {
-      /* stay signed in */
+      return;
     }
+    // Ask for the new page first: the sign-out announcement settles the
+    // sign-in state to a Visitor's, which unmounts this menu (the top bar
+    // becomes the Visitor chrome, #143), and a menu that is gone cannot
+    // navigate. The chrome reads as a Visitor's as the route changes.
+    // `replace`, not `push`: the signed-in surface they can no longer open
+    // is not left in history behind them. No-op at the root, where the
+    // Visitor's feed is already on screen.
+    if (pathname !== EXPLORE_PATH) router.replace(EXPLORE_PATH);
+    notifySignedOut();
   }
 
   return (

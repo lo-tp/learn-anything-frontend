@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Eye, Loader2, TriangleAlert } from "lucide-react";
+import { Check, Eye, Loader2, LogIn, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { QuizQuestion } from "@/components/session/quiz-question";
@@ -9,11 +9,12 @@ import { StatePanel } from "@/components/state-panel";
 import { cn } from "@/lib/utils";
 import {
   answerReviewCard,
+  ApiError,
   getReviewDue,
   type ReviewCardOut,
   type ReviewConfidence,
 } from "@/lib/api-client";
-import { onSignedIn, onSignedOut } from "@/lib/auth-events";
+import { onSignedIn, requestSignIn } from "@/lib/auth-events";
 
 /** The four confidence levels, in FSRS order (harsh → easy). The ink scale
  *  stays inside the contract's semantics: red pen on AGAIN (a lapse IS a
@@ -49,16 +50,26 @@ const CONFIDENCES: {
  * missed schedule is never lost silently. The shared frame is applied by
  * the root layout.
  *
- * #147: auth status changes re-fetch the due cards in place, with no
- * navigation — a sign-in through the modal restores an expired-token
- * visit, a sign-out re-renders the page as a Visitor's (its fetch answers
- * 401, which opens the modal again).
+ * #147: a successful sign-in through the modal re-fetches the due cards in
+ * place, with no navigation, and restores an expired-token visit. A sign-out
+ * is not handled here: the account menu leaves this page for the public
+ * Explore list at the site root, so the deck is never asked to render cards
+ * without an owner.
+ *
+ * A `401` is not an error to show a Visitor — it means the deck has no
+ * owner yet. The fetch failing with `401` opens the sign-in modal (the API
+ * client asks for it) and, behind it, settles the surface on a sign-in
+ * nudge rather than the error state: the person is being asked to sign in,
+ * not told something broke. Only a genuine backend failure (any other
+ * status) renders the error panel with a Retry.
  */
 export function Review() {
   const t = useTranslations("review");
   const [cards, setCards] = useState<ReviewCardOut[] | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
+  /** The deck has no owner yet: the fetch answered 401 (a Visitor). */
+  const [needsAuth, setNeedsAuth] = useState(false);
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [finished, setFinished] = useState(false);
@@ -76,9 +87,20 @@ export function Review() {
         if (!cancelled) {
           setCards(due);
           setError(false);
+          setNeedsAuth(false);
         }
-      } catch {
-        if (!cancelled) setError(true);
+      } catch (err) {
+        if (!cancelled) {
+          // A 401 means the deck has no owner, not that something broke:
+          // nudge toward signing in (the modal already opened over the page),
+          // never show the error panel. Any other failure is a real error.
+          if (err instanceof ApiError && err.status === 401) {
+            setNeedsAuth(true);
+            setError(false);
+          } else {
+            setError(true);
+          }
+        }
       } finally {
         if (!cancelled) setLoaded(true);
       }
@@ -91,19 +113,17 @@ export function Review() {
   // The initial fetch: the view owns its data (static shell, #87).
   useEffect(load, []);
 
-  // #147: sign in / sign out re-fetch the due cards in place (see the
-  // component doc). The captured `load` only touches state setters, so it
-  // is safe to close over the mount instance.
+  // #147: a sign-in re-fetches the due cards in place (see the component
+  // doc). The captured `load` only touches state setters, so it is safe to
+  // close over the mount instance. A sign-out is not subscribed to: the
+  // account menu navigates to the public Explore list, and refetching here
+  // would answer 401 and open a sign-in modal over that list.
   useEffect(() => {
     const stopIn = onSignedIn(() => {
       load();
     });
-    const stopOut = onSignedOut(() => {
-      load();
-    });
     return () => {
       stopIn();
-      stopOut();
     };
   }, []);
 
@@ -160,6 +180,26 @@ export function Review() {
         }
         title={t("loading")}
         action={backToSessions}
+      />
+    );
+  }
+
+  // A Visitor (the deck has no owner): ask them to sign in — not an error.
+  if (needsAuth) {
+    return (
+      <StatePanel
+        icon={<LogIn className="size-8 text-primary" aria-hidden />}
+        title={t("signIn.title")}
+        note={t("signIn.note")}
+        action={
+          <button
+            type="button"
+            onClick={requestSignIn}
+            className="focus-ring mt-2 rounded-md bg-engage px-4 py-2 text-sm font-semibold text-on-engage transition-opacity hover:opacity-90"
+          >
+            {t("signIn.action")}
+          </button>
+        }
       />
     );
   }

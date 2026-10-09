@@ -186,21 +186,20 @@ describe("Mine (the personal list at /mine)", () => {
     expect(mockListSessions).toHaveBeenCalledTimes(2);
   });
 
-  it("re-renders as a Visitor after sign-out — the History refetches and settles on the error state", async () => {
-    // #147: sign-out does not navigate. The surface refetches in place; the
-    // now-anonymous fetch answers 401 (the real client would also have
-    // asked for the sign-in modal — this seam's mock only throws), and the
-    // page settles into its error state rather than keeping the stale list.
-    mockListSessions
-      .mockResolvedValueOnce({ sessions: [session()] })
-      .mockRejectedValueOnce(new ApiError("unauthorized", 401));
+  it("does not refetch on sign-out — the account menu leaves this page for Explore", async () => {
+    // Sign-out is not handled here any more: the account menu takes the
+    // person to the public Explore list at the site root. Refetching the
+    // History as a Visitor would answer 401 and open a sign-in modal over
+    // the list they have just been sent to, so the list is left alone.
+    mockListSessions.mockResolvedValueOnce({ sessions: [session()] });
     renderWithLocale(<Mine />);
     await screen.findByText("React Hooks Deep Dive");
     act(() => {
       notifySignedOut();
     });
-    expect(await screen.findByText("Can't load your sessions")).toBeTruthy();
-    expect(mockListSessions).toHaveBeenCalledTimes(2);
+    await act(async () => {});
+    expect(mockListSessions).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Can't load your sessions")).toBeNull();
   });
 
   it("opens the new-session dialog from the 'Start New Session' CTA", async () => {

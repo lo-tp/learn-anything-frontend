@@ -9,7 +9,7 @@ import { SessionCard } from "@/components/session-card";
 import { StartSessionButton } from "@/components/start-session-button";
 import { StatePanel } from "@/components/state-panel";
 import { listSessions, type SessionListItem } from "@/lib/api-client";
-import { onSignedIn, onSignedOut } from "@/lib/auth-events";
+import { onSignedIn } from "@/lib/auth-events";
 import { CONFIRMING_PHASES } from "./intake";
 
 /**
@@ -27,10 +27,10 @@ import { CONFIRMING_PHASES } from "./intake";
  * the API client has already asked for the sign-in modal to open over the
  * page (#147), so the page stays rendered behind it — a token that expired
  * mid-use signs back in through the modal, and the History refetches in
- * place. Sign-out does the same in reverse: the page re-renders as a
- * Visitor's (its fetch answers 401) — no navigation (#147). The refresh
- * after the dialog accepts an intake is a silent re-fetch — it keeps the
- * current list on failure.
+ * place. Sign-out never asks this page to render without an owner: the
+ * account menu takes the person to the public Explore list at the site
+ * root. The refresh after the dialog accepts an intake is a silent
+ * re-fetch — it keeps the current list on failure.
  *
  * The site root is the public Explore surface (#150); this list keeps its
  * own address at `/mine`.
@@ -81,21 +81,18 @@ export function Mine() {
     };
   }, []);
 
-  // #147: auth status changes re-fetch the History in place, with no
-  // navigation. A successful sign-in through the modal restores an
-  // expired-token visit; a sign-out re-renders the page as a Visitor's —
-  // its next fetch answers 401 and the sign-in modal opens again.
+  // #147: a successful sign-in through the modal restores an expired-token
+  // visit, with no navigation. A sign-out is not subscribed to here: the
+  // account menu leaves this page for the public Explore list, so refetching
+  // it as a Visitor's would only answer 401 and open a sign-in modal over
+  // the list the person has just been sent to.
   useEffect(
     () => {
       const stopIn = onSignedIn(() => {
         void load();
       });
-      const stopOut = onSignedOut(() => {
-        void load();
-      });
       return () => {
         stopIn();
-        stopOut();
       };
     },
     [load],

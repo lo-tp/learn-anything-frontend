@@ -5,6 +5,7 @@ import { renderWithLocale } from "@/test/test-utils";
 import { Review } from "@/views/review";
 import {
   answerReviewCard,
+  ApiError,
   getReviewDue,
   type ReviewAnswerOut,
   type ReviewCardOut,
@@ -26,7 +27,15 @@ vi.mock("@/lib/utils", async (importOriginal) => {
 vi.mock("@/lib/api-client", () => ({
   getReviewDue: vi.fn(),
   answerReviewCard: vi.fn(),
-  ApiError: class ApiError extends Error {},
+  ApiError: class ApiError extends Error {
+    constructor(
+      message: string,
+      readonly status?: number,
+    ) {
+      super(message);
+      this.name = "ApiError";
+    }
+  },
 }));
 
 const mockGetReviewDue = vi.mocked(getReviewDue);
@@ -227,6 +236,32 @@ describe("Review", () => {
     expect(await screen.findByText("What does F stand for?")).toBeTruthy();
   });
 
+  it("nudges a Visitor to sign in on a 401, instead of an error", async () => {
+    // A 401 means the deck has no owner yet — ask them to sign in, never
+    // show the "something broke" panel or a Retry.
+    mockGetReviewDue.mockRejectedValue(new ApiError("unauthorized", 401));
+    renderWithLocale(<Review />);
+    expect(await screen.findByText("Review is for learners who are signed in")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Sign in to review/ })).toBeTruthy();
+    expect(screen.queryByText("Can't load your review deck")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Retry/ })).toBeNull();
+  });
+
+  it("shows the deck after a Visitor's sign-in replaces the 401", async () => {
+    // The sign-in the nudge asked for refetches in place (#147).
+    mockGetReviewDue
+      .mockRejectedValueOnce(new ApiError("unauthorized", 401))
+      .mockResolvedValueOnce([card({ id: 1 })]);
+    renderWithLocale(<Review />);
+    await screen.findByText("Review is for learners who are signed in");
+    act(() => {
+      notifySignedIn();
+    });
+    await waitFor(() => {
+      expect(screen.getByText("What does F stand for?")).toBeTruthy();
+    });
+  });
+
   it("discards the fetch result when unmounted before it settles", async () => {
     let resolveDue: (cards: ReviewCardOut[]) => void;
     mockGetReviewDue.mockReturnValue(
@@ -259,22 +294,20 @@ describe("Review", () => {
     expect(mockGetReviewDue).toHaveBeenCalledTimes(2);
   });
 
-  it("re-renders as a Visitor after sign-out — re-fetches and settles on the error state", async () => {
-    // #147: sign-out does not navigate. The deck refetches in place; the
-    // now-anonymous fetch answers 401 and the page settles into its error
-    // state rather than keeping the stale cards.
-    mockGetReviewDue
-      .mockResolvedValueOnce([card({ id: 1 })])
-      .mockRejectedValueOnce(new Error("unauthorized"));
+  it("does not refetch on sign-out — the account menu leaves this page for Explore", async () => {
+    // Sign-out is not handled here any more: the account menu takes the
+    // person to the public Explore list at the site root. Refetching the
+    // deck as a Visitor would answer 401 and open a sign-in modal over the
+    // list they have just been sent to, so the deck is left alone.
+    mockGetReviewDue.mockResolvedValueOnce([card({ id: 1 })]);
     renderWithLocale(<Review />);
     await screen.findByText("What does F stand for?");
     act(() => {
       notifySignedOut();
     });
-    await waitFor(() => {
-      expect(screen.queryByText("What does F stand for?")).toBeNull();
-    });
-    expect(mockGetReviewDue).toHaveBeenCalledTimes(2);
+    await act(async () => {});
+    expect(mockGetReviewDue).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("What does F stand for?")).toBeTruthy();
   });
 
   it("discards the fetch failure when unmounted before it settles", async () => {

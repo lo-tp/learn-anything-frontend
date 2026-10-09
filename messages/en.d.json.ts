@@ -207,6 +207,11 @@ declare const messages: {
       "title": "Can't load your review deck",
       "note": "We couldn't reach the backend."
     },
+    "signIn": {
+      "title": "Review is for learners who are signed in",
+      "note": "Your review deck is the questions you've missed. Sign in and the ones you're due for will appear here.",
+      "action": "Sign in to review"
+    },
     "retry": "Retry",
     "answerFailed": "Couldn't record your answer — tap a confidence to try again.",
     "backToSessions": "Back to my sessions",

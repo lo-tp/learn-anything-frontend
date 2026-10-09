@@ -3,12 +3,15 @@
  *
  * The sign-in modal is mounted once, in the app frame. Anything that needs it
  * opened — a 401 from an auth-gated endpoint (`handleUnauthorized`), or the
- * top-bar Sign in button — asks for it with `requestSignIn`. Successful
- * sign-ins and sign-outs are announced (`notifySignedIn` / `notifySignedOut`)
- * so the current surface can refetch in place, with no navigation: after a
- * sign-in the surface re-renders authenticated, after a sign-out it
- * re-renders as a Visitor (its next auth-gated fetch answers 401, which
- * opens the modal again — the standing way back in).
+ * top-bar Sign in button — asks for it with `requestSignIn`. A successful
+ * sign-in is announced (`notifySignedIn`) so the current surface can refetch
+ * in place, with no navigation: it re-renders authenticated.
+ *
+ * A sign-out (`notifySignedOut`) settles the sign-in state to a Visitor's, so
+ * the chrome is a Visitor's wherever the person ends up; the account menu
+ * pairs it with a navigation to the public Explore list at the site root,
+ * because the page they were on belongs to a User and cannot keep rendering
+ * without one.
  *
  * A plain event bus (not React state): the API client, the top bar, and the
  * account menu live outside the modal's component tree, so they reach it
@@ -47,7 +50,7 @@ export function onSignedIn(listener: Listener): () => void {
   };
 }
 
-/** Announce that the user signed out (the surface is now a Visitor's). */
+/** Announce that the user signed out (the sign-in state is a Visitor's). */
 export function notifySignedOut(): void {
   for (const listener of [...signedOut]) listener();
 }

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithLocale } from "@/test/test-utils";
 import { AccountMenu } from "@/components/account-menu";
@@ -21,8 +21,14 @@ vi.mock("@/lib/api-client", () => ({
   logoutAuth,
 }));
 
+// The sign-out handler navigates, so the navigation hooks are doubled too:
+// tests drive which page the menu is on and assert where it sends the person.
+const nav = vi.hoisted(() => ({ pathname: "/mine", replace: vi.fn() }));
+
 vi.mock("@/i18n/navigation", () => ({
   Link: () => null,
+  usePathname: () => nav.pathname,
+  useRouter: () => ({ replace: nav.replace }),
 }));
 
 const USER = { id: 1, email: "test@example.com", display_name: "Alice" };
@@ -35,6 +41,10 @@ async function probeSettled() {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+});
+
+beforeEach(() => {
+  nav.pathname = "/mine";
 });
 
 describe("AccountMenu", () => {
@@ -158,13 +168,13 @@ describe("AccountMenu", () => {
     expect(updateMe).not.toHaveBeenCalled();
   });
 
-  it("signs out via logoutAuth and stays put — the menu hides itself and the surface is told, no navigation", async () => {
-    // #147: signing out leaves the person where they are. The sign-out
-    // announcement settles the sign-in state to a Visitor's, which hides the
-    // menu (the top bar becomes the Visitor chrome, #143) and tells the
-    // current surface to re-render as a Visitor's; the page does not
-    // navigate to a login route — the standing way back in is the top-bar
-    // Sign in.
+  it("signs out via logoutAuth, settles the state to a Visitor's, and sends the person to Explore", async () => {
+    // The surface the person was on belongs to a User, so after signing out
+    // they cannot stay on it. The menu asks for the site root — the public
+    // Explore list — and the announcement settles the sign-in state to a
+    // Visitor's: the menu hides itself and the chrome becomes the Visitor's
+    // (#143). `replace`, not `push`: the signed-in surface must not be left
+    // in history behind them.
     const signedOut = vi.fn();
     const unsubscribe = onSignedOut(signedOut);
     getSignedInUser.mockResolvedValue(USER);
@@ -179,7 +189,11 @@ describe("AccountMenu", () => {
     await waitFor(() => {
       expect(logoutAuth).toHaveBeenCalled();
     });
-    // The surface is told to re-render as a Visitor…
+    // …they are taken to the site root, the Explore list…
+    await waitFor(() => {
+      expect(nav.replace).toHaveBeenCalledWith("/");
+    });
+    // …the surface is told to re-render as a Visitor…
     await waitFor(() => {
       expect(signedOut).toHaveBeenCalledTimes(1);
     });
@@ -188,6 +202,24 @@ describe("AccountMenu", () => {
       expect(screen.queryByRole("button", { name: "Alice" })).toBeNull();
     });
     unsubscribe();
+  });
+
+  it("does not navigate when already on Explore — the Visitor's feed is on screen", async () => {
+    nav.pathname = "/";
+    getSignedInUser.mockResolvedValue(USER);
+    logoutAuth.mockResolvedValue(undefined);
+    renderWithLocale(<AccountMenu />);
+
+    const trigger = await screen.findByRole("button", { name: "Alice" });
+    fireEvent.pointerDown(trigger, { button: 0 });
+
+    fireEvent.click(screen.getByRole("menuitem", { name: "Sign out" }));
+
+    await waitFor(() => {
+      expect(logoutAuth).toHaveBeenCalled();
+    });
+    await act(async () => {});
+    expect(nav.replace).not.toHaveBeenCalled();
   });
 
   it("keeps the menu when sign-out fails (the user stays signed in)", async () => {
@@ -211,6 +243,9 @@ describe("AccountMenu", () => {
     await act(async () => {});
     expect(screen.getByRole("button", { name: "Alice" })).toBeTruthy();
     expect(signedOut).not.toHaveBeenCalled();
+    // A failed sign-out does not move the person either: they are still on
+    // the page they were on, still signed in.
+    expect(nav.replace).not.toHaveBeenCalled();
     unsubscribe();
   });
 });

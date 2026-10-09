@@ -126,10 +126,11 @@ export function Session({ sessionId }: { sessionId: string }) {
   }, [pendingMisses]);
 
   /**
-   * Sign-in and sign-out flip the audience in place (#147) — the sign-in
-   * state itself is held for the page, so this handler owns only what this
-   * view owes the change: held misses from the deck visit are replayed into
-   * the Review deck on sign-in (#152). No navigation.
+   * The sign-in state flips the audience in place (#147) — the state itself
+   * is held for the page, so this handler owns only what this view owes the
+   * change: held misses from the deck visit are replayed into the Review
+   * deck on sign-in (#152). A sign-out is not handled here: the account menu
+   * leaves this page for the public Explore list at the site root.
    */
   useEffect(() => {
     const stopIn = onSignedIn(() => {
