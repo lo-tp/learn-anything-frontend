@@ -143,10 +143,9 @@ export async function logoutAuth(): Promise<void> {
 
 /**
  * Called on any 401 response from an auth-gated endpoint. The sign-in modal
- * (mounted in the app frame) opens over the current surface in place of the
- * old full-page redirect to `/{locale}/login` (#147). The standalone login
- * page and the edge gate are untouched: they still serve anyone who lands
- * there directly.
+ * (mounted in the app frame) opens over the current surface in place (#147).
+ * The edge no longer gates anything (#149); verification of the token
+ * belongs to the backend alone.
  */
 export function handleUnauthorized(): void {
   requestSignIn();

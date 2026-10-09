@@ -1,75 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import createMiddleware from "next-intl/middleware";
-import { routing, type Locale } from "@/i18n/routing";
-import { verifySignInToken } from "@/lib/auth";
+import { routing } from "@/i18n/routing";
 
 const intlMiddleware = createMiddleware(routing);
 
 /**
- * Paths (after locale prefix) that are never gated. The root ("" — the
- * bare locale path) and the personal list (`mine`) stay open to Visitors:
- * the root temporary-redirects to the personal list, and the personal list
- * asks for sign-in in place (the modal over the page) because the backend
- * refuses anonymous reads of the list — a full-page redirect would hide
- * the surface behind it (#148).
- */
-const UNPROTECTED = new Set(["", "login", "login/", "mine", "mine/"]);
-
-/**
- * Determine the effective locale for a request path.
+ * Composed proxy: i18n locale routing only.
  *
- * If the path already carries a locale prefix (`/en/…`, `/zh/…`), that
- * locale is used. Otherwise the `Accept-Language` header decides:
- * any `zh*` → `zh`, anything else/absent → `en`.
+ * The sign-in gate was removed (#149): the edge no longer verifies tokens
+ * or redirects to a login page. Verification of the token belongs to the
+ * backend alone. The sign-in affordance is the modal from #147.
  */
-function resolveLocale(pathname: string, acceptLanguage: string | null): Locale {
-  const m = pathname.match(/^\/([a-z]{2})(\/|$)/);
-  if (m) {
-    const candidate = m[1];
-    if ((routing.locales as readonly string[]).includes(candidate)) {
-      return candidate as Locale;
-    }
-  }
-  return acceptLanguage?.toLowerCase().startsWith("zh") ? "zh" : "en";
-}
-
-/**
- * Composed proxy: i18n locale routing + sign-in gate.
- *
- * 1. The locale is resolved from the path prefix or `Accept-Language`.
- * 2. Requests to the login route, the root, and the personal list are
- *    passed straight through to the locale middleware (never gated — the
- *    root and the personal list handle anonymous visitors in place, #148).
- * 3. All other requests require a valid `access_token` cookie (HS256 JWT
- *    signed with `JWT_SECRET`). Missing, invalid, or expired tokens are
- *    redirected to `/{locale}/login?next=<original-path>`.
- */
-export default async function proxy(request: NextRequest): Promise<NextResponse> {
-  const { pathname } = request.nextUrl;
-  const locale = resolveLocale(pathname, request.headers.get("accept-language"));
-
-  // Strip the locale prefix (or leading slash) to get the clean route path.
-  const cleanPath = pathname.startsWith(`/${locale}/`)
-    ? pathname.slice(locale.length + 2)
-    : pathname.startsWith(`/${locale}`)
-      ? pathname.slice(locale.length + 1)
-      : pathname.slice(1);
-
-  // Login route is never gated.
-  if (UNPROTECTED.has(cleanPath)) {
-    return intlMiddleware(request);
-  }
-
-  // Verify sign-in cookie.
-  const token = request.cookies.get("access_token")?.value;
-  const secret = process.env.JWT_SECRET;
-  if (token && secret && (await verifySignInToken(token, secret))) {
-    return intlMiddleware(request);
-  }
-
-  // No valid token → redirect to login, preserving the intended path.
-  const next = encodeURIComponent(pathname);
-  return NextResponse.redirect(new URL(`/${locale}/login?next=${next}`, request.url));
+export default function proxy(request: NextRequest): NextResponse {
+  return intlMiddleware(request);
 }
 
 export const config = {

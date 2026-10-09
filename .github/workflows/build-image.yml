@@ -135,15 +135,16 @@ jobs:
           cache-to: type=gha,mode=max
 
       # The image's contract, checked against the artifact: it starts as its own
-      # user, sends an anonymous visitor to sign-in (that is what proxy.ts does),
-      # renders that page with real translated text — the proof that `messages/` is
-      # inside the image, since i18n/request.ts imports it through a runtime-computed
-      # specifier that file tracing cannot see — and the origins baked in at build
-      # time are the ones this workflow declared.
+      # user, renders the app for an anonymous visitor (the sign-in modal opens
+      # in place where a User is required, #149), and the page carries real
+      # translated text — the proof that `messages/` is inside the image, since
+      # i18n/request.ts imports it through a runtime-computed specifier that file
+      # tracing cannot see — and the origins baked in at build time are the ones
+      # this workflow declared.
       - name: Smoke test the image
         run: |
           set -euo pipefail
-          docker run -d --name fe-smoke -p 3000:3000 -e JWT_SECRET=smoke-test-only \
+          docker run -d --name fe-smoke -p 3000:3000 \
             ${{ env.REGISTRY }}/${{ env.IMAGE }}:sha-${{ github.sha }}
           code=0
           for i in $(seq 1 30); do
@@ -152,11 +153,11 @@ jobs:
             sleep 2
             if [ "$i" = 30 ]; then echo "never became ready (last code: $code)"; docker logs fe-smoke; exit 1; fi
           done
-          # An anonymous request is redirected to the sign-in page, not served a page.
+          # The root 307s to /mine (#148): following the redirect renders the app.
           test "$code" = 307
-          page=$(curl -sL http://127.0.0.1:3000/en/login)
+          page=$(curl -sL http://127.0.0.1:3000/)
           printf '%s' "$page" | grep -qi '<title>'
-          printf '%s' "$page" | grep -qi 'sign in'
+          printf '%s' "$page" | grep -qi 'learn anything'
           # Inside the image, not on the runner: the built chunks must carry the
           # origins this workflow passed in as build args. Asserted at the string
           # boundary on purpose — the substring version of this check
