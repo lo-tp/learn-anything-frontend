@@ -13,6 +13,7 @@ import {
   type ReviewCardOut,
   type ReviewConfidence,
 } from "@/lib/api-client";
+import { onSignedIn, onSignedOut } from "@/lib/auth-events";
 
 /** The four confidence levels, in FSRS order (harsh → easy). The ink scale
  *  stays inside the contract's semantics: red pen on AGAIN (a lapse IS a
@@ -47,6 +48,11 @@ const CONFIDENCES: {
  * screen with a notice so the learner can tap a confidence again — a
  * missed schedule is never lost silently. The shared frame is applied by
  * the root layout.
+ *
+ * #147: auth status changes re-fetch the due cards in place, with no
+ * navigation — a sign-in through the modal restores an expired-token
+ * visit, a sign-out re-renders the page as a Visitor's (its fetch answers
+ * 401, which opens the modal again).
  */
 export function Review() {
   const t = useTranslations("review");
@@ -84,6 +90,22 @@ export function Review() {
 
   // The initial fetch: the view owns its data (static shell, #87).
   useEffect(load, []);
+
+  // #147: sign in / sign out re-fetch the due cards in place (see the
+  // component doc). The captured `load` only touches state setters, so it
+  // is safe to close over the mount instance.
+  useEffect(() => {
+    const stopIn = onSignedIn(() => {
+      load();
+    });
+    const stopOut = onSignedOut(() => {
+      load();
+    });
+    return () => {
+      stopIn();
+      stopOut();
+    };
+  }, []);
 
   const total = cards?.length ?? 0;
   const current = finished ? null : (cards?.[index] ?? null);

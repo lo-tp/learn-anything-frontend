@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithLocale } from "@/test/test-utils";
 import { AccountMenu } from "@/components/account-menu";
+import { onSignedOut } from "@/lib/auth-events";
 
 const { getMe, updateMe, logoutAuth } = vi.hoisted(() => ({
   getMe: vi.fn(),
@@ -16,9 +17,7 @@ vi.mock("@/lib/api-client", () => ({
   logoutAuth,
 }));
 
-const push = vi.fn();
 vi.mock("@/i18n/navigation", () => ({
-  useRouter: () => ({ push }),
   Link: () => null,
 }));
 
@@ -141,7 +140,13 @@ describe("AccountMenu", () => {
     expect(updateMe).not.toHaveBeenCalled();
   });
 
-  it("signs out via logoutAuth and navigates to login", async () => {
+  it("signs out via logoutAuth and stays put — the menu hides itself and the surface is told, no navigation", async () => {
+    // #147: signing out leaves the person where they are. The menu hides
+    // itself (the Visitor view of the top bar) and tells the current surface
+    // to re-render as a Visitor; the page does not navigate to a login route
+    // — the standing way back in is the top-bar Sign in.
+    const signedOut = vi.fn();
+    const unsubscribe = onSignedOut(signedOut);
     getMe.mockResolvedValue(USER);
     logoutAuth.mockResolvedValue(undefined);
     renderWithLocale(<AccountMenu />);
@@ -154,6 +159,38 @@ describe("AccountMenu", () => {
     await waitFor(() => {
       expect(logoutAuth).toHaveBeenCalled();
     });
-    expect(push).toHaveBeenCalledWith("/login");
+    // The surface is told to re-render as a Visitor…
+    await waitFor(() => {
+      expect(signedOut).toHaveBeenCalledTimes(1);
+    });
+    // …and the avatar is gone — the menu cannot identify anyone anymore.
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Alice" })).toBeNull();
+    });
+    unsubscribe();
+  });
+
+  it("keeps the menu when sign-out fails (the user stays signed in)", async () => {
+    getMe.mockResolvedValue(USER);
+    logoutAuth.mockRejectedValue(new Error("backend down"));
+    renderWithLocale(<AccountMenu />);
+
+    const trigger = await screen.findByRole("button", { name: "Alice" });
+    fireEvent.pointerDown(trigger, { button: 0 });
+
+    fireEvent.click(screen.getByRole("menuitem", { name: "Sign out" }));
+
+    // The failure is silent (no toast surface, #132 gap 1); the least-
+    // harmful outcome is to leave the user signed in, and no surface is told
+    // the user is gone.
+    const signedOut = vi.fn();
+    const unsubscribe = onSignedOut(signedOut);
+    await waitFor(() => {
+      expect(logoutAuth).toHaveBeenCalledTimes(1);
+    });
+    await act(async () => {});
+    expect(screen.getByRole("button", { name: "Alice" })).toBeTruthy();
+    expect(signedOut).not.toHaveBeenCalled();
+    unsubscribe();
   });
 });

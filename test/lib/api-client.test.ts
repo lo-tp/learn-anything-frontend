@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReviewCardIn } from "@/lib/api-client";
+import { onRequestSignIn } from "@/lib/auth-events";
 
 // `openapi-fetch` binds `fetch` at client-creation time, so stub the global
 // fetch *before* the dynamic import below. Likewise the client reads
@@ -90,11 +91,13 @@ describe("listSessions", () => {
     expect(err.message).toBe("phase: bad and this");
   });
 
-  it("redirects to login on a 401 (and still throws)", async () => {
-    vi.stubGlobal("window", { location: { pathname: "/en", href: "" } });
+  it("asks for the sign-in modal on a 401 — no navigation (and still throws)", async () => {
+    const ask = vi.fn();
+    const unsubscribe = onRequestSignIn(ask);
     fetchMock.mockResolvedValue(json({ detail: "Not authenticated" }, 401));
     const err = await listSessions().catch((e) => e);
-    expect(window.location.href).toBe("/en/login?next=%2Fen");
+    unsubscribe();
+    expect(ask).toHaveBeenCalledTimes(1);
     expect(err).toBeInstanceOf(ApiError);
   });
 });
@@ -121,16 +124,19 @@ describe("describeError edge cases", () => {
 });
 
 describe("handleUnauthorized", () => {
-  it("is a no-op without a window (server side)", () => {
-    // This file runs in the node environment — no stubbed `window` here,
-    // so the SSR guard returns before touching `window.location`.
-    expect(() => handleUnauthorized()).not.toThrow();
+  // The full-page redirect to /login is gone (#147): a 401 asks the
+  // sign-in modal to open over the current surface. The standalone login
+  // page and the edge gate are untouched and still serve the same job.
+  it("asks the sign-in modal to open, without navigating", () => {
+    const ask = vi.fn();
+    const unsubscribe = onRequestSignIn(ask);
+    handleUnauthorized();
+    unsubscribe();
+    expect(ask).toHaveBeenCalledTimes(1);
   });
 
-  it("falls back to the `en` prefix when the path has no locale prefix", () => {
-    vi.stubGlobal("window", { location: { pathname: "/", href: "" } });
-    handleUnauthorized();
-    expect(window.location.href).toBe("/en/login?next=%2F");
+  it("is a no-op when no one is listening (e.g. server side)", () => {
+    expect(() => handleUnauthorized()).not.toThrow();
   });
 });
 
@@ -192,11 +198,13 @@ describe("session endpoints", () => {
     expect(fetchMock.mock.calls[0][0].url).toBe(`${BACKEND}/sessions/s-1/plan/approve`);
   });
 
-  it("redirects to login on a 401 (and still throws)", async () => {
-    vi.stubGlobal("window", { location: { pathname: "/en", href: "" } });
+  it("asks for the sign-in modal on a 401 — no navigation (and still throws)", async () => {
+    const ask = vi.fn();
+    const unsubscribe = onRequestSignIn(ask);
     fetchMock.mockResolvedValue(json({ detail: "Not authenticated" }, 401));
     const err = await createSession("learn F = ma").catch((e) => e);
-    expect(window.location.href).toBe("/en/login?next=%2Fen");
+    unsubscribe();
+    expect(ask).toHaveBeenCalledTimes(1);
     expect(err).toBeInstanceOf(ApiError);
   });
 
@@ -225,11 +233,13 @@ describe("session endpoints", () => {
 });
 
 describe("auth endpoints", () => {
-  it("registerAuth redirects to login on a 401 (and still throws)", async () => {
-    vi.stubGlobal("window", { location: { pathname: "/en", href: "" } });
+  it("registerAuth asks for the sign-in modal on a 401 — no navigation (and still throws)", async () => {
+    const ask = vi.fn();
+    const unsubscribe = onRequestSignIn(ask);
     fetchMock.mockResolvedValue(json({ detail: "invalid" }, 401));
     const err = await registerAuth("a@b.c", "password123").catch((e) => e);
-    expect(window.location.href).toBe("/en/login?next=%2Fen");
+    unsubscribe();
+    expect(ask).toHaveBeenCalledTimes(1);
     expect(err).toBeInstanceOf(ApiError);
   });
 
@@ -240,11 +250,13 @@ describe("auth endpoints", () => {
     expect(err.message).toBe("x");
   });
 
-  it("getMe redirects to login on a 401 (and still throws)", async () => {
-    vi.stubGlobal("window", { location: { pathname: "/en", href: "" } });
+  it("getMe asks for the sign-in modal on a 401 — no navigation (and still throws)", async () => {
+    const ask = vi.fn();
+    const unsubscribe = onRequestSignIn(ask);
     fetchMock.mockResolvedValue(json({ detail: "Not authenticated" }, 401));
     const err = await getMe().catch((e) => e);
-    expect(window.location.href).toBe("/en/login?next=%2Fen");
+    unsubscribe();
+    expect(ask).toHaveBeenCalledTimes(1);
     expect(err).toBeInstanceOf(ApiError);
   });
 
@@ -300,11 +312,13 @@ describe("review endpoints", () => {
     expect(fetchMock.mock.calls[0][0]).toBe(`${BACKEND}/review/cards/7/answer`);
   });
 
-  it("redirects to login on a 401 (and still throws)", async () => {
-    vi.stubGlobal("window", { location: { pathname: "/en", href: "" } });
+  it("asks for the sign-in modal on a 401 — no navigation (and still throws)", async () => {
+    const ask = vi.fn();
+    const unsubscribe = onRequestSignIn(ask);
     fetchMock.mockResolvedValue(json({ detail: "Not authenticated" }, 401));
     const err = await getReviewDue().catch((e) => e);
-    expect(window.location.href).toBe("/en/login?next=%2Fen");
+    unsubscribe();
+    expect(ask).toHaveBeenCalledTimes(1);
     expect(err).toBeInstanceOf(ApiError);
   });
 });

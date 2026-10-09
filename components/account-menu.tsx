@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "@/i18n/navigation";
 import { getMe, updateMe, logoutAuth } from "@/lib/api-client";
+import { notifySignedOut } from "@/lib/auth-events";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -30,7 +30,6 @@ import { Button } from "@/components/ui/button";
  */
 export function AccountMenu() {
   const t = useTranslations("account");
-  const router = useRouter();
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
@@ -72,12 +71,17 @@ export function AccountMenu() {
   }
 
   async function handleSignOut() {
-    // A failed sign-out leaves the user signed in (no navigation) — the
-    // least-harmful outcome; there is no toast surface to report it
-    // (#132 gap 1).
+    // #147: signing out leaves the person where they are — no navigation to
+    // a login route. The menu hides itself (the Visitor view of the top
+    // bar), and the current surface is told to re-render as a Visitor
+    // (its next auth-gated fetch answers 401, which opens the sign-in
+    // modal — the standing way back in). A failed sign-out leaves the user
+    // signed in — the least-harmful outcome; there is no toast surface to
+    // report it (#132 gap 1).
     try {
       await logoutAuth();
-      router.push("/login");
+      setDisplayName(null);
+      notifySignedOut();
     } catch {
       /* stay signed in */
     }

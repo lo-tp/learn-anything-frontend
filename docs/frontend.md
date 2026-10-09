@@ -48,7 +48,8 @@ Navigate to the new route — the frame/top bar come free from the layout.
 - **`"use client"`**: only on the view and any leaf that uses state/hooks/events. Pure leaves stay server-compatible.
 - **Content frame**: reuse the standard wrapper verbatim — a scrollable `main` holding a centered, max-width, padded `div` (see `views/root.tsx`).
 - **Styling**: use the design tokens, not raw hex — `text-on-surface`, `text-on-surface-variant`, `bg-surface-container`, `bg-surface-container-high`, `text-primary`, `border-outline-variant`, `text-error`, `font-display`, `font-mono`. (Full list in `app/globals.css`.)
-- **Data flow**: the view is the **single state owner** — and the single **fetcher**; leaves receive props and report back via callbacks (see `NewSessionDialog` → `onAccept` → parent `refresh()`).
+- **Data flow**: the view is the **single state owner** — and the single **fetcher**; leaves receive props and report back via callbacks (see `NewSessionDialog` → `onAccept` → parent `refresh()`). The exception is **shared chrome**: frame-level components mounted in `components/frame.tsx` (top-bar widgets, dialogs) may own their own state and fetches, because they live outside any single page's view (e.g. `account-menu.tsx`, `sign-in-form.tsx`, `sign-in-modal.tsx` — the sign-in form is shared by the modal and the login page, #147).
+- **Cross-component signals**: components outside each other's trees communicate through the plain event bus in `lib/auth-events.ts` (#147) — e.g. the API client asks the sign-in modal to open on a 401; surfaces re-fetch on sign-in/sign-out.
 - **Docs/comments**: each file opens with a short doc block; reference the design doc and ticket (e.g. `per design/progress/card` or `(#31)`) — matching the style of the existing files.
 
 ## Backend interactions: loading and error states
@@ -57,7 +58,7 @@ Every backend interaction the view owns (#87) gets a loading state, an error sta
 
 - **Loading**: a friendly panel via `components/state-panel.tsx` — never a blank page, and never the empty state doubling as loading.
 - **Error**: a panel with a **Retry** button that re-runs the fetch (e.g. `views/root/index.tsx`). The exception is a self-retrying poll, which shows an honest note about the auto-retry instead (`views/session.tsx`).
-- **401**: `lib/api-client` already redirects to login (#94) — suppress the page while the tab hands over; no custom error UI for it.
+- **401**: `lib/api-client` asks the sign-in modal to open over the current surface — the modal replaces the old full-page redirect to login (#147). The page settles into its ordinary error state behind the modal and re-fetches in place on sign-in (`lib/auth-events`); no page suppression, no navigation.
 - **In-flight writes**: disable the control while the request is pending and await it before advancing; on failure stay in place with a notice so the action can be retried — a failed write must never be swallowed (e.g. `views/review.tsx`). Fire-and-forget is for misses that cost nothing (`postReviewCard` material).
 - **Background refresh**: silent — keep the existing content on failure (the intake re-fetch in `views/root/index.tsx`).
 
@@ -68,6 +69,6 @@ Every backend interaction the view owns (#87) gets a loading state, an error sta
 - ✅ Make leaves pure and reusable.
 - ❌ Don't re-wrap in `<Frame>`/`<TopBar>` in the page.
 - ❌ Don't fetch data in a route entry — views own their fetches (#87).
-- ❌ Don't put state in a leaf, or data-fetching in a component that isn't the view.
+- ❌ Don't put state in a leaf, or data-fetching in a component that isn't the view (shared chrome mounted in the frame is the exception — see Conventions).
 - ✅ Session data comes from the typed backend client (`lib/api-client`); `types/api.d.ts` is generated (`npm run generate:types`), never hand-edited.
 - ✅ Give every fetch a loading state and an error state with Retry (`components/state-panel.tsx`) — no silent failures, no swallowed write errors (#132).

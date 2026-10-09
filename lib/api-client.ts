@@ -1,5 +1,6 @@
 import createClient from "openapi-fetch";
 import type { components, paths } from "@/types/api";
+import { requestSignIn } from "@/lib/auth-events";
 
 /**
  * Typed client for the learn-anything backend API.
@@ -141,28 +142,20 @@ export async function logoutAuth(): Promise<void> {
 }
 
 /**
- * Redirect to the login page, preserving the originally requested path as
- * the `next` query param. Called on any 401 response from an auth-gated
- * endpoint.
+ * Called on any 401 response from an auth-gated endpoint. The sign-in modal
+ * (mounted in the app frame) opens over the current surface in place of the
+ * old full-page redirect to `/{locale}/login` (#147). The standalone login
+ * page and the edge gate are untouched: they still serve anyone who lands
+ * there directly.
  */
 export function handleUnauthorized(): void {
-  if (typeof window === "undefined") return;
-  const path = window.location.pathname;
-  // Only redirect if we're not already on the login page.
-  if (path.endsWith("/login")) return;
-  const localePrefix = path.match(/^\/([a-z]{2})/)?.[1] ?? "en";
-  const next = encodeURIComponent(path);
-  // Full-page navigation is deliberate: this runs in a non-component lib
-  // function (no `useRouter()`), and a hard redirect guarantees the client
-  // re-runs the locale-less path resolution.
-  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-  window.location.href = `/${localePrefix}/login?next=${next}`;
+  requestSignIn();
 }
 
 /**
- * Internal: handle a 401 from an auth-gated endpoint by redirecting to the
- * login page, then re-throw the original error so the caller's catch block
- * still runs (and the redirect takes over the tab).
+ * Internal: on a 401 from an auth-gated endpoint, ask for the sign-in modal
+ * (#147), then throw the original error so the caller's catch block still
+ * runs.
  */
 function guardUnauthorized(response: Response | undefined, error: unknown, status?: number): ApiError {
   if (response?.status === 401) handleUnauthorized();

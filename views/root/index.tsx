@@ -8,7 +8,8 @@ import { NewSessionDialog } from "./new-session-dialog";
 import { SessionCard } from "@/components/session-card";
 import { StartSessionButton } from "@/components/start-session-button";
 import { StatePanel } from "@/components/state-panel";
-import { ApiError, listSessions, type SessionListItem } from "@/lib/api-client";
+import { listSessions, type SessionListItem } from "@/lib/api-client";
+import { onSignedIn, onSignedOut } from "@/lib/auth-events";
 import { CONFIRMING_PHASES } from "./intake";
 
 /**
@@ -20,11 +21,14 @@ import { CONFIRMING_PHASES } from "./intake";
  * (#87).
  *
  * Three fetch-driven states (#132): **loading** (the initial fetch in
- * flight — a friendly panel, never the empty state), **error** (a non-401
- * initial failure — a friendly panel with a Retry that re-runs the fetch),
- * and **ready** (the list — empty or filled). A 401 is the special case:
- * the API client already redirected to login (`handleUnauthorized`), so
- * the page suppresses itself while the tab hands over (#94). The refresh
+ * flight — a friendly panel, never the empty state), **error** (a failed
+ * fetch — a friendly panel with a Retry that re-runs the fetch), and
+ * **ready** (the list — empty or filled). A 401 lands in the error state:
+ * the API client has already asked for the sign-in modal to open over the
+ * page (#147), so the page stays rendered behind it — a token that expired
+ * mid-use signs back in through the modal, and the History refetches in
+ * place. Sign-out does the same in reverse: the page re-renders as a
+ * Visitor's (its fetch answers 401) — no navigation (#147). The refresh
  * after the dialog accepts an intake is a silent re-fetch — it keeps the
  * current list on failure.
  *
@@ -38,25 +42,19 @@ export function Root() {
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [dialogOpen, setDialogOpen] = useState(false);
-  // A 401 means the API client already redirected to login
-  // (`handleUnauthorized`); suppress the page while the tab hands over
-  // (#94).
-  const [unauthorized, setUnauthorized] = useState(false);
 
-  /** The error state's Retry: re-run the fetch with full status tracking. */
+  /** The error state's Retry: re-run the fetch with full status tracking.
+   *  A 401 lands here too — the sign-in modal is already open over the
+   *  page (the API client asked for it, #147), and Retry loops back
+   *  through it. */
   const load = useCallback(async () => {
     setStatus("loading");
     try {
       const { sessions } = await listSessions(CONFIRMING_PHASES);
       setSessions(sessions);
-      setUnauthorized(false);
       setStatus("ready");
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        setUnauthorized(true);
-      } else {
-        setStatus("error");
-      }
+    } catch {
+      setStatus("error");
     }
   }, []);
 
@@ -69,17 +67,10 @@ export function Root() {
         const { sessions } = await listSessions(CONFIRMING_PHASES);
         if (!cancelled) {
           setSessions(sessions);
-          setUnauthorized(false);
           setStatus("ready");
         }
-      } catch (err) {
-        if (!cancelled) {
-          if (err instanceof ApiError && err.status === 401) {
-            setUnauthorized(true);
-          } else {
-            setStatus("error");
-          }
-        }
+      } catch {
+        if (!cancelled) setStatus("error");
       }
     })();
     return () => {
@@ -87,19 +78,36 @@ export function Root() {
     };
   }, []);
 
+  // #147: auth status changes re-fetch the History in place, with no
+  // navigation. A successful sign-in through the modal restores an
+  // expired-token visit; a sign-out re-renders the page as a Visitor's —
+  // its next fetch answers 401 and the sign-in modal opens again.
+  useEffect(
+    () => {
+      const stopIn = onSignedIn(() => {
+        void load();
+      });
+      const stopOut = onSignedOut(() => {
+        void load();
+      });
+      return () => {
+        stopIn();
+        stopOut();
+      };
+    },
+    [load],
+  );
+
   /** Re-fetch the History after an accepted intake — a silent re-fetch:
    *  it keeps the current list on failure (#132). */
   const refresh = useCallback(async () => {
     try {
       const { sessions } = await listSessions(CONFIRMING_PHASES);
       setSessions(sessions);
-      setUnauthorized(false);
     } catch {
       /* keep the current list */
     }
   }, []);
-
-  if (unauthorized) return null;
 
   if (status === "loading") {
     return (

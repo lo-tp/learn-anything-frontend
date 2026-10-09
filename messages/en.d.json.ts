@@ -11,7 +11,8 @@ declare const messages: {
     "toggleTheme": "Toggle theme",
     "reviewDue": "{count} cards due for review",
     "study": "Study",
-    "review": "Review"
+    "review": "Review",
+    "signIn": "Sign in"
   },
   "account": {
     "displayName": "Display name",
@@ -165,7 +166,8 @@ declare const messages: {
     "genericError": "Something went wrong. Please try again.",
     "submitSignIn": "Sign in",
     "submitCreateAccount": "Create account",
-    "submitting": "Submitting…"
+    "submitting": "Submitting…",
+    "signInDescription": "Sign in to continue, or create an account."
   },
   "time": {
     "justNow": "just now",

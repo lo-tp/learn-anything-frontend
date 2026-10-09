@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { onRequestSignIn } from "@/lib/auth-events";
 
 const BACKEND = "http://backend.test";
 process.env.NEXT_PUBLIC_BACKEND_URL = BACKEND;
@@ -89,8 +90,6 @@ describe("getMe", () => {
 
   it("throws an ApiError with the status on 401", async () => {
     fetchMock.mockResolvedValue(json({ detail: "Not authenticated" }, 401));
-    // Mock window to prevent actual redirect
-    vi.stubGlobal("window", { location: { pathname: "/en/session/abc", href: "" } });
     const err = await getMe().catch((e) => e);
     expect(err).toBeInstanceOf(ApiError);
     expect(err.status).toBe(401);
@@ -118,27 +117,17 @@ describe("logoutAuth", () => {
 });
 
 describe("handleUnauthorized", () => {
-  it("redirects to /en/login?next=<path> when not on login page", () => {
-    vi.stubGlobal("window", {
-      location: { pathname: "/en/session/abc", href: "" },
-    });
+  // The full-page redirect to /login is gone (#147): a 401 asks the sign-in
+  // modal to open over the current surface, without navigating.
+  it("asks the sign-in modal to open, without navigating", () => {
+    const ask = vi.fn();
+    const unsubscribe = onRequestSignIn(ask);
     handleUnauthorized();
-    expect(window.location.href).toBe("/en/login?next=%2Fen%2Fsession%2Fabc");
+    unsubscribe();
+    expect(ask).toHaveBeenCalledTimes(1);
   });
 
-  it("does not redirect when already on the login page", () => {
-    vi.stubGlobal("window", {
-      location: { pathname: "/en/login", href: "" },
-    });
-    handleUnauthorized();
-    expect(window.location.href).toBe("");
-  });
-
-  it("uses the locale prefix from the path", () => {
-    vi.stubGlobal("window", {
-      location: { pathname: "/zh/session/xyz", href: "" },
-    });
-    handleUnauthorized();
-    expect(window.location.href).toBe("/zh/login?next=%2Fzh%2Fsession%2Fxyz");
+  it("is a no-op when no one is listening (e.g. server side)", () => {
+    expect(() => handleUnauthorized()).not.toThrow();
   });
 });
