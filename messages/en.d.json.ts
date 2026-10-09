@@ -129,6 +129,12 @@ declare const messages: {
     "loading": {
       "title": "Loading session…",
       "note": "Hang tight — your session is loading."
+    },
+    "nudge": {
+      "title": "Save your progress",
+      "body": "Sign in to keep your missed questions — they'll come back for review when you need them.",
+      "action": "Sign in",
+      "replayFailed": "We couldn't save your progress. Your missed questions are still here — sign in again to try."
     }
   },
   "phases": {

@@ -17,9 +17,10 @@ import {
   isSignedIn,
   postReviewCard,
   type MaterialsOut,
+  type ReviewCardIn,
   type SessionState,
 } from "@/lib/api-client";
-import { onSignedIn, onSignedOut } from "@/lib/auth-events";
+import { onSignedIn, onSignedOut, requestSignIn } from "@/lib/auth-events";
 
 /** How often the view polls while materials are still generating. */
 const POLL_INTERVAL_MS = 3000;
@@ -60,6 +61,10 @@ const sandboxSrc = (slideId: string, theme: Theme) =>
  * settles the audience once on mount (`isSignedIn`, the `GET /auth/me`
  * probe — a 401 is a Visitor, not an error) and flips it in place on
  * sign-in/out (#147), with no navigation.
+ *
+ * A Visitor's missed questions are held in a pending set and replayed
+ * into the Review deck on sign-in (#152); the first miss raises a nudge
+ * that offers signing in as the way to keep them.
  */
 export function Session({ sessionId }: { sessionId: string }) {
   const [session, setSession] = useState<SessionState | null>(null);
@@ -71,7 +76,15 @@ export function Session({ sessionId }: { sessionId: string }) {
   // The viewer is a Visitor until the identity probe confirms a User
   // (#151) — a miss becomes a review card only from a confirmed User.
   const [isUser, setIsUser] = useState(false);
+  // Held misses from this deck visit, replayed on sign-in (#152)
+  const [pendingMisses, setPendingMisses] = useState<ReviewCardIn[]>([]);
+  // True once the nudge has been shown this deck visit (#152)
+  const [hasNudged, setHasNudged] = useState(false);
+  // True when a replay attempt failed — the misses stay held, not dropped (#152)
+  const [replayFailed, setReplayFailed] = useState(false);
   const inFlight = useRef(false);
+  // Ref so the sign-in handler reads the current pending misses (#152)
+  const pendingMissesRef = useRef<ReviewCardIn[]>([]);
   const t = useTranslations("session");
   const { theme } = useTheme();
 
@@ -127,9 +140,35 @@ export function Session({ sessionId }: { sessionId: string }) {
     };
   }, []);
 
-  /** Sign-in and sign-out flip the audience in place (#147): no navigation. */
+  /** Keep the ref in sync with the state for the sign-in handler (#152). */
   useEffect(() => {
-    const stopIn = onSignedIn(() => setIsUser(true));
+    pendingMissesRef.current = pendingMisses;
+  }, [pendingMisses]);
+
+  /**
+   * Sign-in and sign-out flip the audience in place (#147): no navigation.
+   * On sign-in, held misses from the deck visit are replayed into the
+   * Review deck (#152).
+   */
+  useEffect(() => {
+    const stopIn = onSignedIn(() => {
+      setIsUser(true);
+      const misses = pendingMissesRef.current;
+      if (misses.length === 0) return;
+      Promise.allSettled(misses.map((m) => postReviewCard(m))).then(
+        (results) => {
+          if (results.some((r) => r.status === "rejected")) {
+            setReplayFailed(true);
+            // Misses stay held — retryable on the next sign-in
+          } else {
+            pendingMissesRef.current = [];
+            setPendingMisses([]);
+            setHasNudged(false);
+            setReplayFailed(false);
+          }
+        },
+      );
+    });
     const stopOut = onSignedOut(() => setIsUser(false));
     return () => {
       stopIn();
@@ -324,32 +363,61 @@ export function Session({ sessionId }: { sessionId: string }) {
             </div>
           )}
           {active.type === "question" && (
-            <div className="flex min-h-full items-center justify-center">
+            <div className="flex min-h-full flex-col items-center justify-center gap-6">
               <QuizQuestion
                 question={active}
                 selected={answers[active.id] ?? null}
                 onSelect={(i) => {
                   setAnswers((prev) => ({ ...prev, [active.id]: i }));
-                  // A miss becomes a review card only for a confirmed User
-                  // (#151): a Visitor's answers stay local to this view, and
-                  // no write is attempted from them.
-                  if (isUser && i !== active.correct_index) {
-                    postReviewCard({
-                      source: "material",
-                      session_id: sessionId,
-                      question_id: active.id,
-                      question: {
-                        text: active.text,
-                        options: active.options,
-                        correct_index: active.correct_index,
-                        explanation: active.explanation,
-                      },
-                      step_id: active.step_id,
-                      selected_index: i,
-                    }).catch(() => {});
+                  if (i === active.correct_index) return;
+                  const miss: ReviewCardIn = {
+                    source: "material",
+                    session_id: sessionId,
+                    question_id: active.id,
+                    question: {
+                      text: active.text,
+                      options: active.options,
+                      correct_index: active.correct_index,
+                      explanation: active.explanation,
+                    },
+                    step_id: active.step_id,
+                    selected_index: i,
+                  };
+                  if (isUser) {
+                    // A confirmed User's miss becomes a review card (#151)
+                    postReviewCard(miss).catch(() => {});
+                  } else {
+                    // A Visitor's miss is held locally and replayed on sign-in (#152)
+                    setPendingMisses((prev) => [...prev, miss]);
+                    if (!hasNudged) setHasNudged(true);
                   }
                 }}
               />
+              {hasNudged && (
+                <div className="w-full max-w-2xl rounded-md border border-engage/40 bg-engage/5 p-4">
+                  <div className="flex items-start gap-3">
+                    <TriangleAlert
+                      className="mt-0.5 size-4 shrink-0 text-engage"
+                      aria-hidden
+                    />
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold text-on-surface">
+                        {t("nudge.title")}
+                      </h3>
+                      <p className="mt-1 text-sm leading-relaxed text-on-surface-variant">
+                        {replayFailed ? t("nudge.replayFailed") : t("nudge.body")}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={requestSignIn}
+                        className="focus-ring mt-3 rounded-md bg-engage px-3 py-1.5 text-sm font-semibold text-on-engage transition-opacity hover:opacity-90"
+                      >
+                        {t("nudge.action")}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </main>

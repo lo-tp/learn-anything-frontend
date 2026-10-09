@@ -480,4 +480,90 @@ describe("Session", () => {
       vi.useRealTimers();
     }
   });
+
+  it("shows the nudge on the first miss only, and holds all misses locally", async () => {
+    mockIsSignedIn.mockResolvedValue(false);
+    renderSession();
+    await settle();
+
+    // First miss: the nudge appears
+    fireEvent.click(
+      screen.getByRole("button", { name: /what does f stand for\?/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^b\s*friction$/i }));
+    expect(screen.getByText("Save your progress")).toBeTruthy();
+    expect(mockPostReviewCard).not.toHaveBeenCalled();
+
+    // Second miss: the nudge stays (not re-triggered), no write
+    fireEvent.click(screen.getByRole("button", { name: "Next slide" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /what does a stand for\?/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^b\s*area$/i }));
+    expect(screen.getByText("Save your progress")).toBeTruthy();
+    expect(mockPostReviewCard).not.toHaveBeenCalled();
+  });
+
+  it("replays the held misses into the Review deck on sign-in", async () => {
+    mockIsSignedIn.mockResolvedValue(false);
+    renderSession();
+    await settle();
+
+    // Hold two misses
+    fireEvent.click(
+      screen.getByRole("button", { name: /what does f stand for\?/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^b\s*friction$/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Next slide" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /what does a stand for\?/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^b\s*area$/i }));
+    expect(screen.getByText("Save your progress")).toBeTruthy();
+
+    // Sign in: the replay fires
+    act(() => {
+      notifySignedIn();
+    });
+    await act(async () => {}); // let the Promise.allSettled.then run
+
+    // Both misses were replayed
+    expect(mockPostReviewCard).toHaveBeenCalledTimes(2);
+    expect(mockPostReviewCard).toHaveBeenCalledWith(
+      expect.objectContaining({ question_id: "q-1", selected_index: 1 }),
+    );
+    expect(mockPostReviewCard).toHaveBeenCalledWith(
+      expect.objectContaining({ question_id: "q-2", selected_index: 1 }),
+    );
+    // The nudge is gone (replay succeeded)
+    expect(screen.queryByText("Save your progress")).toBeNull();
+  });
+
+  it("keeps held misses retryable when the replay fails", async () => {
+    mockIsSignedIn.mockResolvedValue(false);
+    renderSession();
+    await settle();
+
+    // Hold a miss
+    fireEvent.click(
+      screen.getByRole("button", { name: /what does f stand for\?/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^b\s*friction$/i }));
+    expect(screen.getByText("Save your progress")).toBeTruthy();
+
+    // Sign in with the replay failing
+    mockPostReviewCard.mockRejectedValue(new Error("network down"));
+    act(() => {
+      notifySignedIn();
+    });
+    await act(async () => {}); // let the Promise.allSettled.then run
+
+    // The nudge shows the error, and the miss is still held
+    expect(
+      screen.getByText(
+        "We couldn't save your progress. Your missed questions are still here — sign in again to try.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("Save your progress")).toBeTruthy();
+  });
 });
