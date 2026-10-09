@@ -23,8 +23,10 @@ import { cn } from "@/lib/utils";
  * site root and the wordmark, Study stays at `/mine` for a signed-in User.
  *
  * The active tab is derived from the current pathname, so it stays in sync
- * with the route; Study also owns the session detail pages (a session lives
- * under Study). Labels come from the `topbar` namespace. Always visible —
+ * with the route. The session detail pages belong to whichever browsing tab
+ * the viewer is shown: Study owns them for a signed-in User, Explore owns
+ * them for a Visitor (the pair is mutually exclusive, so only one can claim
+ * a session). Labels come from the `topbar` namespace. Always visible —
  * Review must stay reachable on small screens — so the tabs shrink below
  * `md` (the wordmark steps aside there).
  */
@@ -42,7 +44,8 @@ const TABS: Tab[] = [
     key: "explore",
     href: "/",
     isFor: (signedIn) => !signedIn,
-    isActive: (p) => p === "/",
+    isActive:
+      (p) => p === "/" || p === "/session" || p.startsWith("/session/"),
   },
   {
     key: "study",

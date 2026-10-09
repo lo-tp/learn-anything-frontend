@@ -88,6 +88,13 @@ describe("TopBarTabs", () => {
     expect(screen.getByRole("link", { name: "Review" }).getAttribute("aria-current")).toBeNull();
   });
 
+  it("marks Explore active on a session page for a Visitor", () => {
+    nav.pathname = "/session/abc";
+    renderWithLocale(<TopBarTabs />);
+    expect(screen.getByRole("link", { name: "Explore" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: "Review" }).getAttribute("aria-current")).toBeNull();
+  });
+
   it("marks Study active at /mine for a signed-in User", () => {
     identity.signedIn = true;
     identity.user = USER;
