@@ -54,7 +54,8 @@ Run it whenever the backend spec changes (it needs the backend running at that U
 
 ## Docs
 
-- [Architecture revamp](ArchitectureRevamp.md) — the three-service restructure (FE/BFF + Sandbox + LangGraph LLM): topology, contracts, state ownership, demo flow, deployment, and the decisions that supersede the prior design.
+- [Glossary](CONTEXT.md) — the domain language: what the app is and the terms its code and docs use.
+- [ADRs](docs/adr/) — the decisions that supersede the prior design: review scheduling, vector storage, tracing, and public browsing vs ownership.
 - [Frontend](docs/frontend.md) — the frontend page-structure guide.
 
 ## License
