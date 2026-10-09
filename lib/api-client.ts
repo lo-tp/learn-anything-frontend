@@ -118,6 +118,25 @@ export async function getMe(): Promise<components["schemas"]["UserOut"]> {
   return data;
 }
 
+/**
+ * The viewer's sign-in state, probed against `GET /auth/me` (#151).
+ *
+ * Unlike `getMe`, a 401 is the expected answer for a Visitor, not an
+ * error to react to: it resolves `false` without asking for the sign-in
+ * modal. The modal is an ownership ask (#143) — a probe that expects a
+ * Visitor must not open it. Any other failure throws, as `getMe` does.
+ */
+export async function isSignedIn(): Promise<boolean> {
+  const { data, error, response } = await api.GET("/auth/me", {
+    credentials: "include",
+  });
+  if (!data) {
+    if (response?.status !== 401) throw describeError(error, response?.status);
+    return false;
+  }
+  return true;
+}
+
 /** `PATCH /auth/me` — update display name. */
 export async function updateMe(
   displayName: string,

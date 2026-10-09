@@ -6,21 +6,25 @@ import { Session } from "@/views/session";
 import {
   getMaterials,
   getSession,
+  isSignedIn,
   postReviewCard,
   type MaterialsOut,
   type ReviewCardOut,
   type SessionState,
 } from "@/lib/api-client";
+import { notifySignedIn, notifySignedOut } from "@/lib/auth-events";
 
 vi.mock("@/lib/api-client", () => ({
   getSession: vi.fn(),
   getMaterials: vi.fn(),
+  isSignedIn: vi.fn(),
   postReviewCard: vi.fn(),
   ApiError: class ApiError extends Error {},
 }));
 
 const mockGetSession = vi.mocked(getSession);
 const mockGetMaterials = vi.mocked(getMaterials);
+const mockIsSignedIn = vi.mocked(isSignedIn);
 const mockPostReviewCard = vi.mocked(postReviewCard);
 
 beforeEach(() => {
@@ -30,6 +34,11 @@ beforeEach(() => {
   mockGetMaterials
     .mockReset()
     .mockResolvedValue(materials());
+  // The default viewer is a signed-in User (#151): a miss becomes a review
+  // card. The visitor tests override this to `false`.
+  mockIsSignedIn
+    .mockReset()
+    .mockResolvedValue(true);
   mockPostReviewCard
     .mockReset()
     .mockResolvedValue({
@@ -284,6 +293,74 @@ describe("Session", () => {
     // The rejection must not crash the UI.
     expect(screen.getByText("Not quite.")).toBeTruthy();
     expect(mockPostReviewCard).toHaveBeenCalledTimes(1);
+  });
+
+  it("serves a Visitor the same deck — reading and answering work, no write is attempted", async () => {
+    // An unsigned visitor: the identity probe answers 401, but the reads
+    // are public, so the deck renders exactly as a User's (#151).
+    mockIsSignedIn.mockResolvedValue(false);
+    renderSession();
+    await settle();
+    expect(screen.getByText("Force and mass")).toBeTruthy();
+    // The deck can be moved through…
+    fireEvent.click(screen.getByRole("button", { name: "Next slide" }));
+    expect(counterAt(2, 3)).toBeTruthy();
+    // …and a wrong pick reveals the result locally — with no review card.
+    fireEvent.click(screen.getByRole("button", { name: /^b\s*friction$/i }));
+    expect(screen.getByText("Not quite.")).toBeTruthy();
+    expect(screen.getByText("F is the net force.")).toBeTruthy();
+    expect(mockPostReviewCard).not.toHaveBeenCalled();
+  });
+
+  it("keeps the view a Visitor's when the identity probe fails", async () => {
+    // A transient probe failure settles like a 401: the deck still renders,
+    // and a miss never attempts a write (#151).
+    mockIsSignedIn.mockRejectedValue(new Error("backend down"));
+    renderSession();
+    await settle();
+    expect(screen.getByText("Force and mass")).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: /what does f stand for\?/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^b\s*friction$/i }));
+    expect(screen.getByText("Not quite.")).toBeTruthy();
+    expect(mockPostReviewCard).not.toHaveBeenCalled();
+  });
+
+  it("flips to a User on sign-in — a miss then writes its review card", async () => {
+    // A Visitor browsing the deck signs in in place (#147): the audience
+    // flips without navigation, and the next miss persists (#151).
+    mockIsSignedIn.mockResolvedValue(false);
+    renderSession();
+    await settle();
+    act(() => {
+      notifySignedIn();
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: /what does f stand for\?/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^b\s*friction$/i }));
+    expect(screen.getByText("Not quite.")).toBeTruthy();
+    expect(mockPostReviewCard).toHaveBeenCalledTimes(1);
+    expect(mockPostReviewCard).toHaveBeenCalledWith(
+      expect.objectContaining({ question_id: "q-1", selected_index: 1 }),
+    );
+  });
+
+  it("flips to a Visitor on sign-out — a miss no longer writes", async () => {
+    // A signed-in User signs out in place (#147): the audience flips to a
+    // Visitor's, and the next miss stays local (#151).
+    renderSession();
+    await settle();
+    act(() => {
+      notifySignedOut();
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: /what does f stand for\?/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^b\s*friction$/i }));
+    expect(screen.getByText("Not quite.")).toBeTruthy();
+    expect(mockPostReviewCard).not.toHaveBeenCalled();
   });
 
   it("renders the not-found state when the session does not exist", async () => {

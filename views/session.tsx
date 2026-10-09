@@ -14,10 +14,12 @@ import { useTheme, type Theme } from "@/hooks/use-theme";
 import {
   getMaterials,
   getSession,
+  isSignedIn,
   postReviewCard,
   type MaterialsOut,
   type SessionState,
 } from "@/lib/api-client";
+import { onSignedIn, onSignedOut } from "@/lib/auth-events";
 
 /** How often the view polls while materials are still generating. */
 const POLL_INTERVAL_MS = 3000;
@@ -49,6 +51,15 @@ const sandboxSrc = (slideId: string, theme: Theme) =>
  * the polled response's phase beats the session's. Friendly states
  * (loading / not found / error / not ready / generating) render instead of
  * the deck. The shared frame is applied by the root layout.
+ *
+ * One address, two audiences (#151): the route serves a signed-in User and
+ * a Visitor the same deck — the reads are public, so both open it by
+ * address or from an Explore card. The audiences differ in what a miss
+ * keeps: a User's missed question becomes a review card, a Visitor's
+ * answer stays local to this view and no write is attempted. The view
+ * settles the audience once on mount (`isSignedIn`, the `GET /auth/me`
+ * probe — a 401 is a Visitor, not an error) and flips it in place on
+ * sign-in/out (#147), with no navigation.
  */
 export function Session({ sessionId }: { sessionId: string }) {
   const [session, setSession] = useState<SessionState | null>(null);
@@ -57,6 +68,9 @@ export function Session({ sessionId }: { sessionId: string }) {
   const [pollError, setPollError] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
+  // The viewer is a Visitor until the identity probe confirms a User
+  // (#151) — a miss becomes a review card only from a confirmed User.
+  const [isUser, setIsUser] = useState(false);
   const inFlight = useRef(false);
   const t = useTranslations("session");
   const { theme } = useTheme();
@@ -91,6 +105,37 @@ export function Session({ sessionId }: { sessionId: string }) {
       cancelled = true;
     };
   }, [sessionId]);
+
+  /**
+   * Settle the viewer's audience once (#151): the `GET /auth/me` probe
+   * confirms a signed-in User, and a 401 leaves the view as a Visitor's —
+   * it never writes from a miss, and it never asks for the sign-in modal
+   * (an unsigned visitor is the expected caller of this route, not an
+   * error). A transient probe failure settles the same way: no write.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    isSignedIn()
+      .then((signedIn) => {
+        if (!cancelled) setIsUser(signedIn);
+      })
+      .catch(() => {
+        /* a Visitor — no error surface, no sign-in request */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /** Sign-in and sign-out flip the audience in place (#147): no navigation. */
+  useEffect(() => {
+    const stopIn = onSignedIn(() => setIsUser(true));
+    const stopOut = onSignedOut(() => setIsUser(false));
+    return () => {
+      stopIn();
+      stopOut();
+    };
+  }, []);
 
   /** Poll every 3s while generating; the cleanup stops it on phase change. */
   useEffect(() => {
@@ -285,7 +330,10 @@ export function Session({ sessionId }: { sessionId: string }) {
                 selected={answers[active.id] ?? null}
                 onSelect={(i) => {
                   setAnswers((prev) => ({ ...prev, [active.id]: i }));
-                  if (i !== active.correct_index) {
+                  // A miss becomes a review card only for a confirmed User
+                  // (#151): a Visitor's answers stay local to this view, and
+                  // no write is attempted from them.
+                  if (isUser && i !== active.correct_index) {
                     postReviewCard({
                       source: "material",
                       session_id: sessionId,

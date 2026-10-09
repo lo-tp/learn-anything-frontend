@@ -24,6 +24,7 @@ const {
   generatePlan,
   getSession,
   getReviewDue,
+  isSignedIn,
   listExploreSessions,
   listSessions,
   logoutAuth,
@@ -287,6 +288,29 @@ describe("auth endpoints", () => {
     unsubscribe();
     expect(ask).toHaveBeenCalledTimes(1);
     expect(err).toBeInstanceOf(ApiError);
+  });
+
+  it("isSignedIn resolves true for a signed-in caller", async () => {
+    fetchMock.mockResolvedValue(
+      json({ id: 1, email: "a@b.c", display_name: "A" }),
+    );
+    expect(await isSignedIn()).toBe(true);
+  });
+
+  it("isSignedIn resolves false on a 401 — a Visitor, without asking for sign-in", async () => {
+    const ask = vi.fn();
+    const unsubscribe = onRequestSignIn(ask);
+    fetchMock.mockResolvedValue(json({ detail: "Not authenticated" }, 401));
+    expect(await isSignedIn()).toBe(false);
+    unsubscribe();
+    expect(ask).not.toHaveBeenCalled();
+  });
+
+  it("isSignedIn throws an ApiError on a non-401 failure", async () => {
+    fetchMock.mockResolvedValue(json({ detail: [{ msg: "x" }] }, 500));
+    const err = await isSignedIn().catch((e) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err.message).toBe("x");
   });
 
   it("updateMe throws an ApiError on failure", async () => {
