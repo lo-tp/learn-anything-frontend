@@ -28,6 +28,10 @@ Two ground rules that make this work:
 - **The root layout already wraps everything in `<Frame>`** (`app/layout.tsx` → `TopBar` + full-height column). So a page supplies **content only** — never re-add the frame or top bar.
 - **`@/*` = repo root** (tsconfig `paths`), so you import `@/views/…`, `@/components/…`, `@/lib/…`.
 
+## A route that is not a page
+
+`app/api/health/route.ts` is the one Route Handler here, and it is not part of the 3-layer model: no view, no leaf, no data. Why it exists, and why it sits outside `app/[locale]` and outside the `proxy.ts` matcher, is argued in that file (#158). Deleting it, or moving it under a locale, takes the public surface to 502 while every pod still reports Ready; the guards are `test/routes/health-route.test.ts` and the image smoke step, and the path is paired with the readiness probe in `learn-anything-infra`'s `manifests/base/frontend.yaml`.
+
 ## Adding an interactive page
 
 ### 1. Leaf components — `components/<kebab-name>.tsx`
