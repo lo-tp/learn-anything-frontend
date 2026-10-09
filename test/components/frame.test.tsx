@@ -1,7 +1,17 @@
 // @vitest-environment jsdom
-import { describe, expect, it, afterEach } from "vitest";
+import { describe, expect, it, afterEach, vi } from "vitest";
 import { screen, cleanup } from "@testing-library/react";
 import { renderWithLocale } from "@/test/test-utils";
+
+// The frame's top bar reads the page's sign-in state; the frame's own
+// contract is the chrome around the page, not who is looking at it, so the
+// state is pinned to a Visitor here (see test/hooks/use-sign-in-state.test.tsx
+// for how it is settled).
+vi.mock("@/hooks/use-sign-in-state", () => ({
+  useSignInState: () => ({ known: true, signedIn: false, user: null }),
+  setSignInUser: vi.fn(),
+}));
+
 afterEach(cleanup);
 import { Frame } from "@/components/frame";
 

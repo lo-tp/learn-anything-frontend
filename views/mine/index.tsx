@@ -8,55 +8,56 @@ import { NewSessionDialog } from "./new-session-dialog";
 import { SessionCard } from "@/components/session-card";
 import { StartSessionButton } from "@/components/start-session-button";
 import { StatePanel } from "@/components/state-panel";
-import { ApiError, listSessions, type SessionListItem } from "@/lib/api-client";
+import { listSessions, type SessionListItem } from "@/lib/api-client";
+import { onSignedIn } from "@/lib/auth-events";
 import { CONFIRMING_PHASES } from "./intake";
 
 /**
- * The home page: the learner's History. Owns the list state, the initial
- * and refresh fetches against `GET /sessions` (the refresh runs after the
- * new-session dialog accepts an intake), and the dialog's open state, and
- * renders the page directly from the pure leaf components in `components/*`.
- * The route is a static shell — the view does the fetching in the browser
- * (#87).
+ * The personal list at `/mine` (#148): the learner's own Sessions. Owns the
+ * list state, the initial and refresh fetches against `GET /sessions` (the
+ * refresh runs after the new-session dialog accepts an intake), and the
+ * dialog's open state, and renders the page directly from the pure leaf
+ * components in `components/*`. The route is a static shell — the view does
+ * the fetching in the browser (#87).
  *
  * Three fetch-driven states (#132): **loading** (the initial fetch in
- * flight — a friendly panel, never the empty state), **error** (a non-401
- * initial failure — a friendly panel with a Retry that re-runs the fetch),
- * and **ready** (the list — empty or filled). A 401 is the special case:
- * the API client already redirected to login (`handleUnauthorized`), so
- * the page suppresses itself while the tab hands over (#94). The refresh
- * after the dialog accepts an intake is a silent re-fetch — it keeps the
- * current list on failure.
+ * flight — a friendly panel, never the empty state), **error** (a failed
+ * fetch — a friendly panel with a Retry that re-runs the fetch), and
+ * **ready** (the list — empty or filled). A 401 lands in the error state:
+ * the API client has already asked for the sign-in modal to open over the
+ * page (#147), so the page stays rendered behind it — a token that expired
+ * mid-use signs back in through the modal, and the History refetches in
+ * place. Sign-out never asks this page to render without an owner: the
+ * account menu takes the person to the public Explore list at the site
+ * root. The refresh after the dialog accepts an intake is a silent
+ * re-fetch — it keeps the current list on failure.
+ *
+ * The site root is the public Explore surface (#150); this list keeps its
+ * own address at `/mine`.
  *
  * With sessions: the "My Sessions" header (title + CTA) above the cards.
  * When empty: the header is hidden and the empty state carries the CTA at
  * its base, so there is one primary button in either view. Either CTA
  * opens the new-session dialog (#26).
  */
-export function Root() {
-  const t = useTranslations("home");
+export function Mine() {
+  const t = useTranslations("mine");
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [dialogOpen, setDialogOpen] = useState(false);
-  // A 401 means the API client already redirected to login
-  // (`handleUnauthorized`); suppress the page while the tab hands over
-  // (#94).
-  const [unauthorized, setUnauthorized] = useState(false);
 
-  /** The error state's Retry: re-run the fetch with full status tracking. */
+  /** The error state's Retry: re-run the fetch with full status tracking.
+   *  A 401 lands here too — the sign-in modal is already open over the
+   *  page (the API client asked for it, #147), and Retry loops back
+   *  through it. */
   const load = useCallback(async () => {
     setStatus("loading");
     try {
       const { sessions } = await listSessions(CONFIRMING_PHASES);
       setSessions(sessions);
-      setUnauthorized(false);
       setStatus("ready");
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        setUnauthorized(true);
-      } else {
-        setStatus("error");
-      }
+    } catch {
+      setStatus("error");
     }
   }, []);
 
@@ -69,17 +70,10 @@ export function Root() {
         const { sessions } = await listSessions(CONFIRMING_PHASES);
         if (!cancelled) {
           setSessions(sessions);
-          setUnauthorized(false);
           setStatus("ready");
         }
-      } catch (err) {
-        if (!cancelled) {
-          if (err instanceof ApiError && err.status === 401) {
-            setUnauthorized(true);
-          } else {
-            setStatus("error");
-          }
-        }
+      } catch {
+        if (!cancelled) setStatus("error");
       }
     })();
     return () => {
@@ -87,19 +81,33 @@ export function Root() {
     };
   }, []);
 
+  // #147: a successful sign-in through the modal restores an expired-token
+  // visit, with no navigation. A sign-out is not subscribed to here: the
+  // account menu leaves this page for the public Explore list, so refetching
+  // it as a Visitor's would only answer 401 and open a sign-in modal over
+  // the list the person has just been sent to.
+  useEffect(
+    () => {
+      const stopIn = onSignedIn(() => {
+        void load();
+      });
+      return () => {
+        stopIn();
+      };
+    },
+    [load],
+  );
+
   /** Re-fetch the History after an accepted intake — a silent re-fetch:
    *  it keeps the current list on failure (#132). */
   const refresh = useCallback(async () => {
     try {
       const { sessions } = await listSessions(CONFIRMING_PHASES);
       setSessions(sessions);
-      setUnauthorized(false);
     } catch {
       /* keep the current list */
     }
   }, []);
-
-  if (unauthorized) return null;
 
   if (status === "loading") {
     return (
@@ -162,7 +170,7 @@ export function Root() {
         </header>
 
         {sessions.length === 0 ? (
-          <EmptyState>
+          <EmptyState title={t("emptyTitle")} body={t("emptyBody")}>
             <StartSessionButton onClick={() => setDialogOpen(true)} />
           </EmptyState>
         ) : (

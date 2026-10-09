@@ -10,7 +10,7 @@ The five canonical triage roles, one label per name: `needs-triage`, `needs-info
 
 ### Domain docs
 
-Architecture and domain language live in `ArchitectureRevamp.md` at the repo root (the prior `CONTEXT.md` glossary and `docs/adr/` set were removed in favor of it). See `docs/agents/domain.md`.
+The domain language lives in the `CONTEXT.md` glossary at the repo root, and the decisions live in the `docs/adr/` ADR set.
 
 ## Commit messages
 
@@ -36,6 +36,21 @@ When writing a Git commit message:
 7. Output only the commit message unless I ask for explanation. No markdown fences.
 
 <!-- BEGIN:nextjs-agent-rules -->
+
+## How a change here reaches a browser
+
+`main` is checked — lint, typecheck, the coverage-gated test suite — and never builds
+an image. Merging `main` into `release` is the act that ships: the image is built,
+its smoke step runs it and asserts that an anonymous visitor is redirected to
+`/en/login` and that the page renders copy from `messages/`, it is published under a
+`sha-<commit>` tag, and `lo-tp/learn-anything-infra` pins the digest and deploys it,
+with no human step in between. `release` is protected and moves only by merging
+`main` into it, so every commit production runs stays reachable on `main`.
+
+Two rules follow: never commit directly to `release`, and never expect a push to
+`main` to change what is serving. What production runs is recorded in the
+infrastructure repository's `manifests/overlays/prod/kustomization.yaml`, and
+reverting that pin commit is the rollback.
 
 # This is NOT the Next.js you know
 

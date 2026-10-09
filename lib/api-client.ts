@@ -1,5 +1,6 @@
 import createClient from "openapi-fetch";
 import type { components, paths } from "@/types/api";
+import { requestSignIn } from "@/lib/auth-events";
 
 /**
  * Typed client for the learn-anything backend API.
@@ -29,6 +30,7 @@ export type Phase = components["schemas"]["Phase"];
 export type ProbeOut = components["schemas"]["ProbeOut"];
 export type SessionList = components["schemas"]["SessionList"];
 export type SessionListItem = components["schemas"]["SessionListItem"];
+export type UserOut = components["schemas"]["UserOut"];
 export type ProbeQuestionOut = components["schemas"]["ProbeQuestionOut"];
 export type AnswerIn = components["schemas"]["AnswerIn"];
 export type PlanOut = components["schemas"]["PlanOut"];
@@ -105,14 +107,29 @@ export async function loginAuth(
   }
 }
 
-/** `GET /auth/me` — current user's profile. */
-export async function getMe(): Promise<components["schemas"]["UserOut"]> {
+/**
+ * `GET /auth/me` as an identity probe (#143): the current User, or `null`
+ * for a Visitor.
+ *
+ * A 401 is the expected answer for a Visitor, not an error to react to: it
+ * resolves `null` and does **not** ask for the sign-in modal. The modal is
+ * an ownership ask — a probe that expects a Visitor must not open it, or
+ * every page would greet a Visitor with a sign-in form they never asked for
+ * (#143). Any other failure throws, as the other endpoints do: the caller
+ * decides how to degrade, and the caller holding the sign-in state treats a
+ * failed probe as a Visitor (#143).
+ *
+ * This is the only identity read in the app: the cookie is `HttpOnly`, so
+ * the answer of this endpoint — `200` with the profile, `401` without — is
+ * the whole signal (ADR-0004/0005).
+ */
+export async function getSignedInUser(): Promise<components["schemas"]["UserOut"] | null> {
   const { data, error, response } = await api.GET("/auth/me", {
     credentials: "include",
   });
   if (!data) {
-    if (response?.status === 401) handleUnauthorized();
-    throw describeError(error, response?.status);
+    if (response?.status !== 401) throw describeError(error, response?.status);
+    return null;
   }
   return data;
 }
@@ -141,32 +158,36 @@ export async function logoutAuth(): Promise<void> {
 }
 
 /**
- * Redirect to the login page, preserving the originally requested path as
- * the `next` query param. Called on any 401 response from an auth-gated
- * endpoint.
+ * Called on any 401 response from an auth-gated endpoint. The sign-in modal
+ * (mounted in the app frame) opens over the current surface in place (#147).
+ * The edge no longer gates anything (#149); verification of the token
+ * belongs to the backend alone.
  */
 export function handleUnauthorized(): void {
-  if (typeof window === "undefined") return;
-  const path = window.location.pathname;
-  // Only redirect if we're not already on the login page.
-  if (path.endsWith("/login")) return;
-  const localePrefix = path.match(/^\/([a-z]{2})/)?.[1] ?? "en";
-  const next = encodeURIComponent(path);
-  // Full-page navigation is deliberate: this runs in a non-component lib
-  // function (no `useRouter()`), and a hard redirect guarantees the client
-  // re-runs the locale-less path resolution.
-  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-  window.location.href = `/${localePrefix}/login?next=${next}`;
+  requestSignIn();
 }
 
 /**
- * Internal: handle a 401 from an auth-gated endpoint by redirecting to the
- * login page, then re-throw the original error so the caller's catch block
- * still runs (and the redirect takes over the tab).
+ * Internal: on a 401 from an auth-gated endpoint, ask for the sign-in modal
+ * (#147), then throw the original error so the caller's catch block still
+ * runs.
  */
 function guardUnauthorized(response: Response | undefined, error: unknown, status?: number): ApiError {
   if (response?.status === 401) handleUnauthorized();
   return describeError(error, status);
+}
+
+/**
+ * `GET /explore/sessions` — the public Explore feed (#144): the newest
+ * Sessions that reached materials, newest first, capped at 20 by the
+ * backend. Unauthenticated by design — a Visitor is a normal caller, and
+ * the payload carries no owner identity (#145). No credentials, no 401
+ * handling: the endpoint cannot refuse a request.
+ */
+export async function listExploreSessions(): Promise<SessionList> {
+  const { data, error, response } = await api.GET("/explore/sessions");
+  if (!data) throw describeError(error, response?.status);
+  return data;
 }
 
 /** `GET /sessions` — list sessions (newest first), optionally filtered by phase(s). */
@@ -305,10 +326,9 @@ export async function getMaterials(sessionId: string): Promise<MaterialsOut> {
 }
 
 // ── Review (spaced repetition) ──────────────────────────────────────────────
-// Types match the agreed §3.9 shape; once the backend is live and
-// `npm run generate:types` runs, these can be lifted to `components["schemas"]`.
-// The review paths are not yet in the generated OpenAPI spec, so these use
-// raw `fetch` (the same transport `openapi-fetch` wraps).
+// The review paths are in the generated OpenAPI spec (regenerated in #150),
+// but these endpoints keep their hand-rolled types and raw `fetch` (the
+// same transport `openapi-fetch` wraps).
 
 export type ReviewQuestionIn = {
   text: string;

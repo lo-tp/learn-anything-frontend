@@ -7,8 +7,10 @@
     "chooseLanguage": "Choose language",
     "toggleTheme": "Toggle theme",
     "reviewDue": "{count} cards due for review",
+    "explore": "Explore",
     "study": "Study",
-    "review": "Review"
+    "review": "Review",
+    "signIn": "Sign in"
   },
   "account": {
     "displayName": "Display name",
@@ -18,7 +20,7 @@
     "namePlaceholder": "Your name",
     "error": "Something went wrong. Please try again."
   },
-  "home": {
+  "mine": {
     "title": "My Sessions",
     "subtitle": "Resume your deep dives or launch a new contextual inquiry.",
     "emptyTitle": "No sessions yet",
@@ -32,6 +34,21 @@
     "error": {
       "title": "Can't load your sessions",
       "note": "We couldn't reach the backend. Your sessions are safe — try again."
+    },
+    "retry": "Retry"
+  },
+  "explore": {
+    "title": "Explore",
+    "subtitle": "What people are learning — the twenty newest sessions, goal first, no names.",
+    "emptyTitle": "Learn anything, one question at a time",
+    "emptyBody": "Declare a knowledge point and we'll walk you to mastery — an AI conversation, one question at a time. Start your first session, and what you learn will show up here.",
+    "loading": {
+      "title": "Loading the feed…",
+      "note": "Hang tight — what people are learning is loading."
+    },
+    "error": {
+      "title": "Can't load the feed",
+      "note": "We couldn't reach the backend — try again."
     },
     "retry": "Retry"
   },
@@ -109,6 +126,12 @@
     "loading": {
       "title": "Loading session…",
       "note": "Hang tight — your session is loading."
+    },
+    "nudge": {
+      "title": "Save your progress",
+      "body": "Sign in to keep your missed questions — they'll come back for review when you need them.",
+      "action": "Sign in",
+      "replayFailed": "We couldn't save your progress. Your missed questions are still here — sign in again to try."
     }
   },
   "phases": {
@@ -162,7 +185,8 @@
     "genericError": "Something went wrong. Please try again.",
     "submitSignIn": "Sign in",
     "submitCreateAccount": "Create account",
-    "submitting": "Submitting…"
+    "submitting": "Submitting…",
+    "signInDescription": "Sign in to continue, or create an account."
   },
   "time": {
     "justNow": "just now",
@@ -179,6 +203,11 @@
     "error": {
       "title": "Can't load your review deck",
       "note": "We couldn't reach the backend."
+    },
+    "signIn": {
+      "title": "Review is for learners who are signed in",
+      "note": "Your review deck is the questions you've missed. Sign in and the ones you're due for will appear here.",
+      "action": "Sign in to review"
     },
     "retry": "Retry",
     "answerFailed": "Couldn't record your answer — tap a confidence to try again.",

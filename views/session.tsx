@@ -16,8 +16,11 @@ import {
   getSession,
   postReviewCard,
   type MaterialsOut,
+  type ReviewCardIn,
   type SessionState,
 } from "@/lib/api-client";
+import { onSignedIn, requestSignIn } from "@/lib/auth-events";
+import { useSignInState } from "@/hooks/use-sign-in-state";
 
 /** How often the view polls while materials are still generating. */
 const POLL_INTERVAL_MS = 3000;
@@ -49,6 +52,20 @@ const sandboxSrc = (slideId: string, theme: Theme) =>
  * the polled response's phase beats the session's. Friendly states
  * (loading / not found / error / not ready / generating) render instead of
  * the deck. The shared frame is applied by the root layout.
+ *
+ * One address, two audiences (#151): the route serves a signed-in User and
+ * a Visitor the same deck — the reads are public, so both open it by
+ * address or from an Explore card. The audiences differ in what a miss
+ * keeps: a User's missed question becomes a review card, a Visitor's
+ * answer stays local to this view and no write is attempted. The view reads
+ * the page's sign-in state (`useSignInState`, #143) rather than probing for
+ * itself: while that state is unsettled, or its probe failed, the deck is a
+ * Visitor's and writes nothing; it flips in place on sign-in/out (#147),
+ * with no navigation.
+ *
+ * A Visitor's missed questions are held in a pending set and replayed
+ * into the Review deck on sign-in (#152); the first miss raises a nudge
+ * that offers signing in as the way to keep them.
  */
 export function Session({ sessionId }: { sessionId: string }) {
   const [session, setSession] = useState<SessionState | null>(null);
@@ -57,7 +74,18 @@ export function Session({ sessionId }: { sessionId: string }) {
   const [pollError, setPollError] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
+  // The viewer is a Visitor until the page's sign-in state confirms a User
+  // (#151/#143) — a miss becomes a review card only from a confirmed User.
+  const { signedIn: isUser } = useSignInState();
+  // Held misses from this deck visit, replayed on sign-in (#152)
+  const [pendingMisses, setPendingMisses] = useState<ReviewCardIn[]>([]);
+  // True once the nudge has been shown this deck visit (#152)
+  const [hasNudged, setHasNudged] = useState(false);
+  // True when a replay attempt failed — the misses stay held, not dropped (#152)
+  const [replayFailed, setReplayFailed] = useState(false);
   const inFlight = useRef(false);
+  // Ref so the sign-in handler reads the current pending misses (#152)
+  const pendingMissesRef = useRef<ReviewCardIn[]>([]);
   const t = useTranslations("session");
   const { theme } = useTheme();
 
@@ -91,6 +119,41 @@ export function Session({ sessionId }: { sessionId: string }) {
       cancelled = true;
     };
   }, [sessionId]);
+
+  /** Keep the ref in sync with the state for the sign-in handler (#152). */
+  useEffect(() => {
+    pendingMissesRef.current = pendingMisses;
+  }, [pendingMisses]);
+
+  /**
+   * The sign-in state flips the audience in place (#147) — the state itself
+   * is held for the page, so this handler owns only what this view owes the
+   * change: held misses from the deck visit are replayed into the Review
+   * deck on sign-in (#152). A sign-out is not handled here: the account menu
+   * leaves this page for the public Explore list at the site root.
+   */
+  useEffect(() => {
+    const stopIn = onSignedIn(() => {
+      const misses = pendingMissesRef.current;
+      if (misses.length === 0) return;
+      Promise.allSettled(misses.map((m) => postReviewCard(m))).then(
+        (results) => {
+          if (results.some((r) => r.status === "rejected")) {
+            setReplayFailed(true);
+            // Misses stay held — retryable on the next sign-in
+          } else {
+            pendingMissesRef.current = [];
+            setPendingMisses([]);
+            setHasNudged(false);
+            setReplayFailed(false);
+          }
+        },
+      );
+    });
+    return () => {
+      stopIn();
+    };
+  }, []);
 
   /** Poll every 3s while generating; the cleanup stops it on phase change. */
   useEffect(() => {
@@ -145,7 +208,7 @@ export function Session({ sessionId }: { sessionId: string }) {
   /** The shared footer action of the friendly states: a link home. */
   const backToSessions = (
     <Link
-      href="/"
+      href="/mine"
       className="focus-ring mt-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:-translate-y-px hover:shadow-[var(--shadow-sheet-raised)]"
     >
       {t("backToSessions")}
@@ -279,29 +342,61 @@ export function Session({ sessionId }: { sessionId: string }) {
             </div>
           )}
           {active.type === "question" && (
-            <div className="flex min-h-full items-center justify-center">
+            <div className="flex min-h-full flex-col items-center justify-center gap-6">
               <QuizQuestion
                 question={active}
                 selected={answers[active.id] ?? null}
                 onSelect={(i) => {
                   setAnswers((prev) => ({ ...prev, [active.id]: i }));
-                  if (i !== active.correct_index) {
-                    postReviewCard({
-                      source: "material",
-                      session_id: sessionId,
-                      question_id: active.id,
-                      question: {
-                        text: active.text,
-                        options: active.options,
-                        correct_index: active.correct_index,
-                        explanation: active.explanation,
-                      },
-                      step_id: active.step_id,
-                      selected_index: i,
-                    }).catch(() => {});
+                  if (i === active.correct_index) return;
+                  const miss: ReviewCardIn = {
+                    source: "material",
+                    session_id: sessionId,
+                    question_id: active.id,
+                    question: {
+                      text: active.text,
+                      options: active.options,
+                      correct_index: active.correct_index,
+                      explanation: active.explanation,
+                    },
+                    step_id: active.step_id,
+                    selected_index: i,
+                  };
+                  if (isUser) {
+                    // A confirmed User's miss becomes a review card (#151)
+                    postReviewCard(miss).catch(() => {});
+                  } else {
+                    // A Visitor's miss is held locally and replayed on sign-in (#152)
+                    setPendingMisses((prev) => [...prev, miss]);
+                    if (!hasNudged) setHasNudged(true);
                   }
                 }}
               />
+              {hasNudged && (
+                <div className="w-full max-w-2xl rounded-md border border-engage/40 bg-engage/5 p-4">
+                  <div className="flex items-start gap-3">
+                    <TriangleAlert
+                      className="mt-0.5 size-4 shrink-0 text-engage"
+                      aria-hidden
+                    />
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold text-on-surface">
+                        {t("nudge.title")}
+                      </h3>
+                      <p className="mt-1 text-sm leading-relaxed text-on-surface-variant">
+                        {replayFailed ? t("nudge.replayFailed") : t("nudge.body")}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={requestSignIn}
+                        className="focus-ring mt-3 rounded-md bg-engage px-3 py-1.5 text-sm font-semibold text-on-engage transition-opacity hover:opacity-90"
+                      >
+                        {t("nudge.action")}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </main>

@@ -2,29 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { renderWithLocale } from "@/test/test-utils";
-import { LoginView } from "@/views/login";
+import { SignInForm } from "@/components/sign-in-form";
 import { ApiError, loginAuth, registerAuth } from "@/lib/api-client";
-
-// Controllable stand-in for `next/navigation`: the sign-in success path
-// navigates to the `next` query param (or the locale root), so the test
-// needs to see both the param and the navigation.
-const { replaceMock, searchParamsRef } = vi.hoisted(() => ({
-  replaceMock: vi.fn(),
-  searchParamsRef: { current: new URLSearchParams() },
-}));
-
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), replace: replaceMock }),
-  useSearchParams: () => searchParamsRef.current,
-}));
-
-// The wordmark link uses the locale-aware `Link`; render it as a plain
-// anchor so the test can see it.
-vi.mock("@/i18n/navigation", () => ({
-  Link: ({ children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
-    <a {...props}>{children}</a>
-  ),
-}));
 
 vi.mock("@/lib/api-client", () => ({
   loginAuth: vi.fn(),
@@ -44,33 +23,49 @@ const mockRegisterAuth = vi.mocked(registerAuth);
 const EMAIL = "learner@example.com";
 const PASSWORD = "password123";
 
+let onSuccess: ReturnType<typeof vi.fn<() => void>>;
+
 beforeEach(() => {
   mockLoginAuth.mockReset();
   mockRegisterAuth.mockReset();
-  replaceMock.mockReset();
-  searchParamsRef.current = new URLSearchParams();
+  onSuccess = vi.fn<() => void>();
 });
 
 afterEach(() => {
   cleanup();
 });
 
-/**
- * Render the login page, land on the "Create account" tab, and fill in the
- * registration fields. Returns the form so the caller can submit it.
- */
+/** Render the form and land on the "Create account" tab with filled-in
+ *  registration fields. Returns the form so the caller can submit it. */
 async function onRegisterTab() {
-  renderWithLocale(<LoginView />);
+  renderWithLocale(<SignInForm onSuccess={onSuccess} />);
   fireEvent.click(screen.getByRole("button", { name: "Create account" }));
   fireEvent.change(screen.getByLabelText("Email"), { target: { value: EMAIL } });
   fireEvent.change(screen.getByLabelText("Password"), { target: { value: PASSWORD } });
   return screen.getByLabelText("Email").closest("form")!;
 }
 
-describe("LoginView", () => {
+/** Fill in the Sign in tab's fields and return the form. */
+function onSignInTab() {
+  renderWithLocale(<SignInForm onSuccess={onSuccess} />);
+  fireEvent.change(screen.getByLabelText("Email"), { target: { value: EMAIL } });
+  fireEvent.change(screen.getByLabelText("Password"), { target: { value: PASSWORD } });
+  return screen.getByLabelText("Email").closest("form")!;
+}
+
+describe("SignInForm", () => {
   it("starts on the Sign in tab", () => {
-    renderWithLocale(<LoginView />);
+    renderWithLocale(<SignInForm onSuccess={onSuccess} />);
     expect(screen.getByRole("button", { name: "Sign in", pressed: true })).toBeTruthy();
+  });
+
+  it("signs in via loginAuth and reports success", async () => {
+    mockLoginAuth.mockResolvedValue(undefined);
+    const form = onSignInTab();
+    fireEvent.submit(form);
+
+    await vi.waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
+    expect(mockLoginAuth).toHaveBeenCalledWith(EMAIL, PASSWORD);
   });
 
   it("switches to the Sign in tab after a successful registration, retaining the email and clearing the password", async () => {
@@ -82,70 +77,45 @@ describe("LoginView", () => {
     const form = await onRegisterTab();
     fireEvent.submit(form);
 
-    await vi.waitFor(() =>
-      expect(screen.getByRole("button", { name: "Sign in", pressed: true })).toBeTruthy(),
-    );
+    await screen.findByRole("button", { name: "Sign in", pressed: true });
 
     // The email carries over, the (now committed) password is cleared so the
     // user signs in with a fresh entry.
     expect((screen.getByLabelText("Email") as HTMLInputElement).value).toBe(EMAIL);
     expect((screen.getByLabelText("Password") as HTMLInputElement).value).toBe("");
-    // Registration does not start a session, so no login is attempted.
+    // Registration does not start a session, so no success is reported.
     expect(mockLoginAuth).not.toHaveBeenCalled();
+    expect(onSuccess).not.toHaveBeenCalled();
   });
 
-  it("signs in and navigates to the `next` param when present", async () => {
-    searchParamsRef.current = new URLSearchParams({ next: "/en/sessions" });
-    mockLoginAuth.mockResolvedValue();
-    renderWithLocale(<LoginView />);
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: EMAIL } });
-    fireEvent.change(screen.getByLabelText("Password"), { target: { value: PASSWORD } });
-    fireEvent.submit(screen.getByLabelText("Email").closest("form")!);
-
-    await vi.waitFor(() => expect(mockLoginAuth).toHaveBeenCalledWith(EMAIL, PASSWORD));
-    expect(replaceMock).toHaveBeenCalledWith("/en/sessions", { scroll: false });
-  });
-
-  it("signs in and navigates to the locale root without a `next` param", async () => {
-    mockLoginAuth.mockResolvedValue();
-    renderWithLocale(<LoginView />);
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: EMAIL } });
-    fireEvent.change(screen.getByLabelText("Password"), { target: { value: PASSWORD } });
-    fireEvent.submit(screen.getByLabelText("Email").closest("form")!);
-
-    await vi.waitFor(() => expect(mockLoginAuth).toHaveBeenCalled());
-    expect(replaceMock).toHaveBeenCalledWith("/", { scroll: false });
-  });
-
-  it("shows the invalid-credentials message on a 401", async () => {
+  it("shows the invalid-credentials message on a 401 and stays put", async () => {
     mockLoginAuth.mockRejectedValue(new ApiError("invalid", 401));
-    renderWithLocale(<LoginView />);
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: EMAIL } });
-    fireEvent.change(screen.getByLabelText("Password"), { target: { value: PASSWORD } });
-    fireEvent.submit(screen.getByLabelText("Email").closest("form")!);
+    const form = onSignInTab();
+    fireEvent.submit(form);
 
     await screen.findByText("Invalid email or password.");
+    expect(onSuccess).not.toHaveBeenCalled();
   });
 
   it("shows the generic message for non-ApiError failures", async () => {
     mockLoginAuth.mockRejectedValue(new Error("network down"));
-    renderWithLocale(<LoginView />);
-    fireEvent.change(screen.getByLabelText("Email"), { target: { value: EMAIL } });
-    fireEvent.change(screen.getByLabelText("Password"), { target: { value: PASSWORD } });
-    fireEvent.submit(screen.getByLabelText("Email").closest("form")!);
+    const form = onSignInTab();
+    fireEvent.submit(form);
 
     await screen.findByText("Something went wrong. Please try again.");
+    expect(onSuccess).not.toHaveBeenCalled();
   });
 
   it("ignores a submit while the form is invalid", async () => {
-    renderWithLocale(<LoginView />);
+    renderWithLocale(<SignInForm onSuccess={onSuccess} />);
     fireEvent.submit(screen.getByLabelText("Email").closest("form")!);
     expect(mockLoginAuth).not.toHaveBeenCalled();
     expect(mockRegisterAuth).not.toHaveBeenCalled();
+    expect(onSuccess).not.toHaveBeenCalled();
   });
 
   it("shows the short-password hint on the Create account tab", async () => {
-    renderWithLocale(<LoginView />);
+    renderWithLocale(<SignInForm onSuccess={onSuccess} />);
     fireEvent.click(screen.getByRole("button", { name: "Create account" }));
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "1234567" } });
 

@@ -8,7 +8,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { renderWithLocale } from "@/test/test-utils";
-import { Root } from "@/views/root";
+import { Mine } from "@/views/mine";
 import {
   createSession,
   generatePlan,
@@ -17,6 +17,7 @@ import {
   ApiError,
   type SessionListItem,
 } from "@/lib/api-client";
+import { notifySignedIn, notifySignedOut } from "@/lib/auth-events";
 
 // The new-session dialog creates sessions through the typed backend client;
 // stub that module (openapi-fetch binds `fetch` at client-creation time, so
@@ -69,10 +70,10 @@ function session(overrides: Partial<SessionListItem> = {}): SessionListItem {
   };
 }
 
-describe("Root (home History)", () => {
+describe("Mine (the personal list at /mine)", () => {
   it("shows the 'Start New Session' button in the empty state", async () => {
     mockListSessions.mockResolvedValue({ sessions: [] });
-    renderWithLocale(<Root />);
+    renderWithLocale(<Mine />);
     expect(await screen.findByText("No sessions yet")).toBeTruthy();
     // The record header band is present even when empty (the first viewport
     // reads as a study record); the ONLY 'Start New Session' button is the
@@ -84,7 +85,7 @@ describe("Root (home History)", () => {
 
   it("fetches the History on mount and shows the 'My Sessions' header with session cards", async () => {
     mockListSessions.mockResolvedValue({ sessions: [session()] });
-    renderWithLocale(<Root />);
+    renderWithLocale(<Mine />);
     expect(await screen.findByText("My Sessions")).toBeTruthy();
     expect(screen.getByText("React Hooks Deep Dive")).toBeTruthy();
     expect(screen.queryByText("No sessions yet")).toBeNull();
@@ -102,7 +103,7 @@ describe("Root (home History)", () => {
         resolveFetch = resolve;
       }),
     );
-    renderWithLocale(<Root />);
+    renderWithLocale(<Mine />);
     expect(await screen.findByText("Loading your sessions…")).toBeTruthy();
     // The empty state must not double as the loading state (#132).
     expect(screen.queryByText("No sessions yet")).toBeNull();
@@ -112,7 +113,7 @@ describe("Root (home History)", () => {
 
   it("shows the error state with a Retry when the initial fetch fails", async () => {
     mockListSessions.mockRejectedValue(new Error("boom"));
-    renderWithLocale(<Root />);
+    renderWithLocale(<Mine />);
     expect(await screen.findByText("Can't load your sessions")).toBeTruthy();
     // A failed fetch is not an empty History — the empty state stays hidden
     // (#132).
@@ -131,7 +132,7 @@ describe("Root (home History)", () => {
         resolveFetch = resolve;
       }),
     );
-    const { unmount } = renderWithLocale(<Root />);
+    const { unmount } = renderWithLocale(<Mine />);
     unmount();
 
     // The in-flight fetch resolves after unmount; the cancelled guard skips
@@ -141,40 +142,69 @@ describe("Root (home History)", () => {
     expect(screen.queryByText("No sessions yet")).toBeNull();
   });
 
-  it("does not show the empty state when the fetch fails with 401", async () => {
-    // The API client redirects to login on a 401 (handleUnauthorized); while
-    // the redirect takes over the tab, the page must not claim there are no
-    // sessions.
+  it("keeps the page rendered on a 401 — the sign-in modal asks, not a redirect", async () => {
+    // #147: a 401 no longer suppresses the page or navigates. The API client
+    // has already asked for the sign-in modal to open over it; the page
+    // settles into its ordinary error state behind the modal (not the empty
+    // state — the History is unknown, not empty).
     mockListSessions.mockRejectedValue(new ApiError("unauthorized", 401));
-    renderWithLocale(<Root />);
+    renderWithLocale(<Mine />);
     await waitFor(() => expect(mockListSessions).toHaveBeenCalled());
-    // Let the rejection's catch settle (the 401 suppression branch).
     await act(async () => {});
     expect(screen.queryByText("No sessions yet")).toBeNull();
-    // …and no error state: the 401 suppresses the page while the redirect
-    // takes over (#94, #132).
-    expect(screen.queryByText("Can't load your sessions")).toBeNull();
+    expect(screen.getByText("Can't load your sessions")).toBeTruthy();
   });
 
-  it("suppresses the page on a 401 from the Retry fetch", async () => {
-    // First fetch fails (error state); the Retry hits a 401 — the API client
-    // redirects to login, so the page suppresses itself while the tab hands
-    // over (#94, #132).
+  it("keeps the error state (no suppression) when the Retry hits a 401", async () => {
+    // First fetch fails (error state); the Retry hits a 401 — the page stays
+    // put with the modal asking for sign-in, not a redirect (#147).
     mockListSessions
       .mockRejectedValueOnce(new Error("boom"))
       .mockRejectedValueOnce(new ApiError("unauthorized", 401));
-    renderWithLocale(<Root />);
+    renderWithLocale(<Mine />);
     await act(async () => {});
     expect(screen.getByText("Can't load your sessions")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Retry/ }));
     await act(async () => {});
-    expect(screen.queryByText("Can't load your sessions")).toBeNull();
+    expect(screen.getByText("Can't load your sessions")).toBeTruthy();
     expect(screen.queryByText("No sessions yet")).toBeNull();
+  });
+
+  it("refetches the History after a successful sign-in through the modal", async () => {
+    // A token that expired mid-use: the fetch 401s (the modal opened over
+    // the page), the person signs back in, and the surface refetches in
+    // place (#147).
+    mockListSessions
+      .mockRejectedValueOnce(new ApiError("unauthorized", 401))
+      .mockResolvedValue({ sessions: [session()] });
+    renderWithLocale(<Mine />);
+    await screen.findByText("Can't load your sessions");
+    act(() => {
+      notifySignedIn();
+    });
+    expect(await screen.findByText("React Hooks Deep Dive")).toBeTruthy();
+    expect(mockListSessions).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not refetch on sign-out — the account menu leaves this page for Explore", async () => {
+    // Sign-out is not handled here any more: the account menu takes the
+    // person to the public Explore list at the site root. Refetching the
+    // History as a Visitor would answer 401 and open a sign-in modal over
+    // the list they have just been sent to, so the list is left alone.
+    mockListSessions.mockResolvedValueOnce({ sessions: [session()] });
+    renderWithLocale(<Mine />);
+    await screen.findByText("React Hooks Deep Dive");
+    act(() => {
+      notifySignedOut();
+    });
+    await act(async () => {});
+    expect(mockListSessions).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Can't load your sessions")).toBeNull();
   });
 
   it("opens the new-session dialog from the 'Start New Session' CTA", async () => {
     mockListSessions.mockResolvedValue({ sessions: [session()] });
-    renderWithLocale(<Root />);
+    renderWithLocale(<Mine />);
     // Let the mount fetch settle so the header CTA is the one under test.
     await screen.findByText("My Sessions");
     fireEvent.click(
@@ -187,7 +217,7 @@ describe("Root (home History)", () => {
 
   it("opens the new-session dialog from the empty-state CTA", async () => {
     mockListSessions.mockResolvedValue({ sessions: [] });
-    renderWithLocale(<Root />);
+    renderWithLocale(<Mine />);
     await screen.findByText("No sessions yet");
     fireEvent.click(
       screen.getByRole("button", { name: /Start New Session/ }),
@@ -241,7 +271,7 @@ describe("Root (home History)", () => {
       .mockResolvedValueOnce({ sessions: [session()] })
       .mockResolvedValueOnce({ sessions: [fresh, session()] });
 
-    renderWithLocale(<Root />);
+    renderWithLocale(<Mine />);
     await screen.findByText("My Sessions");
     fireEvent.click(
       screen.getByRole("button", { name: /Start New Session/ }),

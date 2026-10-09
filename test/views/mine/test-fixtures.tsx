@@ -4,7 +4,7 @@
 
 import { fireEvent, screen } from "@testing-library/react";
 import { renderWithLocale, type TestLocale } from "@/test/test-utils";
-import { NewSessionDialog } from "@/views/root/new-session-dialog";
+import { NewSessionDialog } from "@/views/mine/new-session-dialog";
 import type { PlanBody, PlanOut } from "@/lib/api-client";
 
 // ── Constants ──────────────────────────────────────────────────────────────

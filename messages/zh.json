@@ -7,8 +7,10 @@
     "chooseLanguage": "选择语言",
     "toggleTheme": "切换主题",
     "reviewDue": "{count} 张卡片待复习",
+    "explore": "探索",
     "study": "学习",
-    "review": "复习"
+    "review": "复习",
+    "signIn": "登录"
   },
   "account": {
     "displayName": "显示名称",
@@ -18,7 +20,7 @@
     "namePlaceholder": "你的名字",
     "error": "出了点问题，请重试。"
   },
-  "home": {
+  "mine": {
     "title": "我的会话",
     "subtitle": "继续你的深度探索，或发起一次新的学习探究。",
     "emptyTitle": "还没有会话",
@@ -32,6 +34,21 @@
     "error": {
       "title": "无法加载你的会话",
       "note": "无法连接后端。你的会话安然无恙 —— 请重试。"
+    },
+    "retry": "重试"
+  },
+  "explore": {
+    "title": "探索",
+    "subtitle": "大家在学什么 —— 最新的二十个会话，目标在前，不出现名字。",
+    "emptyTitle": "任何知识，一次一个问题",
+    "emptyBody": "说出一个知识点，我们会一步步带你走向精通 —— 一次一个问题。开始你的第一个会话，你学到的东西会出现在这里。",
+    "loading": {
+      "title": "正在加载探索列表…",
+      "note": "请稍候 —— 正在加载大家在学什么。"
+    },
+    "error": {
+      "title": "无法加载探索列表",
+      "note": "无法连接后端 —— 请重试。"
     },
     "retry": "重试"
   },
@@ -109,6 +126,12 @@
     "loading": {
       "title": "正在加载会话…",
       "note": "请稍候 — 你的会话正在加载。"
+    },
+    "nudge": {
+      "title": "保存你的学习进度",
+      "body": "登录即可保留你答错的问题 —— 它们会在你需要时回到复习牌组。",
+      "action": "登录",
+      "replayFailed": "无法保存你的学习进度。你答错的问题仍然保留 —— 请再次登录重试。"
     }
   },
   "phases": {
@@ -162,7 +185,8 @@
     "genericError": "出了点问题，请重试。",
     "submitSignIn": "登录",
     "submitCreateAccount": "创建账号",
-    "submitting": "提交中…"
+    "submitting": "提交中…",
+    "signInDescription": "登录以继续，或创建一个新账户。"
   },
   "time": {
     "justNow": "刚刚",
@@ -179,6 +203,11 @@
     "error": {
       "title": "无法加载你的复习牌组",
       "note": "无法连接后端。"
+    },
+    "signIn": {
+      "title": "复习需要登录",
+      "note": "复习牌组是你曾答错的问题。登录后查看到期待复习的卡片。",
+      "action": "登录以复习"
     },
     "retry": "重试",
     "answerFailed": "无法记录你的回答 —— 再点一次置信度重试。",

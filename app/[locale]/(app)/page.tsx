@@ -1,19 +1,21 @@
-import { Root } from "@/views/root";
+import { Explore } from "@/views/explore";
 import { setRequestLocale } from "next-intl/server";
 import { hasLocale, routing } from "@/i18n/routing";
 
 /**
- * Home route: a static shell pre-rendered per locale. It renders the home
- * view and nothing else — the view owns its History fetch (initial and
- * refresh) in the browser (#87). The shared frame is applied by the root
+ * The site root (#150): the public Explore surface — what people are
+ * learning. A static shell pre-rendered per locale; the view owns its feed
+ * fetch in the browser (#87). The feed is public (#144) and the edge no
+ * longer gates (#149), so a Visitor reaches it as-is — signed-in and
+ * Visitor look the same here. The shared frame is applied by the app
  * layout.
  */
-export default async function Home({
+export default async function ExplorePage({
   params,
 }: {
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
   setRequestLocale(hasLocale(locale) ? locale : routing.defaultLocale);
-  return <Root />;
+  return <Explore />;
 }

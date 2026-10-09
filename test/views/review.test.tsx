@@ -1,14 +1,16 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithLocale } from "@/test/test-utils";
 import { Review } from "@/views/review";
 import {
   answerReviewCard,
+  ApiError,
   getReviewDue,
   type ReviewAnswerOut,
   type ReviewCardOut,
 } from "@/lib/api-client";
+import { notifySignedIn, notifySignedOut } from "@/lib/auth-events";
 
 // Deterministic display order: the reverse permutation, so display position
 // `i` maps to canonical index `n-1-i`. Lets the tests assert the exact
@@ -25,7 +27,15 @@ vi.mock("@/lib/utils", async (importOriginal) => {
 vi.mock("@/lib/api-client", () => ({
   getReviewDue: vi.fn(),
   answerReviewCard: vi.fn(),
-  ApiError: class ApiError extends Error {},
+  ApiError: class ApiError extends Error {
+    constructor(
+      message: string,
+      readonly status?: number,
+    ) {
+      super(message);
+      this.name = "ApiError";
+    }
+  },
 }));
 
 const mockGetReviewDue = vi.mocked(getReviewDue);
@@ -226,6 +236,32 @@ describe("Review", () => {
     expect(await screen.findByText("What does F stand for?")).toBeTruthy();
   });
 
+  it("nudges a Visitor to sign in on a 401, instead of an error", async () => {
+    // A 401 means the deck has no owner yet — ask them to sign in, never
+    // show the "something broke" panel or a Retry.
+    mockGetReviewDue.mockRejectedValue(new ApiError("unauthorized", 401));
+    renderWithLocale(<Review />);
+    expect(await screen.findByText("Review is for learners who are signed in")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Sign in to review/ })).toBeTruthy();
+    expect(screen.queryByText("Can't load your review deck")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Retry/ })).toBeNull();
+  });
+
+  it("shows the deck after a Visitor's sign-in replaces the 401", async () => {
+    // The sign-in the nudge asked for refetches in place (#147).
+    mockGetReviewDue
+      .mockRejectedValueOnce(new ApiError("unauthorized", 401))
+      .mockResolvedValueOnce([card({ id: 1 })]);
+    renderWithLocale(<Review />);
+    await screen.findByText("Review is for learners who are signed in");
+    act(() => {
+      notifySignedIn();
+    });
+    await waitFor(() => {
+      expect(screen.getByText("What does F stand for?")).toBeTruthy();
+    });
+  });
+
   it("discards the fetch result when unmounted before it settles", async () => {
     let resolveDue: (cards: ReviewCardOut[]) => void;
     mockGetReviewDue.mockReturnValue(
@@ -238,6 +274,40 @@ describe("Review", () => {
     resolveDue!([card()]);
     // Let the settled promise's state updates run — they must be no-ops.
     await Promise.resolve();
+  });
+
+  it("re-fetches the due cards after a sign-in through the modal", async () => {
+    // #147: a token that expired mid-use — the fetch 401s (the modal
+    // opened over the page), the person signs back in, and the deck
+    // refetches in place, no navigation.
+    mockGetReviewDue
+      .mockRejectedValueOnce(new Error("unauthorized"))
+      .mockResolvedValueOnce([card({ id: 1 })]);
+    renderWithLocale(<Review />);
+    await screen.findByText("Can't load your review deck");
+    act(() => {
+      notifySignedIn();
+    });
+    await waitFor(() => {
+      expect(screen.getByText("What does F stand for?")).toBeTruthy();
+    });
+    expect(mockGetReviewDue).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not refetch on sign-out — the account menu leaves this page for Explore", async () => {
+    // Sign-out is not handled here any more: the account menu takes the
+    // person to the public Explore list at the site root. Refetching the
+    // deck as a Visitor would answer 401 and open a sign-in modal over the
+    // list they have just been sent to, so the deck is left alone.
+    mockGetReviewDue.mockResolvedValueOnce([card({ id: 1 })]);
+    renderWithLocale(<Review />);
+    await screen.findByText("What does F stand for?");
+    act(() => {
+      notifySignedOut();
+    });
+    await act(async () => {});
+    expect(mockGetReviewDue).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("What does F stand for?")).toBeTruthy();
   });
 
   it("discards the fetch failure when unmounted before it settles", async () => {

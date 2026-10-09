@@ -135,15 +135,16 @@ jobs:
           cache-to: type=gha,mode=max
 
       # The image's contract, checked against the artifact: it starts as its own
-      # user, sends an anonymous visitor to sign-in (that is what proxy.ts does),
-      # renders that page with real translated text — the proof that `messages/` is
-      # inside the image, since i18n/request.ts imports it through a runtime-computed
-      # specifier that file tracing cannot see — and the origins baked in at build
-      # time are the ones this workflow declared.
+      # user, renders the app for an anonymous visitor (the sign-in modal opens
+      # in place where a User is required, #149), and the page carries real
+      # translated text — the proof that `messages/` is inside the image, since
+      # i18n/request.ts imports it through a runtime-computed specifier that file
+      # tracing cannot see — and the origins baked in at build time are the ones
+      # this workflow declared.
       - name: Smoke test the image
         run: |
           set -euo pipefail
-          docker run -d --name fe-smoke -p 3000:3000 -e JWT_SECRET=smoke-test-only \
+          docker run -d --name fe-smoke -p 3000:3000 \
             ${{ env.REGISTRY }}/${{ env.IMAGE }}:sha-${{ github.sha }}
           code=0
           for i in $(seq 1 30); do
@@ -152,11 +153,11 @@ jobs:
             sleep 2
             if [ "$i" = 30 ]; then echo "never became ready (last code: $code)"; docker logs fe-smoke; exit 1; fi
           done
-          # An anonymous request is redirected to the sign-in page, not served a page.
+          # The root 307s to /mine (#148): following the redirect renders the app.
           test "$code" = 307
-          page=$(curl -sL http://127.0.0.1:3000/en/login)
+          page=$(curl -sL http://127.0.0.1:3000/)
           printf '%s' "$page" | grep -qi '<title>'
-          printf '%s' "$page" | grep -qi 'sign in'
+          printf '%s' "$page" | grep -qi 'learn anything'
           # Inside the image, not on the runner: the built chunks must carry the
           # origins this workflow passed in as build args. Asserted at the string
           # boundary on purpose — the substring version of this check
@@ -203,5 +204,29 @@ jobs:
             echo "- digest: \`${{ steps.build.outputs.digest }}\`"
             echo "- baked origins: backend \`${{ env.NEXT_PUBLIC_BACKEND_URL }}\`, sandbox \`${{ env.NEXT_PUBLIC_SANDBOX_ORIGIN }}\`"
             echo
-            echo "Pin the digest in learn-anything-infra \`manifests/overlays/prod/kustomization.yaml\`."
+            echo "Handed to learn-anything-infra: that repository pins this digest and deploys it."
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # The image exists, answered `/en/login` in the smoke step, and was built from
+      # `release`, so the deciding is done: hand the delivery to the repository that
+      # owns deployment. The dispatch is explicit because `workflow_run` cannot cross
+      # repositories; it needs one repository secret, `DELIVERY_TOKEN`, a fine-grained
+      # PAT allowed to start workflows in lo-tp/learn-anything-infra and nothing else.
+      # If it is missing, warn rather than fail: the image is published, and that
+      # but then nothing ships by itself — that repository has no timer, because a
+      # schedule that never ran is not a trigger. The manual path is `make deliver`
+      # in lo-tp/learn-anything-infra.
+      - name: Hand the delivery to the infrastructure repository
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.DELIVERY_TOKEN }}
+        run: |
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::warning::DELIVERY_TOKEN is not set in this repository, so nothing was dispatched. Ship it by hand: make deliver, in lo-tp/learn-anything-infra — that repository has no schedule, so this hand-off is the trigger."
+            exit 0
+          fi
+          gh workflow run deliver.yml --repo lo-tp/learn-anything-infra --ref main \
+            -f source_run="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            -f source_repo="$GITHUB_REPOSITORY" \
+            -f source_branch="$GITHUB_REF_NAME"
+          echo "dispatched deliver.yml in lo-tp/learn-anything-infra from $GITHUB_REF_NAME"

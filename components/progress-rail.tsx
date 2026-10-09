@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Bubble } from "@/components/bubble";
-import type { RailData } from "@/views/root/intake";
+import type { RailData } from "@/views/mine/intake";
 
 /**
  * The intake progress rail: a printed row of four bubbles and labels

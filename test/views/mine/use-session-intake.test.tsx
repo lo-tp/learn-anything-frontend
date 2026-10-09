@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "@/messages/en.json";
-import { useSessionIntake } from "@/views/root/use-session-intake";
+import { useSessionIntake } from "@/views/mine/use-session-intake";
 import { createSession } from "@/lib/api-client";
 
 // Only the effect that `submit` fires in these tests needs a live mock; the

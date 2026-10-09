@@ -27,7 +27,7 @@ export function SessionCard({
   const { session_id, narrowed_goal, goal, created_at, phase } = session;
   const locale = useLocale();
   const messages = useMessages();
-  const t = useTranslations("home");
+  const t = useTranslations("mine");
   const sheetNo = session_id.replace(/-/g, "").slice(-4).toUpperCase();
   const spot = inquiryInk(session_id);
 

@@ -13,7 +13,7 @@ import {
   type IntakeAction,
   type IntakeState,
   type Translator,
-} from "@/views/root/intake";
+} from "@/views/mine/intake";
 import type { AnswerIn, PlanOut, ProbeOut } from "@/lib/api-client";
 import { PLAN_OUT, Q1, Q2, Q3 } from "./test-fixtures";
 
