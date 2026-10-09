@@ -37,9 +37,6 @@ export function AccountMenu() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    // A transient failure leaves the menu hidden — deliberately tolerated
-    // (#132 gap 5): every surface is sign-in-gated, so an authenticated
-    // `getMe` failing is a rare blip, and a full refresh re-attempts it.
     getMe().then((user) => setDisplayName(user.display_name)).catch(() => {});
   }, []);
 
