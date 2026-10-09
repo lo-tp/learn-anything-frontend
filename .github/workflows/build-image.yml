@@ -140,7 +140,8 @@ jobs:
       # translated text — the proof that `messages/` is inside the image, since
       # i18n/request.ts imports it through a runtime-computed specifier that file
       # tracing cannot see — and the origins baked in at build time are the ones
-      # this workflow declared.
+      # this workflow declared. It also answers the load balancer's health check
+      # with exactly 200, the reason in the step below.
       - name: Smoke test the image
         run: |
           set -euo pipefail
@@ -158,6 +159,19 @@ jobs:
           page=$(curl -sL http://127.0.0.1:3000/)
           printf '%s' "$page" | grep -qi '<title>'
           printf '%s' "$page" | grep -qi 'learn anything'
+          # The health route (#158), asked of the artifact exactly as the load
+          # balancer asks it: exactly 200. The unit test cannot stand in for this,
+          # because whether the proxy or the `[locale]/[...all]` catch-all answers
+          # first is decided by the server's route table, not by the handler. The
+          # path is paired with the readiness probe in the infrastructure
+          # repository (`manifests/base/frontend.yaml`): either side moving it on
+          # its own reproduces the outage this step now catches.
+          health=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/health)
+          if [ "$health" != 200 ]; then
+            echo "the health route must answer 200, got $health"
+            docker logs fe-smoke
+            exit 1
+          fi
           # Inside the image, not on the runner: the built chunks must carry the
           # origins this workflow passed in as build args. Asserted at the string
           # boundary on purpose — the substring version of this check

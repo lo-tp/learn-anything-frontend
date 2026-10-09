@@ -41,11 +41,13 @@ When writing a Git commit message:
 
 `main` is checked — lint, typecheck, the coverage-gated test suite — and never builds
 an image. Merging `main` into `release` is the act that ships: the image is built,
-its smoke step runs it and asserts that an anonymous visitor is redirected to
-`/en/login` and that the page renders copy from `messages/`, it is published under a
-`sha-<commit>` tag, and `lo-tp/learn-anything-infra` pins the digest and deploys it,
-with no human step in between. `release` is protected and moves only by merging
-`main` into it, so every commit production runs stays reachable on `main`.
+its smoke step runs it and asserts that the health route answers exactly 200 (the
+load balancer's health check accepts nothing else, #158), that an anonymous
+visitor is redirected to `/mine`, and that the page renders copy from
+`messages/`; it is published under a `sha-<commit>` tag, and
+`lo-tp/learn-anything-infra` pins the digest and deploys it, with no human step in
+between. `release` is protected and moves only by merging `main` into it, so every
+commit production runs stays reachable on `main`.
 
 Two rules follow: never commit directly to `release`, and never expect a push to
 `main` to change what is serving. What production runs is recorded in the
