@@ -12,7 +12,7 @@ import { useTranslations } from "next-intl";
  * intake.
  */
 export function StartSessionButton({ onClick }: { onClick: () => void }) {
-  const t = useTranslations("home");
+  const t = useTranslations("mine");
   return (
     <button
       type="button"

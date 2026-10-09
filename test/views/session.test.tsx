@@ -292,7 +292,7 @@ describe("Session", () => {
     expect(await screen.findByText("Session not found")).toBeTruthy();
     expect(
       screen.getByRole("link", { name: /back to my sessions/i }).getAttribute("href"),
-    ).toBe("/en");
+    ).toBe("/en/mine");
   });
 
   it("renders the error state when the session errored", async () => {

@@ -22,7 +22,7 @@ declare const messages: {
     "namePlaceholder": "Your name",
     "error": "Something went wrong. Please try again."
   },
-  "home": {
+  "mine": {
     "title": "My Sessions",
     "subtitle": "Resume your deep dives or launch a new contextual inquiry.",
     "emptyTitle": "No sessions yet",

@@ -27,14 +27,14 @@ describe("TopBarTabs", () => {
     expect(screen.getByRole("link", { name: "Review" })).toBeTruthy();
   });
 
-  it("points Study to the root and Review to /review", () => {
+  it("points Study to /mine and Review to /review", () => {
     renderWithLocale(<TopBarTabs />);
-    expect(screen.getByRole("link", { name: "Study" }).getAttribute("href")).toBe("/");
+    expect(screen.getByRole("link", { name: "Study" }).getAttribute("href")).toBe("/mine");
     expect(screen.getByRole("link", { name: "Review" }).getAttribute("href")).toBe("/review");
   });
 
-  it("marks Study active at the root", () => {
-    nav.pathname = "/";
+  it("marks Study active at /mine", () => {
+    nav.pathname = "/mine";
     renderWithLocale(<TopBarTabs />);
     expect(screen.getByRole("link", { name: "Study" }).getAttribute("aria-current")).toBe("page");
     expect(screen.getByRole("link", { name: "Review" }).getAttribute("aria-current")).toBeNull();

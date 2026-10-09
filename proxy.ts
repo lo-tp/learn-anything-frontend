@@ -5,8 +5,15 @@ import { verifySignInToken } from "@/lib/auth";
 
 const intlMiddleware = createMiddleware(routing);
 
-/** Paths (after locale prefix) that are never gated. */
-const UNPROTECTED = new Set(["login", "login/"]);
+/**
+ * Paths (after locale prefix) that are never gated. The root ("" — the
+ * bare locale path) and the personal list (`mine`) stay open to Visitors:
+ * the root temporary-redirects to the personal list, and the personal list
+ * asks for sign-in in place (the modal over the page) because the backend
+ * refuses anonymous reads of the list — a full-page redirect would hide
+ * the surface behind it (#148).
+ */
+const UNPROTECTED = new Set(["", "login", "login/", "mine", "mine/"]);
 
 /**
  * Determine the effective locale for a request path.
@@ -30,8 +37,9 @@ function resolveLocale(pathname: string, acceptLanguage: string | null): Locale 
  * Composed proxy: i18n locale routing + sign-in gate.
  *
  * 1. The locale is resolved from the path prefix or `Accept-Language`.
- * 2. Requests to the login route are passed straight through to the
- *    locale middleware (never gated).
+ * 2. Requests to the login route, the root, and the personal list are
+ *    passed straight through to the locale middleware (never gated — the
+ *    root and the personal list handle anonymous visitors in place, #148).
  * 3. All other requests require a valid `access_token` cookie (HS256 JWT
  *    signed with `JWT_SECRET`). Missing, invalid, or expired tokens are
  *    redirected to `/{locale}/login?next=<original-path>`.

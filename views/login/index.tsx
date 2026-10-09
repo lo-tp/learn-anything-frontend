@@ -7,7 +7,8 @@ import { SignInForm } from "@/components/sign-in-form";
 /**
  * The login page: a bare surface (no top bar) carrying the shared sign-in
  * form in the registration-sheet chrome. On a successful sign-in it
- * redirects to the `next` query param if present, else to the locale root.
+ * redirects to the `next` query param if present, else to the personal
+ * list at `/mine` (#148).
  *
  * The form itself lives in `components/sign-in-form.tsx`, shared with the
  * sign-in modal (#147); this view owns only the chrome and the success
@@ -19,9 +20,9 @@ export function LoginView() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next");
 
-  /** Navigate to `next` if provided, else to the locale root. */
+  /** Navigate to `next` if provided, else to the personal list at /mine. */
   function onSuccess() {
-    router.replace(next ?? "/", { scroll: false });
+    router.replace(next ?? "/mine", { scroll: false });
   }
 
   return (

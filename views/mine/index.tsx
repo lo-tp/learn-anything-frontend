@@ -13,12 +13,13 @@ import { onSignedIn, onSignedOut } from "@/lib/auth-events";
 import { CONFIRMING_PHASES } from "./intake";
 
 /**
- * The home page: the learner's History. Owns the list state, the initial
- * and refresh fetches against `GET /sessions` (the refresh runs after the
- * new-session dialog accepts an intake), and the dialog's open state, and
- * renders the page directly from the pure leaf components in `components/*`.
- * The route is a static shell — the view does the fetching in the browser
- * (#87).
+ * The personal list at `/mine` (#148): the learner's own Sessions. Owns the
+ * list state, the initial and refresh fetches against `GET /sessions` (the
+ * refresh runs after the new-session dialog accepts an intake), and the
+ * dialog's open state, and renders the page directly from the pure leaf
+ * components in `components/*`. The route is a static shell — the view does
+ * the fetching in the browser (#87). The root temporary-redirects here until
+ * the public surface takes it over (#148).
  *
  * Three fetch-driven states (#132): **loading** (the initial fetch in
  * flight — a friendly panel, never the empty state), **error** (a failed
@@ -37,8 +38,8 @@ import { CONFIRMING_PHASES } from "./intake";
  * its base, so there is one primary button in either view. Either CTA
  * opens the new-session dialog (#26).
  */
-export function Root() {
-  const t = useTranslations("home");
+export function Mine() {
+  const t = useTranslations("mine");
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [dialogOpen, setDialogOpen] = useState(false);

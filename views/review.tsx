@@ -144,7 +144,7 @@ export function Review() {
   /** The friendly states' shared footer action: a link home. */
   const backToSessions = (
     <Link
-      href="/"
+      href="/mine"
       className="focus-ring mt-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:-translate-y-px hover:shadow-[var(--shadow-sheet-raised)]"
     >
       {t("backToSessions")}

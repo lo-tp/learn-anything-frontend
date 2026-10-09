@@ -7,7 +7,7 @@ import { loginAuth, registerAuth } from "@/lib/api-client";
 
 // The form's own behavior (tabs, validation, error mapping) is tested at
 // `components/sign-in-form.tsx`; this file pins what the LOGIN PAGE adds:
-// the success navigation to `next` (or the locale root).
+// the success navigation to `next` (or the personal list at /mine).
 const { replaceMock, searchParamsRef } = vi.hoisted(() => ({
   replaceMock: vi.fn(),
   searchParamsRef: { current: new URLSearchParams() },
@@ -78,11 +78,11 @@ describe("LoginView (the login page)", () => {
     expect(replaceMock).toHaveBeenCalledWith("/en/sessions", { scroll: false });
   });
 
-  it("signs in and navigates to the locale root without a `next` param", async () => {
+  it("signs in and navigates to the personal list without a `next` param", async () => {
     mockLoginAuth.mockResolvedValue();
     submitSignIn();
 
     await vi.waitFor(() => expect(mockLoginAuth).toHaveBeenCalled());
-    expect(replaceMock).toHaveBeenCalledWith("/", { scroll: false });
+    expect(replaceMock).toHaveBeenCalledWith("/mine", { scroll: false });
   });
 });

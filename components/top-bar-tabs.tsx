@@ -8,12 +8,13 @@ import { cn } from "@/lib/utils";
 /**
  * The top-bar navigation tabs (per design/topbar).
  *
- * Two tabs bound to the app's top-level routes — Study (the root session
- * list) and Review (the review deck). The active tab is derived from the
- * current pathname, so it stays in sync with the route; Study also owns the
- * session detail pages (a session lives under Study). Labels come from the
- * `topbar` namespace. Always visible — Review must stay reachable on small
- * screens — so the tabs shrink below `md` (the wordmark steps aside there).
+ * Two tabs bound to the app's top-level routes — Study (the personal
+ * list at `/mine`, #148) and Review (the review deck). The active tab is
+ * derived from the current pathname, so it stays in sync with the route;
+ * Study also owns the session detail pages (a session lives under Study).
+ * Labels come from the `topbar` namespace. Always visible — Review must
+ * stay reachable on small screens — so the tabs shrink below `md` (the
+ * wordmark steps aside there).
  */
 
 type Tab = {
@@ -23,7 +24,7 @@ type Tab = {
 };
 
 const TABS: Tab[] = [
-  { key: "study", href: "/", isActive: (p) => p === "/" || p === "/session" || p.startsWith("/session/") },
+  { key: "study", href: "/mine", isActive: (p) => p === "/mine" || p === "/session" || p.startsWith("/session/") },
   { key: "review", href: "/review", isActive: (p) => p === "/review" },
 ];
 

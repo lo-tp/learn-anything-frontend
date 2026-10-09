@@ -135,15 +135,44 @@ describe("proxy (sign-in gate)", () => {
     );
   });
 
-  it("treats the bare locale path (no trailing slash) as gated", async () => {
+  // --- Root and personal list are never gated (#148) ---
+
+  it("does not gate the bare locale path (no trailing slash) — the page's temporary redirect to /mine handles it", async () => {
     const req = makeRequest("/en");
     const res = await proxy(req);
+    // Pass-through: no auth redirect. The root page itself 307s to /mine.
+    const location = res.headers.get("Location") ?? "";
+    expect(location).not.toContain("/login");
+  });
+
+  it("does not gate the personal list (locale-prefixed)", async () => {
+    const req = makeRequest("/en/mine");
+    const res = await proxy(req);
+    // A Visitor reaches the page; its 401 list fetch opens the sign-in
+    // modal in place, not a full-page redirect to login.
+    const location = res.headers.get("Location") ?? "";
+    expect(location).not.toContain("/login");
+  });
+
+  it("does not gate the personal list (locale-less) — locale routing only", async () => {
+    const req = makeRequest("/mine");
+    const res = await proxy(req);
+    // The intl middleware adds the locale prefix; it is NOT an auth
+    // redirect.
+    const location = res.headers.get("Location") ?? "";
+    expect(location).not.toContain("/login");
+    expect(location).toBe(`${ORIGIN}/en/mine`);
+  });
+
+  it("still gates the review route for a Visitor", async () => {
+    const req = makeRequest("/en/review");
+    const res = await proxy(req);
     expect(res.headers.get("Location")).toBe(
-      `${ORIGIN}/en/login?next=${encodeURIComponent("/en")}`,
+      `${ORIGIN}/en/login?next=${encodeURIComponent("/en/review")}`,
     );
   });
 
-  // --- Login route is never gated ---
+  // --- Login route is never gated (as before) ---
 
   it("does not redirect the login route to itself (locale-prefixed)", async () => {
     const req = makeRequest("/en/login");

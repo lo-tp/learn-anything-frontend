@@ -12,7 +12,7 @@ import { useTranslations } from "next-intl";
  * visitor still reads the page as a study record.
  */
 export function EmptyState({ children }: { children?: React.ReactNode }) {
-  const t = useTranslations("home");
+  const t = useTranslations("mine");
   return (
     <div className="flex flex-col py-4">
       <div className="relative w-full overflow-hidden rounded-lg border border-outline-variant bg-surface-container-lowest shadow-[var(--shadow-sheet)]">

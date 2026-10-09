@@ -34,7 +34,7 @@ Two ground rules that make this work:
 Pure, props-in, named export, kebab-case filename, design tokens, no state. This is your presentational unit: it receives props, renders one visual thing, and owns nothing.
 
 ### 2. View — `views/<name>.tsx`
-This is the actual interactive page. Mark it `"use client"`, have it own the state, compose the leaves, and use the **standard content frame** — copy the outer `main`/`div` wrapper structure from `views/root.tsx`. Fetch its own data on mount (via `lib/api-client`) and refresh as needed — the route is a static shell that passes no data.
+This is the actual interactive page. Mark it `"use client"`, have it own the state, compose the leaves, and use the **standard content frame** — copy the outer `main`/`div` wrapper structure from `views/mine/index.tsx`. Fetch its own data on mount (via `lib/api-client`) and refresh as needed — the route is a static shell that passes no data.
 
 ### 3. Route entry — `app/<route>/page.tsx`
 A server component. It renders the view and nothing else — the app is a pure client-side frontend (#87): every page is a static shell pre-rendered per locale, and all data fetching happens in the browser (the view fetches on mount and refreshes as needed). Default-export the page.
@@ -46,7 +46,7 @@ Navigate to the new route — the frame/top bar come free from the layout.
 - **Filenames**: kebab-case for components (`progress-card.tsx`); `views/` named after the page concept (`progress.tsx`).
 - **Exports**: named exports for everything **except** the route, which uses a default export.
 - **`"use client"`**: only on the view and any leaf that uses state/hooks/events. Pure leaves stay server-compatible.
-- **Content frame**: reuse the standard wrapper verbatim — a scrollable `main` holding a centered, max-width, padded `div` (see `views/root.tsx`).
+- **Content frame**: reuse the standard wrapper verbatim — a scrollable `main` holding a centered, max-width, padded `div` (see `views/mine/index.tsx`).
 - **Styling**: use the design tokens, not raw hex — `text-on-surface`, `text-on-surface-variant`, `bg-surface-container`, `bg-surface-container-high`, `text-primary`, `border-outline-variant`, `text-error`, `font-display`, `font-mono`. (Full list in `app/globals.css`.)
 - **Data flow**: the view is the **single state owner** — and the single **fetcher**; leaves receive props and report back via callbacks (see `NewSessionDialog` → `onAccept` → parent `refresh()`). The exception is **shared chrome**: frame-level components mounted in `components/frame.tsx` (top-bar widgets, dialogs) may own their own state and fetches, because they live outside any single page's view (e.g. `account-menu.tsx`, `sign-in-form.tsx`, `sign-in-modal.tsx` — the sign-in form is shared by the modal and the login page, #147).
 - **Cross-component signals**: components outside each other's trees communicate through the plain event bus in `lib/auth-events.ts` (#147) — e.g. the API client asks the sign-in modal to open on a 401; surfaces re-fetch on sign-in/sign-out.
@@ -57,10 +57,10 @@ Navigate to the new route — the frame/top bar come free from the layout.
 Every backend interaction the view owns (#87) gets a loading state, an error state, and an in-flight story — a blank page or a silent failure is a bug, not a state (#132):
 
 - **Loading**: a friendly panel via `components/state-panel.tsx` — never a blank page, and never the empty state doubling as loading.
-- **Error**: a panel with a **Retry** button that re-runs the fetch (e.g. `views/root/index.tsx`). The exception is a self-retrying poll, which shows an honest note about the auto-retry instead (`views/session.tsx`).
+- **Error**: a panel with a **Retry** button that re-runs the fetch (e.g. `views/mine/index.tsx`). The exception is a self-retrying poll, which shows an honest note about the auto-retry instead (`views/session.tsx`).
 - **401**: `lib/api-client` asks the sign-in modal to open over the current surface — the modal replaces the old full-page redirect to login (#147). The page settles into its ordinary error state behind the modal and re-fetches in place on sign-in (`lib/auth-events`); no page suppression, no navigation.
 - **In-flight writes**: disable the control while the request is pending and await it before advancing; on failure stay in place with a notice so the action can be retried — a failed write must never be swallowed (e.g. `views/review.tsx`). Fire-and-forget is for misses that cost nothing (`postReviewCard` material).
-- **Background refresh**: silent — keep the existing content on failure (the intake re-fetch in `views/root/index.tsx`).
+- **Background refresh**: silent — keep the existing content on failure (the intake re-fetch in `views/mine/index.tsx`).
 
 ## Do / Don't
 

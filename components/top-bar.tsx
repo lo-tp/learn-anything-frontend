@@ -11,7 +11,7 @@ import { requestSignIn } from "@/lib/auth-events";
 /**
  * Top app bar — the record header band, closed with a printed double rule:
  * masthead + navigation on the left, utility controls on the right. The tabs
- * (Study → root, Review → /review) are bound to routes and derive their
+ * (Study → /mine, Review → /review) are bound to routes and derive their
  * active state from the current pathname; an active tab carries a filled
  * bubble marker. The wordmark (a brand name) stays untranslated; the utility
  * aria labels come from the `topbar` namespace.
