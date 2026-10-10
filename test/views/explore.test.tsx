@@ -8,12 +8,13 @@ import {
 } from "@testing-library/react";
 import { renderWithLocale } from "@/test/test-utils";
 import { Explore } from "@/views/explore";
+import { CONFIRMING_PHASES } from "@/views/mine/intake";
 import {
   approvePlan,
   createSession,
   getSignedInUser,
   generatePlan,
-  listExploreSessions,
+  listSessions,
   type SessionListItem,
 } from "@/lib/api-client";
 import { notifySignedIn, onRequestSignIn } from "@/lib/auth-events";
@@ -31,7 +32,7 @@ vi.mock("@/lib/api-client", () => ({
   generatePlan: vi.fn(),
   adjustPlan: vi.fn(),
   approvePlan: vi.fn(),
-  listExploreSessions: vi.fn(),
+  listSessions: vi.fn(),
   getSignedInUser: vi.fn(),
   ApiError: class ApiError extends Error {
     constructor(
@@ -47,7 +48,7 @@ vi.mock("@/lib/api-client", () => ({
 const mockCreateSession = vi.mocked(createSession);
 const mockGeneratePlan = vi.mocked(generatePlan);
 const mockApprovePlan = vi.mocked(approvePlan);
-const mockListExploreSessions = vi.mocked(listExploreSessions);
+const mockListSessions = vi.mocked(listSessions);
 const mockGetSignedInUser = vi.mocked(getSignedInUser);
 
 const USER = { id: 1, email: "a@b.c", display_name: "Alice" };
@@ -69,7 +70,7 @@ beforeEach(() => {
   mockCreateSession.mockReset();
   mockGeneratePlan.mockReset();
   mockApprovePlan.mockReset();
-  mockListExploreSessions.mockReset();
+  mockListSessions.mockReset();
   // The default viewer of a public surface is a Visitor.
   mockGetSignedInUser.mockReset().mockResolvedValue(null);
 });
@@ -91,7 +92,7 @@ function session(overrides: Partial<SessionListItem> = {}): SessionListItem {
 
 describe("Explore (the public feed at the site root)", () => {
   it("renders the public list for a Visitor — the goal text first, no names", async () => {
-    mockListExploreSessions.mockResolvedValue({
+    mockListSessions.mockResolvedValue({
       sessions: [
         session(),
         session({ session_id: "s-2", goal: "Morse code" }),
@@ -101,14 +102,14 @@ describe("Explore (the public feed at the site root)", () => {
     expect(await screen.findByText("Explore")).toBeTruthy();
     expect(screen.getByText("React Hooks Deep Dive")).toBeTruthy();
     expect(screen.getByText("Morse code")).toBeTruthy();
-    // The feed is read with no arguments: the backend serves it newest
-    // first, uncapped (#178).
-    expect(mockListExploreSessions).toHaveBeenCalledTimes(1);
-    expect(mockListExploreSessions).toHaveBeenCalledWith();
+    // The feed uses the same endpoint as /mine, filtered to material phases
+    // (#178/ADR-0006).
+    expect(mockListSessions).toHaveBeenCalledTimes(1);
+    expect(mockListSessions).toHaveBeenCalledWith(CONFIRMING_PHASES);
   });
 
   it("a card links to the Session deck", async () => {
-    mockListExploreSessions.mockResolvedValue({ sessions: [session()] });
+    mockListSessions.mockResolvedValue({ sessions: [session()] });
     renderWithLocale(<Explore />);
     const card = await screen.findByRole("link", {
       name: /React Hooks Deep Dive/,
@@ -117,7 +118,7 @@ describe("Explore (the public feed at the site root)", () => {
   });
 
   it("an empty list shows the pitch and the start-a-Session invitation, not a bare empty state", async () => {
-    mockListExploreSessions.mockResolvedValue({ sessions: [] });
+    mockListSessions.mockResolvedValue({ sessions: [] });
     renderWithLocale(<Explore />);
     expect(
       await screen.findByText("Learn anything, one question at a time"),
@@ -131,7 +132,7 @@ describe("Explore (the public feed at the site root)", () => {
   it("a filled feed carries the same Start New Session CTA in its header band", async () => {
     // Starting a Session is offered to whoever is reading the list, not only
     // to the person whose list is empty (#143).
-    mockListExploreSessions.mockResolvedValue({ sessions: [session()] });
+    mockListSessions.mockResolvedValue({ sessions: [session()] });
     renderWithLocale(<Explore />);
     await screen.findByText("React Hooks Deep Dive");
     expect(screen.getByRole("button", { name: /Start New Session/ })).toBeTruthy();
@@ -141,7 +142,7 @@ describe("Explore (the public feed at the site root)", () => {
     asVisitor();
     const asked = vi.fn();
     const unsubscribe = onRequestSignIn(asked);
-    mockListExploreSessions.mockResolvedValue({ sessions: [session()] });
+    mockListSessions.mockResolvedValue({ sessions: [session()] });
     renderWithLocale(<Explore />);
     await screen.findByText("React Hooks Deep Dive");
     await flush();
@@ -157,7 +158,7 @@ describe("Explore (the public feed at the site root)", () => {
     // The CTA's intent survives the sign-in: the person who clicked Start
     // New Session lands in the intake, not back on the feed (#143/#147).
     asVisitor();
-    mockListExploreSessions.mockResolvedValue({ sessions: [session()] });
+    mockListSessions.mockResolvedValue({ sessions: [session()] });
     renderWithLocale(<Explore />);
     await screen.findByText("React Hooks Deep Dive");
     await flush();
@@ -179,7 +180,7 @@ describe("Explore (the public feed at the site root)", () => {
     // sign-in from anywhere else — the top bar, a 401 from another surface
     // — changes nothing on this one (#147).
     asVisitor();
-    mockListExploreSessions.mockResolvedValue({ sessions: [session()] });
+    mockListSessions.mockResolvedValue({ sessions: [session()] });
     renderWithLocale(<Explore />);
     await screen.findByText("React Hooks Deep Dive");
     await flush();
@@ -197,7 +198,7 @@ describe("Explore (the public feed at the site root)", () => {
 
   it("a signed-in User's CTA opens the intake directly", async () => {
     asUser();
-    mockListExploreSessions.mockResolvedValue({ sessions: [session()] });
+    mockListSessions.mockResolvedValue({ sessions: [session()] });
     renderWithLocale(<Explore />);
     await screen.findByText("React Hooks Deep Dive");
     await flush();
@@ -215,7 +216,7 @@ describe("Explore (the public feed at the site root)", () => {
 
   it("shows the loading state while the initial fetch is in flight", async () => {
     let resolveFeed: (value: { sessions: [] }) => void;
-    mockListExploreSessions.mockReturnValue(
+    mockListSessions.mockReturnValue(
       new Promise((resolve) => {
         resolveFeed = resolve;
       }),
@@ -233,7 +234,7 @@ describe("Explore (the public feed at the site root)", () => {
   });
 
   it("shows the error state with a Retry when the initial fetch fails", async () => {
-    mockListExploreSessions.mockRejectedValue(new Error("boom"));
+    mockListSessions.mockRejectedValue(new Error("boom"));
     renderWithLocale(<Explore />);
     expect(await screen.findByText("Can't load the feed")).toBeTruthy();
     // A failed fetch is not an empty feed — the pitch stays hidden (#132).
@@ -241,26 +242,26 @@ describe("Explore (the public feed at the site root)", () => {
       screen.queryByText("Learn anything, one question at a time"),
     ).toBeNull();
     // Retry re-runs the fetch and lands on the list.
-    mockListExploreSessions.mockResolvedValue({ sessions: [session()] });
+    mockListSessions.mockResolvedValue({ sessions: [session()] });
     fireEvent.click(screen.getByRole("button", { name: /Retry/ }));
     expect(await screen.findByText("React Hooks Deep Dive")).toBeTruthy();
-    expect(mockListExploreSessions).toHaveBeenCalledTimes(2);
+    expect(mockListSessions).toHaveBeenCalledTimes(2);
   });
 
   it("keeps the error state when the Retry fails again", async () => {
-    mockListExploreSessions
+    mockListSessions
       .mockRejectedValueOnce(new Error("boom"))
       .mockRejectedValueOnce(new Error("boom again"));
     renderWithLocale(<Explore />);
     await screen.findByText("Can't load the feed");
     fireEvent.click(screen.getByRole("button", { name: /Retry/ }));
     await screen.findByText("Can't load the feed");
-    expect(mockListExploreSessions).toHaveBeenCalledTimes(2);
+    expect(mockListSessions).toHaveBeenCalledTimes(2);
   });
 
   it("does not update state when unmounted before the initial fetch settles", async () => {
     let resolveFeed: (value: { sessions: [] }) => void;
-    mockListExploreSessions.mockReturnValue(
+    mockListSessions.mockReturnValue(
       new Promise((resolve) => {
         resolveFeed = resolve;
       }),
@@ -321,7 +322,7 @@ describe("Explore (the public feed at the site root)", () => {
     });
     // The mount fetch shows an empty feed; the re-fetch after accept shows
     // the new session on top.
-    mockListExploreSessions
+    mockListSessions
       .mockResolvedValueOnce({ sessions: [] })
       .mockResolvedValueOnce({ sessions: [fresh] });
 
@@ -359,11 +360,11 @@ describe("Explore (the public feed at the site root)", () => {
     expect(
       await screen.findByText("Newton's second law of motion"),
     ).toBeTruthy();
-    expect(mockListExploreSessions).toHaveBeenCalledTimes(2); // mount + re-fetch
+    expect(mockListSessions).toHaveBeenCalledTimes(2); // mount + re-fetch
   });
 
   it("labels the public surface from the zh catalog under the zh locale", async () => {
-    mockListExploreSessions.mockResolvedValue({ sessions: [] });
+    mockListSessions.mockResolvedValue({ sessions: [] });
     renderWithLocale(<Explore />, { locale: "zh" });
     expect(await screen.findByText("探索")).toBeTruthy();
     expect(screen.getByText("任何知识，一次一个问题")).toBeTruthy();
