@@ -82,3 +82,14 @@ _Avoid_: knowledge profile, skill assessment
 **Learner map**:
 A User's persistent record of their understanding across Sessions. Each Session's boundary map is seeded from it and written back to it; it outlives every Session.
 _Avoid_: user memory, long-term memory, learner profile, knowledge graph
+
+
+## Tools
+
+**External tool**:
+A capability the app does not implement: it belongs to another service, is reached through that service's MCP server, and is bound to one named graph step. The one the app has is web search, bound to the plan's research step and to nothing else.
+_Avoid_: integration, third-party API, plugin
+
+**Internal tool**:
+A capability the app owns — implemented in its own code, whether or not it asks one of the app's own services to do the work. A model may call it, and it never crosses the MCP boundary: that boundary exists for external tools only.
+_Avoid_: external tool, built-in function
