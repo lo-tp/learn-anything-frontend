@@ -14,8 +14,8 @@ import { useSignInState } from "@/hooks/use-sign-in-state";
 
 /**
  * The public Explore surface at the site root (#150): what people are
- * learning — the newest twenty Sessions that reached materials, goal text
- * first, no names, no pager. The feed is public (#144), so signed-in and
+ * learning — every Session that reached materials, newest first, goal text
+ * first, no names (#178). The feed is public (#144), so signed-in and
  * Visitor look the same here: the feed fetch sends no credentials, no 401
  * can land, and there is no auth-events re-fetch of the list. Like the
  * personal list (#148), the view owns its feed fetch in the browser (#87);

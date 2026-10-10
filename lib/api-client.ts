@@ -178,11 +178,11 @@ function guardUnauthorized(response: Response | undefined, error: unknown, statu
 }
 
 /**
- * `GET /explore/sessions` — the public Explore feed (#144): the newest
- * Sessions that reached materials, newest first, capped at 20 by the
- * backend. Unauthenticated by design — a Visitor is a normal caller, and
- * the payload carries no owner identity (#145). No credentials, no 401
- * handling: the endpoint cannot refuse a request.
+ * `GET /explore/sessions` — the public Explore feed (#144): every Session
+ * that reached materials, newest first, uncapped (#178). Unauthenticated
+ * by design — a Visitor is a normal caller, and the payload carries no
+ * owner identity (#145). No credentials, no 401 handling: the endpoint
+ * cannot refuse a request.
  */
 export async function listExploreSessions(): Promise<SessionList> {
   const { data, error, response } = await api.GET("/explore/sessions");

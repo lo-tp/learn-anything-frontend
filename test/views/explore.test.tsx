@@ -102,7 +102,7 @@ describe("Explore (the public feed at the site root)", () => {
     expect(screen.getByText("React Hooks Deep Dive")).toBeTruthy();
     expect(screen.getByText("Morse code")).toBeTruthy();
     // The feed is read with no arguments: the backend serves it newest
-    // first, capped at 20 (#144).
+    // first, uncapped (#178).
     expect(mockListExploreSessions).toHaveBeenCalledTimes(1);
     expect(mockListExploreSessions).toHaveBeenCalledWith();
   });

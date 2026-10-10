@@ -39,7 +39,7 @@
   },
   "explore": {
     "title": "Explore",
-    "subtitle": "What people are learning — the twenty newest sessions, goal first, no names.",
+    "subtitle": "What people are learning — every session that reached materials, goal first, no names.",
     "emptyTitle": "Learn anything, one question at a time",
     "emptyBody": "Declare a knowledge point and we'll walk you to mastery — an AI conversation, one question at a time. Start your first session, and what you learn will show up here.",
     "loading": {
