@@ -177,20 +177,9 @@ function guardUnauthorized(response: Response | undefined, error: unknown, statu
   return describeError(error, status);
 }
 
-/**
- * `GET /explore/sessions` — the public Explore feed (#144): the newest
- * Sessions that reached materials, newest first, capped at 20 by the
- * backend. Unauthenticated by design — a Visitor is a normal caller, and
- * the payload carries no owner identity (#145). No credentials, no 401
- * handling: the endpoint cannot refuse a request.
- */
-export async function listExploreSessions(): Promise<SessionList> {
-  const { data, error, response } = await api.GET("/explore/sessions");
-  if (!data) throw describeError(error, response?.status);
-  return data;
-}
-
-/** `GET /sessions` — list sessions (newest first), optionally filtered by phase(s). */
+/** `GET /sessions` — list sessions (newest first), optionally filtered by phase(s).
+ *  The list read is public (#178/ADR-0006): the same endpoint serves both
+ *  Explore and /mine, and answers a Visitor identically to a User. */
 export async function listSessions(phases?: Phase[]): Promise<SessionList> {
   const { data, error, response } = await api.GET("/sessions", {
     params: { query: { phase: phases } },
