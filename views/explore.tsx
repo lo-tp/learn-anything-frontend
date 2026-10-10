@@ -8,18 +8,18 @@ import { SessionCard } from "@/components/session-card";
 import { StartSessionButton } from "@/components/start-session-button";
 import { StatePanel } from "@/components/state-panel";
 import { NewSessionDialog } from "@/views/mine/new-session-dialog";
-import { listExploreSessions, type SessionListItem } from "@/lib/api-client";
+import { listSessions, type SessionListItem } from "@/lib/api-client";
+import { CONFIRMING_PHASES } from "@/views/mine/intake";
 import { onSignedIn, requestSignIn } from "@/lib/auth-events";
 import { useSignInState } from "@/hooks/use-sign-in-state";
 
 /**
  * The public Explore surface at the site root (#150): what people are
- * learning — the newest twenty Sessions that reached materials, goal text
- * first, no names, no pager. The feed is public (#144), so signed-in and
- * Visitor look the same here: the feed fetch sends no credentials, no 401
- * can land, and there is no auth-events re-fetch of the list. Like the
- * personal list (#148), the view owns its feed fetch in the browser (#87);
- * the route is a static shell.
+ * learning — every Session that reached materials, newest first, goal text
+ * first, no names (#178/ADR-0006). The list read is public: the same
+ * `GET /sessions` call the personal list makes, no sign-in gate (#178).
+ * Like the personal list (#148), the view owns its feed fetch in the
+ * browser (#87); the route is a static shell.
  *
  * Three fetch-driven states (#132): **loading** (a friendly panel — never
  * the empty state), **error** (a panel with a Retry that re-runs the
@@ -49,7 +49,7 @@ export function Explore() {
   const load = useCallback(async () => {
     setStatus("loading");
     try {
-      const { sessions } = await listExploreSessions();
+      const { sessions } = await listSessions(CONFIRMING_PHASES);
       setSessions(sessions);
       setStatus("ready");
     } catch {
@@ -63,7 +63,7 @@ export function Explore() {
     let cancelled = false;
     (async () => {
       try {
-        const { sessions } = await listExploreSessions();
+        const { sessions } = await listSessions(CONFIRMING_PHASES);
         if (!cancelled) {
           setSessions(sessions);
           setStatus("ready");
@@ -104,7 +104,7 @@ export function Explore() {
    *  on failure — a new session joins the feed once it starts generating. */
   const refresh = useCallback(async () => {
     try {
-      const { sessions } = await listExploreSessions();
+      const { sessions } = await listSessions(CONFIRMING_PHASES);
       setSessions(sessions);
     } catch {
       /* keep the current list */

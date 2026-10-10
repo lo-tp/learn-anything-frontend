@@ -20,16 +20,20 @@ import { CONFIRMING_PHASES } from "./intake";
  * components in `components/*`. The route is a static shell — the view does
  * the fetching in the browser (#87).
  *
+ * The Session list read is public (#178): `GET /sessions` answers a Visitor
+ * with the same list it answers a User. In practice the account menu
+ * navigates a signed-in person to this page and takes a signed-out person
+ * to Explore, so the list appears in a signed-in context; the read endpoint
+ * does not enforce that.
+ *
  * Three fetch-driven states (#132): **loading** (the initial fetch in
  * flight — a friendly panel, never the empty state), **error** (a failed
  * fetch — a friendly panel with a Retry that re-runs the fetch), and
- * **ready** (the list — empty or filled). A 401 lands in the error state:
- * the API client has already asked for the sign-in modal to open over the
- * page (#147), so the page stays rendered behind it — a token that expired
+ * **ready** (the list — empty or filled). A 401 remains handled as a
+ * fallback (#147): the API client asks for the sign-in modal to open over
+ * the page, the page stays rendered behind it — a token that expired
  * mid-use signs back in through the modal, and the History refetches in
- * place. Sign-out never asks this page to render without an owner: the
- * account menu takes the person to the public Explore list at the site
- * root. The refresh after the dialog accepts an intake is a silent
+ * place. The refresh after the dialog accepts an intake is a silent
  * re-fetch — it keeps the current list on failure.
  *
  * The site root is the public Explore surface (#150); this list keeps its
@@ -83,9 +87,8 @@ export function Mine() {
 
   // #147: a successful sign-in through the modal restores an expired-token
   // visit, with no navigation. A sign-out is not subscribed to here: the
-  // account menu leaves this page for the public Explore list, so refetching
-  // it as a Visitor's would only answer 401 and open a sign-in modal over
-  // the list the person has just been sent to.
+  // account menu leaves this page for the public Explore list, so there is
+  // no reason to refetch what the person will not see.
   useEffect(
     () => {
       const stopIn = onSignedIn(() => {

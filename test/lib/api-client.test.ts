@@ -24,7 +24,6 @@ const {
   generatePlan,
   getSession,
   getReviewDue,
-  listExploreSessions,
   listSessions,
   logoutAuth,
   postReviewCard,
@@ -99,34 +98,6 @@ describe("listSessions", () => {
     const err = await listSessions().catch((e) => e);
     unsubscribe();
     expect(ask).toHaveBeenCalledTimes(1);
-    expect(err).toBeInstanceOf(ApiError);
-  });
-});
-
-describe("listExploreSessions", () => {
-  it("GETs the public feed with no query params and returns the SessionList", async () => {
-    fetchMock.mockResolvedValue(json(LIST));
-    const result = await listExploreSessions();
-    const url = new URL(fetchMock.mock.calls[0][0].url);
-    expect(url.origin + url.pathname).toBe(`${BACKEND}/explore/sessions`);
-    expect(url.search).toBe("");
-    expect(result).toEqual(LIST);
-  });
-
-  it("throws an ApiError with the flattened detail messages on a failure", async () => {
-    fetchMock.mockResolvedValue(json({ detail: [{ msg: "boom" }] }, 500));
-    const err = await listExploreSessions().catch((e) => e);
-    expect(err).toBeInstanceOf(ApiError);
-    expect(err.message).toBe("boom");
-  });
-
-  it("does not ask for sign-in on a 401 — the endpoint is public", async () => {
-    const ask = vi.fn();
-    const unsubscribe = onRequestSignIn(ask);
-    fetchMock.mockResolvedValue(json({ detail: "Not authenticated" }, 401));
-    const err = await listExploreSessions().catch((e) => e);
-    unsubscribe();
-    expect(ask).not.toHaveBeenCalled();
     expect(err).toBeInstanceOf(ApiError);
   });
 });

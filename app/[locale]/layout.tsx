@@ -73,7 +73,10 @@ export async function generateMetadata({
     namespace: "app",
   });
   return {
-    title: t("title"),
+    title: {
+      default: t("title"),
+      template: `${t("title")}: %s`,
+    },
     description: t("description"),
   };
 }

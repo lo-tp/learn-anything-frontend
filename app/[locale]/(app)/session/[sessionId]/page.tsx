@@ -1,6 +1,32 @@
+import type { Metadata } from "next";
 import { Session } from "@/views/session";
-import { setRequestLocale } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { hasLocale, routing } from "@/i18n/routing";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string; sessionId: string }>;
+}): Promise<Metadata> {
+  const { locale, sessionId } = await params;
+  const resolved = hasLocale(locale) ? locale : routing.defaultLocale;
+  const t = await getTranslations({ locale: resolved, namespace: "session" });
+
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+  let title: string = t("learningSession");
+  if (backendUrl) {
+    try {
+      const res = await fetch(`${backendUrl}/sessions/${sessionId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.narrowed_goal) title = data.narrowed_goal;
+      }
+    } catch {
+      /* fall back to the generic title */
+    }
+  }
+  return { title };
+}
 
 /**
  * Session route: a static shell. It renders the session view and nothing
