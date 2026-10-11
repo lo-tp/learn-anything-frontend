@@ -84,6 +84,21 @@ A User's persistent record of their understanding across Sessions. Each Session'
 _Avoid_: user memory, long-term memory, learner profile, knowledge graph
 
 
+## Preferences
+
+**Preference pair**:
+Two versions of something the app produced — the one a learner rejected and the one they kept — held together with the instruction that produced the better one. A pair exists only where a learner actually chose: an unmodified plan is not a preference.
+_Avoid_: feedback, rating, training example
+
+**Adjustment**:
+A learner's own words asking the app to change a proposed plan — their steer, not the app's rewrite. The instruction half of a plan preference pair.
+_Avoid_: edit, revision, feedback
+
+**Preference corpus**:
+A User's accumulated preference pairs. Like the Learner map, it grows with each Session and outlives them.
+_Avoid_: dataset, training data, fine-tuning set
+
+
 ## Tools
 
 **External tool**:
