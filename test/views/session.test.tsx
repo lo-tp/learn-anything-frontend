@@ -2,6 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, screen } from "@testing-library/react";
 import { renderWithLocale } from "@/test/test-utils";
+import { ThemeToggle } from "@/components/theme-toggle";
+import type { Theme } from "@/hooks/use-theme";
 import { Session } from "@/views/session";
 import {
   getMaterials,
@@ -591,5 +593,251 @@ describe("Session", () => {
       ),
     ).toBeTruthy();
     expect(screen.getByText("Save your progress")).toBeTruthy();
+  });
+});
+
+/**
+ * #185 — the slide player across a theme switch.
+ *
+ * The player is one persistent iframe whose `src` is the deck's first slide,
+ * with every slide switch told to it by `postMessage` (#80). `?theme=` in
+ * that `src` is the frame's *initial* paint: a theme change that also changes
+ * `src` reloads the frame, and a fresh frame begins on its own slug — item 1
+ * — which is the reported jump back to the first slide.
+ *
+ * So these tests assert the opposite: one `src` for the whole deck, and a
+ * theme change carried to the frame as `DEMO_SET_THEME`, which the sandbox
+ * harness applies by toggling the `light` class on its own `<html>` — a
+ * repaint, not a reload. `ThemeToggle` is rendered alongside because it is
+ * how a reader changes theme, and `hooks/use-theme.ts` is the single source
+ * of truth every consumer shares.
+ */
+function setHtmlTheme(theme: Theme) {
+  document.documentElement.classList.remove("light", "dark");
+  document.documentElement.classList.add(theme);
+}
+
+/** A deck of two slides — enough to be on item 2 when the theme changes. */
+function twoSlideDeck(): MaterialsOut {
+  return materials({
+    generated_steps: [
+      {
+        step_id: "st-1",
+        summary: {
+          step_id: "st-1",
+          title: "Force and mass",
+          key_points: ["F = ma"],
+        },
+        items: [
+          { type: "slide", slide_id: "slide-1" },
+          { type: "slide", slide_id: "slide-2" },
+        ],
+      },
+    ],
+  });
+}
+
+function renderPlayerWithToggle() {
+  return renderWithLocale(
+    <>
+      <ThemeToggle />
+      <Session sessionId="s-1" />
+    </>,
+  );
+}
+
+/** Record every `postMessage` the view sends into the player frame. */
+function playerPosts(frame: HTMLIFrameElement) {
+  const contentWindow = frame.contentWindow;
+  if (!contentWindow) throw new Error("the player frame has no contentWindow");
+  const posts: unknown[] = [];
+  Object.defineProperty(contentWindow, "postMessage", {
+    value: (message: unknown) => posts.push(message),
+    configurable: true,
+    writable: true,
+  });
+  return posts;
+}
+
+/** Send a message to the view *from* the player frame (the harness's cue). */
+function postFromFrame(frame: HTMLIFrameElement, data: object) {
+  window.dispatchEvent(
+    new MessageEvent("message", {
+      data,
+      source: frame.contentWindow as Window,
+    }),
+  );
+}
+
+describe("Session slide player across a theme switch (#185)", () => {
+  afterEach(() => {
+    document.documentElement.classList.remove("light", "dark");
+    localStorage.removeItem("la:theme");
+  });
+
+  it("builds the player src in the page's theme, so a cold load paints in it", async () => {
+    setHtmlTheme("light");
+    mockGetMaterials.mockResolvedValue(twoSlideDeck());
+    renderPlayerWithToggle();
+    await settle();
+
+    expect(screen.getByTitle("Sandbox").getAttribute("src")).toContain(
+      "/slides/slide-1?theme=light",
+    );
+  });
+
+  it("does not change the player src when the theme changes", async () => {
+    setHtmlTheme("dark");
+    mockGetMaterials.mockResolvedValue(twoSlideDeck());
+    renderPlayerWithToggle();
+    await settle();
+
+    const frame = screen.getByTitle("Sandbox") as HTMLIFrameElement;
+    const src = frame.getAttribute("src");
+    expect(src).toContain("/slides/slide-1?theme=dark");
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle theme" }));
+    await act(async () => {});
+
+    // A `src` change is a frame reload: the same element with the same src is
+    // the assertion that no reload happened — and so no fallback to item 1.
+    expect(screen.getByTitle("Sandbox")).toBe(frame);
+    expect(frame.getAttribute("src")).toBe(src);
+    expect(document.documentElement.classList.contains("light")).toBe(true);
+  });
+
+  it("leaves the player on the item the reader is on when the theme changes", async () => {
+    setHtmlTheme("dark");
+    mockGetMaterials.mockResolvedValue(twoSlideDeck());
+    renderPlayerWithToggle();
+    await settle();
+
+    const frame = screen.getByTitle("Sandbox") as HTMLIFrameElement;
+    const posts = playerPosts(frame);
+
+    fireEvent.click(screen.getByRole("button", { name: "Next slide" }));
+    expect(counterAt(2, 2)).toBeTruthy();
+    expect(posts[posts.length - 1]).toEqual({
+      type: "DEMO_SET_SLIDE",
+      slideId: "slide-2",
+    });
+
+    posts.length = 0;
+    fireEvent.click(screen.getByRole("button", { name: "Toggle theme" }));
+    await act(async () => {});
+
+    // The theme goes to the frame as a message; the frame is never reloaded,
+    // so nothing in it can fall back to the first slide.
+    expect(posts).toContainEqual({ type: "DEMO_SET_THEME", theme: "light" });
+    expect(posts).not.toContainEqual({
+      type: "DEMO_SET_SLIDE",
+      slideId: "slide-1",
+    });
+    expect(counterAt(2, 2)).toBeTruthy();
+    expect(screen.getByTitle("Sandbox")).toBe(frame);
+  });
+
+  it("re-posts the current slide and theme when the harness reports it is listening", async () => {
+    setHtmlTheme("dark");
+    mockGetMaterials.mockResolvedValue(twoSlideDeck());
+    renderPlayerWithToggle();
+    await settle();
+
+    const frame = screen.getByTitle("Sandbox") as HTMLIFrameElement;
+    const posts = playerPosts(frame);
+
+    // The reader is on item 2, in the light theme.
+    fireEvent.click(screen.getByRole("button", { name: "Next slide" }));
+    fireEvent.click(screen.getByRole("button", { name: "Toggle theme" }));
+    await act(async () => {});
+    posts.length = 0;
+
+    // The harness's own cue: "my listener exists now". A post that raced the
+    // frame's mount was dropped; this is the retry (#185).
+    postFromFrame(frame, { type: "SANDBOX_READY" });
+    await act(async () => {});
+
+    expect(posts).toContainEqual({ type: "DEMO_SET_THEME", theme: "light" });
+    expect(posts).toContainEqual({
+      type: "DEMO_SET_SLIDE",
+      slideId: "slide-2",
+    });
+  });
+
+  it("resyncs on the frame's load too, and ignores a message from anywhere else", async () => {
+    setHtmlTheme("dark");
+    mockGetMaterials.mockResolvedValue(twoSlideDeck());
+    renderPlayerWithToggle();
+    await settle();
+
+    const frame = screen.getByTitle("Sandbox") as HTMLIFrameElement;
+    const posts = playerPosts(frame);
+    posts.length = 0;
+
+    fireEvent.load(frame);
+    await act(async () => {});
+    expect(posts).toContainEqual({ type: "DEMO_SET_THEME", theme: "dark" });
+    expect(posts).toContainEqual({
+      type: "DEMO_SET_SLIDE",
+      slideId: "slide-1",
+    });
+
+    posts.length = 0;
+    // The frame's other messages are not cues to resync: it posts
+    // `SANDBOX_RESIZE` on every reflow, and answering those with a re-post
+    // would put the player back on the slide it was already showing.
+    postFromFrame(frame, { type: "SANDBOX_RESIZE", height: 1234 });
+    postFromFrame(frame, { type: "NOT_A_COMMAND", theme: "light" });
+    await act(async () => {});
+    expect(posts).toEqual([]);
+
+    posts.length = 0;
+    // Not the player frame: the view must not answer it (#80's frame is the
+    // only one it talks to).
+    window.postMessage({ type: "SANDBOX_READY" }, "*");
+    window.dispatchEvent(
+      new MessageEvent("message", { data: { type: "SANDBOX_READY" } }),
+    );
+    await act(async () => {});
+    expect(posts).toEqual([]);
+  });
+
+  it("has no player to resync in a deck of questions only", async () => {
+    setHtmlTheme("dark");
+    mockGetMaterials.mockResolvedValue(
+      materials({
+        generated_steps: [
+          {
+            step_id: "st-1",
+            summary: {
+              step_id: "st-1",
+              title: "Force and mass",
+              key_points: ["F = ma"],
+            },
+            items: [
+              {
+                type: "question",
+                id: "q-1",
+                text: "What does F stand for?",
+                options: ["Force", "Friction"],
+                correct_index: 0,
+                explanation: "F is the net force.",
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    renderSession();
+    await settle();
+
+    expect(screen.queryByTitle("Sandbox")).toBeNull();
+
+    // A cue with no frame behind it is not a reason to post anywhere.
+    window.dispatchEvent(
+      new MessageEvent("message", { data: { type: "SANDBOX_READY" } }),
+    );
+    await act(async () => {});
+    expect(screen.queryByTitle("Sandbox")).toBeNull();
   });
 });
