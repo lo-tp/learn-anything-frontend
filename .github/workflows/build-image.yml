@@ -173,33 +173,21 @@ jobs:
             exit 1
           fi
           # Inside the image, not on the runner: the built chunks must carry the
-          # origins this workflow passed in as build args. Asserted at the string
-          # boundary on purpose — the substring version of this check
-          # (`grep -q "$URL"`) passed on an image whose baked value was that origin
-          # *plus a space and more text*, which is the exact defect it is supposed
-          # to catch. A prefix is not the value.
-          #
-          # The shape that is legal and must not be rejected: a baked origin is a
-          # *prefix* of a longer quoted string when the code appends a path, so
-          # `"https://sandbox.lotp.xyz/slides/"` is normal. What is never legal is a
-          # space or a second assignment after it — the signature of two build args
-          # folded into one.
-          docker exec -e WANT_BACKEND="${{ env.NEXT_PUBLIC_BACKEND_URL }}" \
-                      -e WANT_SANDBOX="${{ env.NEXT_PUBLIC_SANDBOX_ORIGIN }}" \
-            fe-smoke sh -c '
-              set -eu
-              for u in "$WANT_BACKEND" "$WANT_SANDBOX"; do
-                grep -q "\"$u" .next/static/**/*.js 2>/dev/null ||
-                  grep -rq "$u" .next/static ||
-                  { echo "origin was not baked into the image: $u"; exit 1; }
-              done
-              bad=$(grep -rhoE "https?://[A-Za-z0-9.-]*lotp\.xyz[^\"]{0,40}" .next/static |
-                    grep -E "[[:space:]]" | sort -u | head -3 || true)
-              if [ -n "$bad" ]; then
-                printf "a baked origin has text appended to it:\n%s\n" "$bad"
-                exit 1
-              fi
-            '
+          # origins this workflow passed in as build args, each one whole. The
+          # assertion itself lives in `.github/scripts/assert-baked-origins.sh` —
+          # why a string boundary and not a substring, and which shapes are legal,
+          # is argued there — and it is fed to the container over stdin, so it
+          # travels from this checkout rather than from the image. Two reasons to
+          # keep it in a file: it is runnable by hand against a local build, and it
+          # can have tests of its own (`test/ci/assert-baked-origins.test.ts`).
+          # The build this step stopped was a defect in the check, not in the image
+          # (#189): it read a `"` as the only delimiter a bundle leaves around an
+          # inlined value, and a template literal has none. A guard with no test
+          # only fails loudly, which is an expensive way to learn one.
+          docker exec -i \
+            -e WANT_BACKEND="${{ env.NEXT_PUBLIC_BACKEND_URL }}" \
+            -e WANT_SANDBOX="${{ env.NEXT_PUBLIC_SANDBOX_ORIGIN }}" \
+            fe-smoke sh -s < .github/scripts/assert-baked-origins.sh
           docker rm -f fe-smoke
 
       # The infra side pins a digest, not a tag: a tag can be re-pointed under a
