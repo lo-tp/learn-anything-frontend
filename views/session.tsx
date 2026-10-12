@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
@@ -33,6 +33,9 @@ const PRE_MATERIAL = new Set(["clarifying", "probing", "planning", "reviewing"])
  * passed as a query param so the slide page renders in the same palette
  * (`?theme=light` sets the `light` class on the page's `<html>`, #78);
  * absent/dark keeps the page's dark default.
+ *
+ * That param is the frame's **initial** paint only. A theme change after the
+ * frame exists is not a URL change (#185) — see the player wiring below.
  */
 const sandboxSrc = (slideId: string, theme: Theme) =>
   `${process.env.NEXT_PUBLIC_SANDBOX_ORIGIN}/slides/${slideId}?theme=${theme}`;
@@ -196,15 +199,21 @@ export function Session({ sessionId }: { sessionId: string }) {
   const clampedIndex = Math.min(activeIndex, total - 1);
   const active = deck[clampedIndex];
 
-  // The slide player is one persistent iframe whose `src` changes only when
-  // the theme does (to re-sync the slide page's palette, #78): it always
-  // loads the session's first slide, and each slide switch is told to the
-  // sandbox harness via `postMessage` (it swaps the rendered slide in its
-  // own React state). Navigating the iframe to a per-slide URL appends a
-  // top-level history entry that swallows the browser Back button (#80) — so
-  // slide switches never change `src`. The sidebar mini previews already use
-  // a per-theme constant `src` (one fixed slide each) and are measured not
-  // to add history entries.
+  // The slide player is one persistent iframe whose `src` is built **once per
+  // deck** and never changes after that: it always loads the session's first
+  // slide, and each slide switch is told to the sandbox harness via
+  // `postMessage` (it swaps the rendered slide in its own React state).
+  // Navigating the iframe to a per-slide URL appends a top-level history entry
+  // that swallows the browser Back button (#80) — so slide switches never
+  // change `src`. A theme switch must not change it either (#185): a `src`
+  // change is a whole frame reload, and a fresh frame begins on its own slug,
+  // so the reader who was on item 5 lands on item 1 with the slide bundle
+  // re-fetched, its entrance animation replayed and its in-slide state
+  // discarded. Themes travel as `DEMO_SET_THEME`, which the harness answers by
+  // toggling the `light` class on its own `<html>` — the palette.css the frame
+  // loads carries both palettes, so everything repaints in place. The sidebar
+  // mini previews keep a per-theme constant `src` (one fixed slide each) and
+  // are measured not to add history entries.
   /** The shared footer action of the friendly states: a link home. */
   const backToSessions = (
     <Link
@@ -222,25 +231,83 @@ export function Session({ sessionId }: { sessionId: string }) {
   );
   const activeSlideId = active?.type === "slide" ? active.slide_id : null;
 
-  // Tell the player which slide to show whenever the active slide changes.
-  useEffect(() => {
-    if (!activeSlideId) return;
-    playerRef.current?.contentWindow?.postMessage(
-      { type: "DEMO_SET_SLIDE", slideId: activeSlideId },
-      "*",
-    );
-  }, [activeSlideId]);
+  /**
+   * The player frame's URL, built **once per deck** (#185). Keyed on the slide
+   * it loads — a new deck is a new frame; a theme change is not, because a new
+   * `src` would be a frame reload and a reload lands on the frame's own slug,
+   * item 1 (see the note above).
+   *
+   * The theme it carries is the one `<html>` has when the deck first appears,
+   * which is already the reader's stored theme: `useTheme` adopts the stored
+   * value in a `useLayoutEffect` before paint (`hooks/use-theme.ts`) and the
+   * deck only renders once the materials fetch has resolved. A cold load
+   * therefore paints in that palette with no dark-frame flash.
+   */
+  const [deckFrame, setDeckFrame] = useState<{
+    slug: string;
+    url: string;
+  } | null>(null);
+  if (firstSlideId && deckFrame?.slug !== firstSlideId) {
+    // React's render-time state adjustment: the deck's first slide is the key,
+    // so a new deck gets a new URL and a theme change (same slug) does not
+    // re-enter this branch — the frame keeps the `?theme=` of its first paint
+    // and is re-themed by message instead (#185).
+    setDeckFrame({ slug: firstSlideId, url: sandboxSrc(firstSlideId, theme) });
+  }
+  const playerSrc = deckFrame?.url ?? null;
 
-  // The harness may not be listening on first paint — resync on load so the
-  // correct slide shows even when it differs from the iframe's static `src`.
-  // The handler's closure carries the current `activeSlideId`.
-  const handlePlayerLoad = () => {
-    if (!activeSlideId) return;
-    playerRef.current?.contentWindow?.postMessage(
-      { type: "DEMO_SET_SLIDE", slideId: activeSlideId },
-      "*",
-    );
-  };
+  /**
+   * Tell the frame the reader's current item *and* the app's current theme:
+   * `postMessage` is the only channel to a cross-origin frame, and it is the
+   * one that leaves the frame where it is (#185). Both are sent together —
+   * each is idempotent in the harness, and a post that lands before the frame
+   * is listening is re-sent by its `load` / `SANDBOX_READY` cues below.
+   */
+  const postToPlayer = useCallback(() => {
+    const frame = playerRef.current;
+    if (!frame?.contentWindow) return;
+    frame.contentWindow.postMessage({ type: "DEMO_SET_THEME", theme }, "*");
+    if (activeSlideId) {
+      frame.contentWindow.postMessage(
+        { type: "DEMO_SET_SLIDE", slideId: activeSlideId },
+        "*",
+      );
+    }
+  }, [theme, activeSlideId]);
+
+  // The frame follows the deck: a new item or a new theme is posted, never
+  // re-requested (#185). `postToPlayer`'s identity *is* that pair, so this
+  // effect runs exactly when either changes.
+  useEffect(postToPlayer, [postToPlayer]);
+
+  /**
+   * The harness may not be listening on first paint — resync on load, so the
+   * correct slide and palette show even when they differ from the frame's
+   * static `src`. The callback's closure carries the current item and theme.
+   */
+  const handlePlayerLoad = postToPlayer;
+
+  /**
+   * `SANDBOX_READY` is the harness saying "my listener exists now" (#185). It
+   * is the cue that turns a post that raced the frame's mount from a lost
+   * first paint into a retry, so answering it is what makes the first paint
+   * correct rather than eventually correct.
+   */
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      const frame = playerRef.current;
+      // `event.source` is who sent it: only the player frame's own cue counts
+      // — a `SANDBOX_READY` from anywhere else (this window included) is not
+      // a frame that needs resyncing.
+      if (!frame || event.source !== frame.contentWindow) return;
+      if ((event.data as { type?: unknown } | null)?.type !== "SANDBOX_READY") {
+        return;
+      }
+      postToPlayer();
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [postToPlayer]);
 
   // ── Render branches, in priority order ──────────────────────────
 
@@ -332,11 +399,11 @@ export function Session({ sessionId }: { sessionId: string }) {
         </header>
 
         <main className="min-h-0 flex-1 overflow-y-auto p-6">
-          {firstSlideId && (
+          {firstSlideId && playerSrc && (
             <div className={active.type === "slide" ? "h-full" : "hidden"}>
               <SandboxFrame
                 ref={playerRef}
-                src={sandboxSrc(firstSlideId, theme)}
+                src={playerSrc}
                 onLoad={handlePlayerLoad}
               />
             </div>
