@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, screen } from "@testing-library/react";
 import { renderWithLocale } from "@/test/test-utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { Theme } from "@/hooks/use-theme";
-import { Session } from "@/views/session";
+import { Session, deckMoveFor } from "@/views/session";
 import {
   getMaterials,
   getSession,
@@ -249,6 +249,125 @@ describe("Session", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next slide" }));
     fireEvent.click(screen.getByRole("button", { name: "Previous slide" }));
     expect(screen.getByText("Not quite.")).toBeTruthy();
+  });
+
+  describe("deck keyboard navigation", () => {
+    it("walks items with ArrowDown/ArrowUp and clamps at both ends", async () => {
+      renderSession();
+      await settle();
+      expect(counterAt(1, 3)).toBeTruthy();
+
+      // 1 → 2 → 3
+      fireEvent.keyDown(document.body, { key: "ArrowDown" });
+      expect(counterAt(2, 3)).toBeTruthy();
+      expect(
+        screen.getByRole("button", { name: /^a\s*force$/i }),
+      ).toBeTruthy();
+      fireEvent.keyDown(document.body, { key: "ArrowDown" });
+      expect(counterAt(3, 3)).toBeTruthy();
+
+      // Clamped at the last item.
+      fireEvent.keyDown(document.body, { key: "ArrowDown" });
+      expect(counterAt(3, 3)).toBeTruthy();
+
+      // 3 → 2 → 1
+      fireEvent.keyDown(document.body, { key: "ArrowUp" });
+      expect(counterAt(2, 3)).toBeTruthy();
+      fireEvent.keyDown(document.body, { key: "ArrowUp" });
+      expect(counterAt(1, 3)).toBeTruthy();
+
+      // Clamped at the first item.
+      fireEvent.keyDown(document.body, { key: "ArrowUp" });
+      expect(counterAt(1, 3)).toBeTruthy();
+    });
+
+    it("is silent on the friendly states — an empty deck has no keys to answer", async () => {
+      // An empty deck (phase not yet `generating` content) renders the
+      // generating panel instead of the deck — the listener is not installed.
+      mockGetMaterials.mockResolvedValue(materials({ generated_steps: [] }));
+      renderSession();
+      await screen.findByText("Generating materials…");
+
+      fireEvent.keyDown(document.body, { key: "ArrowDown" });
+      expect(screen.queryByLabelText(/slide 1 of/i)).toBeNull();
+      expect(screen.getByText("Generating materials…")).toBeTruthy();
+    });
+
+    it("keeps working while a footer control holds focus", async () => {
+      renderSession();
+      await settle();
+      // Tab focus lands on the ControlBar's prev button — the deck must
+      // still answer the arrows from there (it owns no arrow keys itself).
+      screen.getByRole("button", { name: "Previous slide" }).focus();
+      fireEvent.keyDown(screen.getByRole("button", { name: "Previous slide" }), {
+        key: "ArrowDown",
+      });
+      expect(counterAt(2, 3)).toBeTruthy();
+    });
+
+    it("ignores arrow keys held with a modifier (browser shortcuts win)", async () => {
+      renderSession();
+      await settle();
+      fireEvent.keyDown(document.body, { key: "ArrowDown", ctrlKey: true });
+      fireEvent.keyDown(document.body, { key: "ArrowDown", metaKey: true });
+      expect(counterAt(1, 3)).toBeTruthy();
+    });
+  });
+
+  describe("deckMoveFor", () => {
+    it("maps ArrowUp/ArrowDown and ignores everything else", () => {
+      expect(
+        deckMoveFor(new KeyboardEvent("keydown", { key: "ArrowUp" })),
+      ).toBe("prev");
+      expect(
+        deckMoveFor(new KeyboardEvent("keydown", { key: "ArrowDown" })),
+      ).toBe("next");
+      expect(
+        deckMoveFor(new KeyboardEvent("keydown", { key: "Enter" })),
+      ).toBe(null);
+      expect(
+        deckMoveFor(new KeyboardEvent("keydown", { key: "a" })),
+      ).toBe(null);
+    });
+
+    it("ignores modifier-held keys", () => {
+      for (const mod of ["ctrlKey", "metaKey", "altKey"] as const) {
+        expect(
+          deckMoveFor(
+            new KeyboardEvent("keydown", { key: "ArrowDown", [mod]: true }),
+          ),
+        ).toBe(null);
+      }
+    });
+
+    it("never steals arrow keys from text fields", () => {
+      for (const tag of ["input", "textarea"] as const) {
+        const field = document.createElement(tag);
+        document.body.appendChild(field);
+        const event = new KeyboardEvent("keydown", {
+          key: "ArrowDown",
+          bubbles: true,
+        });
+        field.dispatchEvent(event);
+        expect(deckMoveFor(event)).toBe(null);
+        field.remove();
+      }
+      // jsdom does not implement `isContentEditable`; the browser does —
+      // define it on the test element the way the DOM would.
+      const editable = document.createElement("div");
+      editable.setAttribute("contenteditable", "true");
+      Object.defineProperty(editable, "isContentEditable", {
+        value: true,
+      });
+      document.body.appendChild(editable);
+      const event = new KeyboardEvent("keydown", {
+        key: "ArrowUp",
+        bubbles: true,
+      });
+      editable.dispatchEvent(event);
+      expect(deckMoveFor(event)).toBe(null);
+      editable.remove();
+    });
   });
 
   it("shows Correct. when the right option is chosen", async () => {
