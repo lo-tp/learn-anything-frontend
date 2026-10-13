@@ -70,6 +70,35 @@ const sandboxSrc = (slideId: string, theme: Theme) =>
  * into the Review deck on sign-in (#152); the first miss raises a nudge
  * that offers signing in as the way to keep them.
  */
+
+/**
+ * The deck's arrow-key map: ArrowUp walks to the previous item, ArrowDown
+ * to the next. Modifier-held keys are the browser's (reload, page up/down)
+ * and never the deck's, and arrow keys pressed while the reader is in a
+ * text field move the caret, not the slide — those are ignored so the
+ * deck never steals input navigation. Everything else is not a deck key.
+ */
+export function deckMoveFor(
+  e: KeyboardEvent,
+): "prev" | "next" | null {
+  if (e.ctrlKey || e.metaKey || e.altKey) return null;
+  const target = e.target;
+  if (target instanceof HTMLElement) {
+    const tag = target.tagName;
+    if (
+      tag === "INPUT" ||
+      tag === "TEXTAREA" ||
+      tag === "SELECT" ||
+      target.isContentEditable
+    ) {
+      return null;
+    }
+  }
+  if (e.key === "ArrowUp") return "prev";
+  if (e.key === "ArrowDown") return "next";
+  return null;
+}
+
 export function Session({ sessionId }: { sessionId: string }) {
   const [session, setSession] = useState<SessionState | null>(null);
   const [materials, setMaterials] = useState<MaterialsOut | null>(null);
@@ -198,6 +227,39 @@ export function Session({ sessionId }: { sessionId: string }) {
   const total = deck.length;
   const clampedIndex = Math.min(activeIndex, total - 1);
   const active = deck[clampedIndex];
+
+  /**
+   * Walk the deck one item, clamped at both ends. The footer's prev/next
+   * and the arrow keys share this exact step, so the two cannot drift.
+   */
+  const stepDeck = useCallback(
+    (move: "prev" | "next") => {
+      setActiveIndex((i) =>
+        move === "next" ? Math.min(total - 1, i + 1) : Math.max(0, i - 1),
+      );
+    },
+    [total],
+  );
+
+  /**
+   * Keyboard deck navigation: ArrowUp/ArrowDown walk the flattened deck
+   * exactly like the footer's prev/next. The listener is window-level and
+   * answers only when the deck is on screen (`total > 0` — the friendly
+   * states have no deck to walk). `preventDefault` stops the page from
+   * also scrolling. Keys held with a modifier and keys typed in text
+   * fields are never the deck's — see `deckMoveFor`.
+   */
+  useEffect(() => {
+    if (total === 0) return;
+    const onKey = (e: KeyboardEvent) => {
+      const move = deckMoveFor(e);
+      if (move === null) return;
+      e.preventDefault();
+      stepDeck(move);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [total, stepDeck]);
 
   // The slide player is one persistent iframe whose `src` is built **once per
   // deck** and never changes after that: it always loads the session's first
@@ -472,8 +534,8 @@ export function Session({ sessionId }: { sessionId: string }) {
           <ControlBar
             index={clampedIndex + 1}
             total={total}
-            onPrev={() => setActiveIndex((i) => Math.max(0, i - 1))}
-            onNext={() => setActiveIndex((i) => Math.min(total - 1, i + 1))}
+            onPrev={() => stepDeck("prev")}
+            onNext={() => stepDeck("next")}
           />
         </footer>
       </div>
