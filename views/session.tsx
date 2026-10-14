@@ -8,6 +8,11 @@ import { ControlBar } from "@/components/control-bar";
 import { PhaseIndicator } from "@/components/phase-indicator";
 import { StatePanel } from "@/components/state-panel";
 import { QuizQuestion } from "@/components/session/quiz-question";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { SessionSidebar, type SidebarGroup } from "@/components/session/session-sidebar";
 import { SandboxFrame } from "@/components/sandbox/sandbox-frame";
 import { useTheme, type Theme } from "@/hooks/use-theme";
@@ -20,6 +25,7 @@ import {
   type SessionState,
 } from "@/lib/api-client";
 import { onSignedIn, requestSignIn } from "@/lib/auth-events";
+import { cn } from "@/lib/utils";
 import { useSignInState } from "@/hooks/use-sign-in-state";
 
 /** How often the view polls while materials are still generating. */
@@ -443,6 +449,16 @@ export function Session({ sessionId }: { sessionId: string }) {
     );
   }
 
+  /**
+   * The header's title line: the session's narrowed goal, or the generic label
+   * for a session that has none. The voice is named once because the clipped
+   * line and the slip that prints it in full are one text shown twice (#210):
+   * they must be set identically, or the reader reads them as two things.
+   */
+  const headerTitle = session.narrowed_goal ?? t("learningSession");
+  const headerTitleVoice =
+    "font-display text-base font-semibold text-on-surface";
+
   return (
     <div className="flex h-full overflow-hidden">
       <SessionSidebar
@@ -453,9 +469,29 @@ export function Session({ sessionId }: { sessionId: string }) {
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
+        {/* The header band prints the session's title on one line, and a goal
+            longer than the row has no room left: the line clips it to an
+            ellipsis. Hovering that line prints the whole title as a slip
+            (#210) — the full text is already in the line, which is what screen
+            readers read, so this is the reading affordance for the ellipsis,
+            set in the same voice as the line it completes.
+            The holder takes the row's free space, so the phase stamp is never
+            squeezed to make room for a long title; the title line inside it is
+            sized to its own text (`min-w-0` lets flex shrink it, which is what
+            makes the clip happen), so the slip is raised by the title rather
+            than by the empty half of the band, and it centres on the title. */}
         <header className="flex h-16 shrink-0 items-center justify-between gap-4 bg-surface px-6 double-rule-b">
-          <span className="min-w-0 flex-1 truncate font-display text-base font-semibold text-on-surface">
-            {session.narrowed_goal ?? t("learningSession")}
+          <span className="flex min-w-0 flex-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className={cn(headerTitleVoice, "min-w-0 truncate")}>
+                  {headerTitle}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className={headerTitleVoice}>
+                {headerTitle}
+              </TooltipContent>
+            </Tooltip>
           </span>
           <PhaseIndicator phase={phase} />
         </header>

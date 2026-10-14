@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useState } from "react";
 import { cleanup, fireEvent, screen } from "@testing-library/react";
-import { renderWithLocale } from "@/test/test-utils";import {
+import { renderWithLocale, clip } from "@/test/test-utils";import {
   SessionSidebar,
   type SidebarGroup,
 } from "@/components/session/session-sidebar";
@@ -44,6 +44,30 @@ describe("SessionSidebar", () => {
     expect(
       screen.getByRole("button", { name: /what does f stand for\?/i }),
     ).toBeTruthy();
+  });
+
+  it("prints a clipped step summary in full when its divider is hovered (#210)", async () => {
+    const title =
+      "Random mutations create variation without intent, direction, or purpose";
+    renderWithLocale(
+      <SessionSidebar
+        groups={[{ ...groups[0], step: { ...groups[0].step, summary: { ...groups[0].step.summary, title } } }]}
+        activeIndex={0}
+        onSelect={() => {}}
+        inquiryId="sess-1"
+      />,
+    );
+    // The divider carries the whole title; the rail is 320px wide, so a
+    // summary this long is the line that clips (#210).
+    const divider = clip(screen.getByText(title), true);
+    expect(screen.queryByRole("tooltip")).toBeNull();
+
+    fireEvent.pointerMove(divider);
+    const slip = await screen.findByRole("tooltip");
+    expect(slip.textContent).toContain(title);
+    // The slip is set in the divider's own voice, not a new one.
+    expect(slip.className).toContain("font-mono");
+    expect(slip.className).toContain("uppercase");
   });
 
   it("previews the slide card's sandbox route scaled down", () => {
