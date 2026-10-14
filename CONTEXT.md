@@ -25,11 +25,11 @@ The fact that a visitor is a signed-in user. It is required only where data is o
 _Avoid_: session, login session, auth session (in this repo "session" is always a learning Session)
 
 **Explore**:
-The public list of Session records — every Session that reached materials, newest first, goal text first, with no owner. Served at the site root; a Visitor and a signed-in User see the same feed (ADR-0006).
+The public list of Session records — every Session that reached materials, ordered with the reader's language first and newest first within each group (#205), goal text first, with no owner. Served at the site root; a Visitor and a signed-in User see the same feed (ADR-0006).
 _Avoid_: gallery
 
 **History**:
-A User's own Sessions, listed at `/mine` and labelled Study in the top bar. The list read is public (ADR-0006) — it answers a Visitor with the same rows it answers a User — but the surface is still reached through the signed-in affordance; writes remain gated.
+A User's own Sessions, listed at `/mine` and labelled Study in the top bar. The list read is public (ADR-0006) — it answers a Visitor with the same rows it answers a User — but the surface is still reached through the signed-in affordance; writes remain gated. Ordered like Explore's: the reader's language first, newest first within each group (#205).
 _Avoid_: Explore, Study (which is only the tab's label for it)
 
 **Visitor deck view**:

@@ -4,10 +4,11 @@ import {
   act,
   cleanup,
   fireEvent,
+  render,
   screen,
   waitFor,
 } from "@testing-library/react";
-import { renderWithLocale } from "@/test/test-utils";
+import { LocaleHarness, renderWithLocale } from "@/test/test-utils";
 import { Mine } from "@/views/mine";
 import {
   createSession,
@@ -90,10 +91,117 @@ describe("Mine (the personal list at /mine)", () => {
     expect(screen.getByText("React Hooks Deep Dive")).toBeTruthy();
     expect(screen.queryByText("No sessions yet")).toBeNull();
     // History lists only sessions at/after the generating step (#131) —
-    // the mount fetch filters to the confirming phases.
+    // the mount fetch filters to the confirming phases, and asks the
+    // backend to order the reader's language first (#205).
     expect(mockListSessions).toHaveBeenCalledWith(
       ["generating", "executing", "complete"],
+      "English",
     );
+  });
+
+  it("fetches the History in the reader's language under the zh locale", async () => {
+    mockListSessions.mockResolvedValue({ sessions: [] });
+    renderWithLocale(<Mine />, { locale: "zh" });
+    await waitFor(() => expect(mockListSessions).toHaveBeenCalled());
+    expect(mockListSessions).toHaveBeenCalledWith(
+      ["generating", "executing", "complete"],
+      "Chinese",
+    );
+  });
+
+  it("refetches the History when the reader's language changes", async () => {
+    // The language switcher re-routes to the same page under another locale
+    // prefix: the view stays mounted, so the list must refetch (in the new
+    // language's order) rather than keep the old ordering (#205).
+    mockListSessions.mockResolvedValue({ sessions: [session()] });
+    render(
+      <LocaleHarness>
+        <Mine />
+      </LocaleHarness>,
+    );
+    await screen.findByText("React Hooks Deep Dive");
+    expect(mockListSessions).toHaveBeenLastCalledWith(
+      ["generating", "executing", "complete"],
+      "English",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /switch language/ }));
+    // The switch lands as a new fetch in the reader's language — the view
+    // did not remount, so the second call is the proof of the re-fetch.
+    await waitFor(() => expect(mockListSessions).toHaveBeenCalledTimes(2));
+    expect(mockListSessions).toHaveBeenLastCalledWith(
+      ["generating", "executing", "complete"],
+      "Chinese",
+    );
+    expect(screen.getByText("React Hooks Deep Dive")).toBeTruthy();
+  });
+
+  it("drops a late refetch when the reader's language changed meanwhile", async () => {
+    // A refetch in flight (the sign-in one) must not land its old-language
+    // reply on top of the list the locale switch refetched (#205).
+    let resolveStale: (value: { sessions: SessionListItem[] }) => void;
+    mockListSessions
+      .mockRejectedValueOnce(new ApiError("unauthorized", 401))
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveStale = resolve;
+        }),
+      )
+      .mockResolvedValueOnce({
+        sessions: [session({ session_id: "s-2", goal: "Morse code" })],
+      });
+    render(
+      <LocaleHarness>
+        <Mine />
+      </LocaleHarness>,
+    );
+    await screen.findByText("Can't load your sessions");
+    act(() => {
+      notifySignedIn();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /switch language/ }));
+    expect(await screen.findByText("Morse code")).toBeTruthy();
+
+    // The old-language reply lands late — it is dropped, not applied.
+    act(() => {
+      resolveStale!({ sessions: [session()] });
+    });
+    expect(screen.getByText("Morse code")).toBeTruthy();
+    expect(screen.queryByText("React Hooks Deep Dive")).toBeNull();
+  });
+
+  it("drops a late refetch failure when the reader's language changed meanwhile", async () => {
+    // A failed refetch in flight (the sign-in one) must not land its
+    // old-language error on top of the list the locale switch refetched (#205).
+    let rejectStale: (err: Error) => void;
+    mockListSessions
+      .mockRejectedValueOnce(new ApiError("unauthorized", 401))
+      .mockReturnValueOnce(
+        new Promise((_resolve, reject) => {
+          rejectStale = reject;
+        }),
+      )
+      .mockResolvedValueOnce({
+        sessions: [session({ session_id: "s-2", goal: "Morse code" })],
+      });
+    render(
+      <LocaleHarness>
+        <Mine />
+      </LocaleHarness>,
+    );
+    await screen.findByText("Can't load your sessions");
+    act(() => {
+      notifySignedIn();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /switch language/ }));
+    expect(await screen.findByText("Morse code")).toBeTruthy();
+
+    // The old-language failure lands late — it is dropped, not applied.
+    act(() => {
+      rejectStale!(new Error("boom"));
+    });
+    expect(screen.getByText("Morse code")).toBeTruthy();
+    expect(screen.queryByText("Can't load your sessions")).toBeNull();
   });
 
   it("shows the loading state while the initial fetch is in flight", async () => {
@@ -184,6 +292,11 @@ describe("Mine (the personal list at /mine)", () => {
     });
     expect(await screen.findByText("React Hooks Deep Dive")).toBeTruthy();
     expect(mockListSessions).toHaveBeenCalledTimes(2);
+    // The sign-in refetch asks for the reader's language too (#205).
+    expect(mockListSessions).toHaveBeenLastCalledWith(
+      ["generating", "executing", "complete"],
+      "English",
+    );
   });
 
   it("does not refetch on sign-out — the account menu leaves this page for Explore", async () => {
@@ -312,5 +425,87 @@ describe("Mine (the personal list at /mine)", () => {
     // re-fetch, since it was not in the mount fetch's list.
     expect(await screen.findByText("Newton's second law of motion")).toBeTruthy();
     expect(mockListSessions).toHaveBeenCalledTimes(2); // mount fetch + re-fetch
+    // The silent re-fetch asks for the reader's language too (#205).
+    expect(mockListSessions).toHaveBeenLastCalledWith(
+      ["generating", "executing", "complete"],
+      "English",
+    );
+  });
+
+  it("drops a late intake re-fetch when the reader's language changed meanwhile", async () => {
+    // The silent re-fetch after an accepted intake runs while the locale
+    // switch refetches: the old-language reply must not clobber the list (#205).
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-newton",
+      phase: "planning",
+      narrowed_goal: "Newton's second law of motion",
+    });
+    mockGeneratePlan.mockResolvedValue({
+      phase: "reviewing",
+      plan: {
+        prose_summary: "Start from scalar F = ma, then extend to vectors.",
+        dependency_dag: "scalar -> vector",
+        steps: [
+          {
+            id: "step-1",
+            letter: "A",
+            title: "Scalar F = ma",
+            description: "One-dimensional force, mass, and acceleration.",
+            depends_on: [],
+            depth: 0,
+          },
+        ],
+      },
+    });
+    mockApprovePlan.mockResolvedValue({
+      phase: "generating",
+      message: "Plan approved.",
+    });
+    let resolveStale: (value: { sessions: SessionListItem[] }) => void;
+    mockListSessions
+      .mockResolvedValueOnce({ sessions: [session()] })
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveStale = resolve;
+        }),
+      )
+      .mockResolvedValueOnce({
+        sessions: [session({ session_id: "s-2", goal: "Morse code" })],
+      });
+    render(
+      <LocaleHarness>
+        <Mine />
+      </LocaleHarness>,
+    );
+    await screen.findByText("My Sessions");
+    fireEvent.click(
+      screen.getByRole("button", { name: /Start New Session/ }),
+    );
+    const textarea = await screen.findByLabelText(
+      "What would you like to explore or learn?",
+    );
+    fireEvent.change(textarea, {
+      target: {
+        value:
+          "I want to master Newton's second law of motion and how force, mass, and acceleration fit together.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    const review = await screen.findByLabelText("How should we adjust the plan?");
+    fireEvent.change(review, { target: { value: "approve" } });
+    fireEvent.keyDown(review, { key: "Enter" });
+    await screen.findByRole("button", { name: /Back to my sessions/ });
+    fireEvent.click(screen.getByRole("button", { name: /Back to my sessions/ }));
+
+    // The silent re-fetch is in flight; the language switch supersedes it.
+    fireEvent.click(screen.getByRole("button", { name: /switch language/ }));
+    expect(await screen.findByText("Morse code")).toBeTruthy();
+
+    // The old-language reply lands late — it is dropped, not applied.
+    act(() => {
+      resolveStale!({ sessions: [session()] });
+    });
+    expect(screen.getByText("Morse code")).toBeTruthy();
+    expect(screen.queryByText("React Hooks Deep Dive")).toBeNull();
   });
 });

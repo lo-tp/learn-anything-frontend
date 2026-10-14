@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, TriangleAlert } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { EmptyState } from "@/components/empty-state";
 import { SessionCard } from "@/components/session-card";
+import { localeLanguage } from "@/i18n/routing";
 import { StartSessionButton } from "@/components/start-session-button";
 import { StatePanel } from "@/components/state-panel";
 import { NewSessionDialog } from "@/views/mine/new-session-dialog";
@@ -20,6 +21,11 @@ import { useSignInState } from "@/hooks/use-sign-in-state";
  * `GET /sessions` call the personal list makes, no sign-in gate (#178).
  * Like the personal list (#148), the view owns its feed fetch in the
  * browser (#87); the route is a static shell.
+ *
+ * The feed asks the backend to order the reader's language first (#205):
+ * the app's locale is the user's language preference — the backend stores
+ * none per User — and the fetch refetches when the locale changes, since
+ * the switcher re-routes to the same page without remounting this view.
  *
  * Three fetch-driven states (#132): **loading** (a friendly panel — never
  * the empty state), **error** (a panel with a Retry that re-runs the
@@ -37,6 +43,8 @@ import { useSignInState } from "@/hooks/use-sign-in-state";
  */
 export function Explore() {
   const t = useTranslations("explore");
+  const locale = useLocale();
+  const language = localeLanguage(locale);
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -44,38 +52,48 @@ export function Explore() {
   // A Visitor's CTA click is an intent, not a dialog: it is held here so the
   // intake opens when the sign-in it asked for succeeds (#143).
   const wantsToStart = useRef(false);
+  // A newer request supersedes an older one: a late reply — e.g. from a
+  // refetch that was in flight when the reader's language changed — must
+  // not overwrite the list it came before (#205).
+  const requestRef = useRef(0);
 
   /** The error state's Retry: re-run the fetch with full status tracking. */
   const load = useCallback(async () => {
+    const id = ++requestRef.current;
     setStatus("loading");
     try {
-      const { sessions } = await listSessions(CONFIRMING_PHASES);
+      const { sessions } = await listSessions(CONFIRMING_PHASES, language);
+      if (id !== requestRef.current) return;
       setSessions(sessions);
       setStatus("ready");
     } catch {
+      if (id !== requestRef.current) return;
       setStatus("error");
     }
-  }, []);
+  }, [language]);
 
   // The initial fetch: the route is a static shell, so the view owns its
-  // data (#87). The mount state starts at `loading`.
+  // data (#87). The mount state starts at `loading`; a locale change
+  // re-runs it so the feed comes back ordered in the reader's language
+  // (#205).
   useEffect(() => {
+    const id = ++requestRef.current;
     let cancelled = false;
     (async () => {
       try {
-        const { sessions } = await listSessions(CONFIRMING_PHASES);
-        if (!cancelled) {
+        const { sessions } = await listSessions(CONFIRMING_PHASES, language);
+        if (!cancelled && id === requestRef.current) {
           setSessions(sessions);
           setStatus("ready");
         }
       } catch {
-        if (!cancelled) setStatus("error");
+        if (!cancelled && id === requestRef.current) setStatus("error");
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [language]);
 
   /** The primary CTA, in the header band or on the blank sheet: a User
    *  starts a Session, a Visitor is asked to sign in first (#143). */
@@ -103,13 +121,15 @@ export function Explore() {
   /** Silent re-fetch after an accepted intake (#132): keep the current list
    *  on failure — a new session joins the feed once it starts generating. */
   const refresh = useCallback(async () => {
+    const id = ++requestRef.current;
     try {
-      const { sessions } = await listSessions(CONFIRMING_PHASES);
+      const { sessions } = await listSessions(CONFIRMING_PHASES, language);
+      if (id !== requestRef.current) return;
       setSessions(sessions);
     } catch {
       /* keep the current list */
     }
-  }, []);
+  }, [language]);
 
   if (status === "loading") {
     return (
