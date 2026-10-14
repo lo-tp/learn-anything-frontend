@@ -6,6 +6,11 @@ import { useTranslations } from "next-intl";
 import type { MaterialOut, QuestionItem, SlideItem } from "@/lib/api-client";
 import { QuizQuestion } from "@/components/session/quiz-question";
 import { SandboxFrame } from "@/components/sandbox/sandbox-frame";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useTheme, type Theme } from "@/hooks/use-theme";
 import { cn, inquiryInk } from "@/lib/utils";
 
@@ -32,6 +37,15 @@ const sandboxSrc = (slideId: string, theme: Theme) =>
   `${process.env.NEXT_PUBLIC_SANDBOX_ORIGIN}/slides/${slideId}?theme=${theme}`;
 
 /**
+ * A step summary's type — the rail's label voice. Named once because the
+ * clipped divider and the slip that prints the same summary in full (#210) are
+ * one text shown twice: set them differently and the reader reads them as two
+ * things.
+ */
+const STEP_SUMMARY_VOICE =
+  "font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-on-surface";
+
+/**
  * Left item sidebar for `/session/{sessionId}` (#47).
  *
  * The deck's items — one card per slide/question — rendered grouped by
@@ -41,6 +55,10 @@ const sandboxSrc = (slideId: string, theme: Theme) =>
  * preview scaled down to fit the card — the slide's sandbox route, or
  * the question rendered exactly as the main area shows it — the same
  * treatment the classroom slide sidebar used.
+ *
+ * The rail is 320px wide and a step title is a sentence, so the divider's
+ * summary line is the one on this surface that can clip: when it does, hovering
+ * it prints the summary in full (#210).
  *
  * Cards are `div role="button"` (not `<button>`) because they embed
  * iframes and the quiz's option buttons; the previews are `aria-hidden`
@@ -104,9 +122,20 @@ export function SessionSidebar({
                 >
                   {stepNo + 1}
                 </span>
-                <span className="truncate font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-on-surface">
-                  {group.step.summary.title}
-                </span>
+                {/* The step summary is the rail's line that can clip: the rail
+                    is 320px wide and a step title is a sentence, so a long one
+                    ends in an ellipsis. Hovering it prints the whole summary as
+                    a slip, in the divider's own mono-caps voice (#210). */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className={cn(STEP_SUMMARY_VOICE, "truncate")}>
+                      {group.step.summary.title}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className={STEP_SUMMARY_VOICE}>
+                    {group.step.summary.title}
+                  </TooltipContent>
+                </Tooltip>
                 <span aria-hidden className="ml-1 flex-1 border-t border-dashed border-outline-variant/70" />
               </div>
               <ul className="flex flex-col gap-2">
