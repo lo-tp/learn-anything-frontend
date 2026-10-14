@@ -399,6 +399,12 @@ describe("intake core — probe loop", () => {
     expect(effects).toEqual([{ type: "api", call: "generatePlan", sessionId: "s-1" }]);
     expect(state.phase).toBe("planning");
     expect(state.batch).toBeNull();
+    // The chained generatePlan is a live backend request — like every other
+    // one it is marked in flight, so the sheet keeps its controls disabled
+    // until the draft lands (#193: the buttons must not re-enable between
+    // answering and the plan appearing).
+    expect(state.inFlight).toBe("plan");
+    expect(deriveViewModel(state, t).pending).toBe(true);
     expect(state.bubbles.at(-1)).toEqual({
       kind: "text",
       from: "ai",
@@ -491,6 +497,27 @@ describe("intake core — failures (roll the you-turn back into the input)", () 
       text: t("yourNarrowedGoal", { goal: "Newton" }),
     });
     expect(restoreInput ?? null).toBeNull();
+  });
+
+  it("leaves the boundary's chained plan generation retryable after a failure", () => {
+    const atBoundary = step(
+      mk({ sessionId: "s-1", phase: "probing", picks: [1, 1], answered: 2 }),
+      { type: "batchResolved", probe: probe(null) },
+    ).state;
+    const { state } = step(atBoundary, { type: "apiFailed", message: "boom" });
+    expect(state.inFlight).toBe(null);
+    expect(state.error).toBe("boom");
+    // The boundary turn reached the backend, so it stays in the transcript;
+    // only the plan draft is retried.
+    expect(state.bubbles.at(-1)).toMatchObject({
+      kind: "text",
+      from: "ai",
+      text: t("boundaryEstablished", { n: 2 }),
+    });
+    // With the request cleared, a submit re-arms the same generation.
+    const retry = step(state, { type: "submit", text: "" });
+    expect(retry.state.inFlight).toBe("plan");
+    expect(retry.effects).toEqual([{ type: "api", call: "generatePlan", sessionId: "s-1" }]);
   });
 
   it("unlocks the active probe card and reverts the last pick on a batch failure", () => {

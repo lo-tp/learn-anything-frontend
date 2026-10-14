@@ -80,3 +80,20 @@ describe("useSessionIntake.handleOpenChange", () => {
     expect(props.onOpenChange).not.toHaveBeenCalled();
   });
 });
+
+describe("useSessionIntake.confirm", () => {
+  it("refuses to confirm while a request is in flight", () => {
+    const { result, props } = renderIntake();
+    // A never-settling createSession keeps the intake in flight: a hand-off
+    // here would drop that request's reply onto a reset core.
+    mockCreateSession.mockReturnValue(new Promise(() => {}));
+    act(() => result.current.submit("A goal."));
+
+    act(() => result.current.confirm());
+
+    // The guard returns before the confirm dispatch, so no hand-off fires
+    // and the parent is not told to close.
+    expect(props.onOpenChange).not.toHaveBeenCalled();
+    expect(props.onAccept).not.toHaveBeenCalled();
+  });
+});
