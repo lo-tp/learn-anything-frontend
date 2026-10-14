@@ -44,6 +44,24 @@ _Avoid_: service account, API key, client, bot
 The short chosen name of a User, shown in the top bar. Defaults to the email's local part.
 _Avoid_: username, handle, nickname
 
+## Notation
+
+**Notation**:
+The form mathematical content is written in. This product has two, chosen per surface: plain-text math for anything a learner reads as text, and AsciiMath for the math inside the deck's slides (ADR-0007).
+_Avoid_: formatting, styling, typesetting (which is what a Rendered surface does *to* a notation)
+
+**Text surface**:
+A surface where stored content reaches the learner exactly as it was written — a Session's step key points, and a question's stem, options, and explanation.
+_Avoid_: plain view, static text
+
+**Rendered surface**:
+A surface where stored content is transformed before the learner sees it — the deck's slides, where math is typeset.
+_Avoid_: rich view, live view
+
+**Plain-text math**:
+Mathematical content written to be read as text: Unicode operators and letters, with ASCII structures for exponents, subscripts, fractions, and roots. The notation of every Text surface.
+_Avoid_: LaTeX, inline math, Unicode math
+
 ## Review
 
 **Review card**:
