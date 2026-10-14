@@ -150,7 +150,11 @@ export function useSessionIntake({
   }
 
   function confirm() {
-    // The confirm step hands off via the accept effect, then closes.
+    // The confirm step hands off via the accept effect, then closes. A
+    // hand-off while a request is in flight would drop that request's
+    // reply onto a reset core, so the binding guards it too (the footer
+    // disables the button for the same reason).
+    if (stateRef.current.inFlight) return;
     dispatch({ type: "confirm" });
     onOpenChange(false);
   }
