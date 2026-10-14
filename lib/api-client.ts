@@ -177,12 +177,17 @@ function guardUnauthorized(response: Response | undefined, error: unknown, statu
   return describeError(error, status);
 }
 
-/** `GET /sessions` — list sessions (newest first), optionally filtered by phase(s).
- *  The list read is public (#178/ADR-0006): the same endpoint serves both
- *  Explore and /mine, and answers a Visitor identically to a User. */
-export async function listSessions(phases?: Phase[]): Promise<SessionList> {
+/** `GET /sessions` — list sessions, optionally filtered by phase(s). When
+ *  `language` is passed, sessions in that language come first, the rest
+ *  after, newest first within each group; without it, plain newest first
+ *  (#205). The list read is public (#178/ADR-0006): the same endpoint serves
+ *  both Explore and /mine, and answers a Visitor identically to a User. */
+export async function listSessions(
+  phases?: Phase[],
+  language?: string,
+): Promise<SessionList> {
   const { data, error, response } = await api.GET("/sessions", {
-    params: { query: { phase: phases } },
+    params: { query: { phase: phases, language } },
     credentials: "include",
   });
   if (!data) throw guardUnauthorized(response, error, response?.status);

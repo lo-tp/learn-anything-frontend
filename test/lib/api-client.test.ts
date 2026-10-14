@@ -82,6 +82,22 @@ describe("listSessions", () => {
     expect(url.search).toBe("");
   });
 
+  it("sends the reader's language preference as the language query param", async () => {
+    fetchMock.mockResolvedValue(json(LIST));
+    await listSessions(["executing"], "English");
+    const url = new URL(fetchMock.mock.calls[0][0].url);
+    expect(url.searchParams.get("language")).toBe("English");
+    expect(url.searchParams.getAll("phase")).toEqual(["executing"]);
+  });
+
+  it("sends only the language query param when no phases are given", async () => {
+    fetchMock.mockResolvedValue(json(LIST));
+    await listSessions(undefined, "Chinese");
+    const url = new URL(fetchMock.mock.calls[0][0].url);
+    expect(url.searchParams.get("language")).toBe("Chinese");
+    expect(url.searchParams.has("phase")).toBe(false);
+  });
+
   it("throws an ApiError with the flattened detail messages on a 422", async () => {
     fetchMock.mockResolvedValue(
       json({ detail: [{ msg: "phase: bad" }, { msg: "and this" }] }, 422),
