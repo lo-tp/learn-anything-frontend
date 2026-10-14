@@ -52,3 +52,21 @@ export function LocaleHarness({ children }: { children: ReactNode }) {
     </NextIntlClientProvider>
   );
 }
+
+/**
+ * Claim the box a browser would lay the line out into.
+ *
+ * jsdom performs no layout: every element reports `offsetWidth` and
+ * `scrollWidth` of 0, so a component that measures whether a `truncate` line
+ * is hiding text (`isClipped` in `components/ui/tooltip.tsx`) can only ever
+ * see "nothing hidden". `clip(line, true)` states what the real layout would
+ * — the text is wider than the room the line was given — so the tests can
+ * exercise the measurement branch and the refusal next to it.
+ */
+export function clip(el: HTMLElement, hidden: boolean) {
+  const boxWidth = 200;
+  const textWidth = hidden ? 900 : boxWidth;
+  Object.defineProperty(el, "offsetWidth", { value: boxWidth, configurable: true });
+  Object.defineProperty(el, "scrollWidth", { value: textWidth, configurable: true });
+  return el;
+}

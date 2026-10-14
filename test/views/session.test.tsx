@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, screen } from "@testing-library/react";
-import { renderWithLocale } from "@/test/test-utils";
+import { renderWithLocale, clip } from "@/test/test-utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { Theme } from "@/hooks/use-theme";
 import { Session, deckMoveFor } from "@/views/session";
@@ -508,6 +508,43 @@ describe("Session", () => {
     fireEvent.click(screen.getByRole("button", { name: /^b\s*friction$/i }));
     expect(screen.getByText("Not quite.")).toBeTruthy();
     expect(mockPostReviewCard).not.toHaveBeenCalled();
+  });
+
+  describe("the deck header's title (#210)", () => {
+    /** A goal long enough that the header line has to clip it. */
+    const LONG_GOAL =
+      "Introduce the core mechanisms of evolution (variation, selection, " +
+      "inheritance) through the concrete case of antibiotic resistance in " +
+      "bacteria, covering how resistance alleles arise, spread, and are selected for.";
+
+    it("keeps the whole goal in the header line and prints it in full on hover", async () => {
+      mockGetSession.mockResolvedValue(session({ narrowed_goal: LONG_GOAL }));
+      renderSession();
+      await settle();
+
+      // The line is the clipped thing it always was, and it still holds the
+      // whole title in the DOM (a screen reader reads all of it).
+      const line = clip(screen.getByText(LONG_GOAL), true);
+      expect(screen.queryByRole("tooltip")).toBeNull();
+
+      // Hovering it raises the slip that prints the title in full.
+      fireEvent.pointerMove(line);
+      const slip = await screen.findByRole("tooltip");
+      expect(slip.textContent?.replace(/\s+/g, " ").trim()).toContain(
+        "selected for",
+      );
+    });
+
+    it("raises no slip for a title the header has room to show", async () => {
+      renderSession();
+      await settle();
+      // "Newton's second law" fits the header row, so there is nothing here
+      // for a slip to say.
+      const line = clip(screen.getByText("Newton's second law"), false);
+      fireEvent.pointerMove(line);
+      await new Promise((r) => setTimeout(r, 50));
+      expect(screen.queryByRole("tooltip")).toBeNull();
+    });
   });
 
   it("renders the not-found state when the session does not exist", async () => {
