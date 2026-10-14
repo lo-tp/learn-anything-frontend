@@ -215,7 +215,7 @@ Recurring geometry: the double rule (`double-rule-b` — a 1px border with a hai
 - **Style:** a square, −2° rotated, double-outlined (inset currentColor ring) monospace-caps chip with a 14px glyph icon, pressed in with `stamp-press`. Work-in-progress phases (clarifying, probing, planning, reviewing, generating) wear an engagement-blue **dashed** outline; executing is a filled engagement-blue block; complete is the green stamp; error is the pink-red stamp; the no-session "ready" state is a pencil dashed stamp. The same device scales up to a 96px completion stamp in the dialog.
 
 ### Progress Rail and Bubbles
-- **Rail:** a printed row of four bubbles and mono-caps step labels under a double rule on sheet stock. Done steps link with a solid 2px ink rule; ahead steps link with a dashed rule. Step counters appear only under the active step.
+- **Rail:** a printed row of four bubbles and mono-caps step labels under a double rule on sheet stock. Done steps link with a solid 2px ink rule; ahead steps link with a dashed rule. Step counters appear only under the active step: the clarifying counter numbers the questions in the current round, while the probing counter numbers every question the intake has put on screen, so it carries across probe batches — a second batch of three opens at 4 of 6, not 1 of 3 (#137).
 - **Bubble:** 14px circles, four states only — empty (outline-variant), filled (done: inks in with `bubble-fill`, solid print ink), current (being worked: engagement-blue ring with a breathing blue dot), active (the place you are standing: filled engagement blue). The bubble is the world's sole progress device; there are no bars, rings, or percentages.
 
 ### Navigation (TopBar tabs)
