@@ -4,6 +4,21 @@
 
 Issues live in GitHub Issues (operated via the `gh` CLI). See `docs/agents/issue-tracker.md`.
 
+### Priority
+
+Issues carry a priority label from `P0` (highest) to `P5` (lowest):
+
+| Label | Meaning |
+|---|---|
+| `P0` | Drop everything — active incident or data loss |
+| `P1` | Urgent — blocks shipping or a core flow is broken |
+| `P2` | High — important feature or regression, scheduled soon |
+| `P3` | Medium — valuable but not time-sensitive |
+| `P4` | Low — nice to have, no active pressure |
+| `P5` | Backlog — parked, revisit when capacity allows |
+
+When the user says "prioritise" or "set priority", apply the matching label via `gh issue edit <n> --add-label P<n>`.
+
 ### Triage labels
 
 The five canonical triage roles, one label per name: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
