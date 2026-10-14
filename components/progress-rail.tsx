@@ -29,8 +29,9 @@ import type { RailData } from "@/views/mine/intake";
  *  time. */
 const CLARIFY_STEP_INDEX = 0;
 
-/** The rail's Probing step — carries the batch-local probe position
- *  ("Question X of Y") while a probe batch is on screen. */
+/** The rail's Probing step — carries the cumulative probe position
+ *  ("Question X of Y", counting every question asked so far, #137)
+ *  while a probe batch is on screen. */
 const PROBE_STEP_INDEX = 1;
 
 export function ProgressRail({ rail }: { rail: RailData }) {
@@ -67,8 +68,9 @@ export function ProgressRail({ rail }: { rail: RailData }) {
                   {step.label}
                 </span>
               </div>
-              {/* Batch-local position, shown only under the active Clarifying
-                  or Probing step while a batch is on screen. */}
+              {/* The position under the active step, shown only while a
+                  batch is on screen: the clarify count is batch-local, the
+                  probe count carries across batches (#137). */}
               {i === CLARIFY_STEP_INDEX && rail.clarifyPosition ? (
                 <span className="pl-5.5 font-mono text-[0.6rem] font-medium text-on-surface-variant">
                   {rail.clarifyPosition}

@@ -532,6 +532,12 @@ describe("intake core — failures (roll the you-turn back into the input)", () 
     const last = state.bubbles.at(-1);
     expect(last).toMatchObject({ kind: "probe", state: "active" });
     expect((last as { picked?: number }).picked).toBeUndefined();
+    // The reverted answer never reached the backend, so it is not counted:
+    // the cumulative position moves back to the re-armed card (#137).
+    expect(state.answered).toBe(1);
+    expect(deriveViewModel(state, t).rail.probePosition).toBe(
+      t("railProbePosition", { n: 2, total: 2 }),
+    );
   });
 });
 
@@ -632,7 +638,7 @@ describe("intake core — progress rail", () => {
   });
 });
 
-describe("intake core — probe position (batch-local)", () => {
+describe("intake core — probe position (cumulative across batches)", () => {
   it("is hidden when the rail is not on the Probing step", () => {
     expect(deriveViewModel(mk(), t).rail.probePosition).toBeNull();
     expect(
@@ -657,7 +663,7 @@ describe("intake core — probe position (batch-local)", () => {
     expect(vm.rail.probePosition).toBeNull();
   });
 
-  it("shows the batch-local position for the first card", () => {
+  it("starts the first batch at 1 of its size", () => {
     const vm = deriveViewModel(
       mk({ sessionId: "s-1", phase: "probing", batch: [Q1, Q2], picks: [] }),
       t,
@@ -667,7 +673,7 @@ describe("intake core — probe position (batch-local)", () => {
     );
   });
 
-  it("advances with each answer, using the batch size as the denominator", () => {
+  it("advances with each answer inside the first batch", () => {
     const batch = [Q1, Q2, Q3, Q1];
     const positionAt = (picks: number) =>
       deriveViewModel(
@@ -699,6 +705,32 @@ describe("intake core — probe position (batch-local)", () => {
     expect(vm.rail.probePosition).toBe(
       t("railProbePosition", { n: 2, total: 2 }),
     );
+  });
+
+  it("keeps counting into the next batch: 4 of 6 after a first batch of 3 (#137)", () => {
+    // The learner answers a batch of three; the backend answers back with
+    // another three. The position names the questions asked so far, not a
+    // fresh 1 of 3 (#137).
+    const drive = (s: IntakeState, action: IntakeAction) => step(s, action).state;
+    let s = mk({ sessionId: "s-1", phase: "probing" });
+    s = drive(s, { type: "probeStarted", probe: probe([Q1, Q2, Q3]) });
+    const position = () => deriveViewModel(s, t).rail.probePosition;
+    expect(position()).toBe(t("railProbePosition", { n: 1, total: 3 }));
+
+    for (const pick of [1, 2, 3])
+      s = drive(s, { type: "pickOption", canonicalIndex: pick });
+    expect(position()).toBe(t("railProbePosition", { n: 3, total: 3 }));
+
+    // A second batch of three is served: the count and the total both carry.
+    s = drive(s, { type: "batchResolved", probe: probe([Q1, Q2, Q3]) });
+    expect(position()).toBe(t("railProbePosition", { n: 4, total: 6 }));
+
+    s = drive(s, { type: "pickOption", canonicalIndex: 1 });
+    expect(position()).toBe(t("railProbePosition", { n: 5, total: 6 }));
+
+    s = drive(s, { type: "pickOption", canonicalIndex: 2 });
+    s = drive(s, { type: "pickOption", canonicalIndex: 3 });
+    expect(position()).toBe(t("railProbePosition", { n: 6, total: 6 }));
   });
 });
 
