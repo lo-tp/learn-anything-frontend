@@ -538,6 +538,18 @@ describe("intake core — failures (roll the you-turn back into the input)", () 
     expect(deriveViewModel(state, t).rail.probePosition).toBe(
       t("railProbePosition", { n: 2, total: 2 }),
     );
+    // Re-answering that card and succeeding this time: the boundary the
+    // backend reports is two answered questions, not the three attempts.
+    const reanswered = step(state, { type: "pickOption", canonicalIndex: 2 }).state;
+    const { state: atBoundary } = step(reanswered, {
+      type: "batchResolved",
+      probe: probe(null),
+    });
+    expect(atBoundary.bubbles.at(-1)).toMatchObject({
+      kind: "text",
+      from: "ai",
+      text: t("boundaryEstablished", { n: 2 }),
+    });
   });
 });
 

@@ -63,7 +63,11 @@ export type IntakeState = {
   bubbles: Bubble[];
   batch: ProbeCard[] | null;
   picks: number[]; // canonical picks for the current batch, in batch order
-  answered: number; // running total of answered probe questions (the base of the cumulative probe position, #137)
+  /** Every probe answer the learner has committed, this batch's picks
+   *  included: the base of the cumulative probe position (#137) and of the
+   *  boundary copy's count. `pickOption` adds a pick and this count together;
+   *  `apiFailed` takes the reverted pick out of both. */
+  answered: number;
   sessionId: string | null;
   phase: Phase | null;
   plan: PlanBody | null;
@@ -626,7 +630,11 @@ export function apply(
         // The pick that triggered the failed request is un-counted too: the
         // cumulative probe position is what the learner has answered, so a
         // reverted answer must move the number back with the card (#137).
-        answered = Math.max(0, state.answered - 1);
+        // Safe to decrement unguarded — a batch request is only ever fired by
+        // its batch's final pick (`pickOption`), which just incremented this
+        // count — and the boundary's chained plan request is `plan`, not
+        // `batch`, so the answered total behind the boundary copy is intact.
+        answered = state.answered - 1;
         bubbles = markLastProbeActive(bubbles);
       } else if (state.inFlight === "clarify" && state.clarifyBatch !== null) {
         // Revert the final clarify answer so the last question is answerable
@@ -750,13 +758,19 @@ export function deriveViewModel(state: IntakeState, t: Translator): IntakeViewMo
   // Probing step (#137, superseding the batch-local rule from #129): the
   // denominator is every question this intake has put on screen — the ones
   // already answered plus the batch now on screen — so answering a batch of
-  // three and being handed another three reads "4 of 6", not "1 of 3". The
-  // questions committed in earlier batches are the running `answered` total
-  // minus the picks made in this one. It is hidden whenever the rail is not
-  // on the Probing step (no batch, or any other phase).
+  // three and being handed another three reads "4 of 6", not "1 of 3". That
+  // total is bounded by the flow, not by this function: the backend stops
+  // probing when the boundary is established, and the probe budget is a fixed
+  // product fact (PRODUCT.md: probes max 10).
+  //
+  // `answered - picks.length` is the count committed in earlier batches:
+  // `answered` grows only in `pickOption`, which adds a pick in the same
+  // step, and `apiFailed` takes the reverted pick out of both. It is hidden
+  // whenever the rail is not on the Probing step (no batch, or any other
+  // phase).
   let probePosition: string | null = null;
   if (state.phase === "probing" && state.batch !== null && state.batch.length > 0) {
-    const answeredBeforeBatch = Math.max(0, state.answered - state.picks.length);
+    const answeredBeforeBatch = state.answered - state.picks.length;
     const total = answeredBeforeBatch + state.batch.length;
     probePosition = t("railProbePosition", {
       n: Math.min(answeredBeforeBatch + state.picks.length + 1, total),
