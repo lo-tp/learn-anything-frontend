@@ -332,6 +332,9 @@ export function NewSessionDialog({
               <Button
                 type="button"
                 onClick={confirm}
+                // Confirm is a hand-off: it must not fire while a request
+                // is still in flight (its reply would land on a reset core).
+                disabled={view.pending}
                 className={cn(
                   "gap-2 rounded-md bg-tertiary px-5 py-2.5 font-semibold text-on-tertiary hover:bg-tertiary-container hover:text-on-tertiary-container",
                 )}
