@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, TriangleAlert } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { EmptyState } from "@/components/empty-state";
+import { localeLanguage } from "@/i18n/routing";
 import { NewSessionDialog } from "./new-session-dialog";
 import { SessionCard } from "@/components/session-card";
 import { StartSessionButton } from "@/components/start-session-button";
@@ -26,6 +27,11 @@ import { CONFIRMING_PHASES } from "./intake";
  * to Explore, so the list appears in a signed-in context; the read endpoint
  * does not enforce that.
  *
+ * The list asks the backend to order the reader's language first (#205):
+ * the app's locale is the user's language preference — the backend stores
+ * none per User — and the fetch refetches when the locale changes, since
+ * the switcher re-routes to the same page without remounting this view.
+ *
  * Three fetch-driven states (#132): **loading** (the initial fetch in
  * flight — a friendly panel, never the empty state), **error** (a failed
  * fetch — a friendly panel with a Retry that re-runs the fetch), and
@@ -46,44 +52,56 @@ import { CONFIRMING_PHASES } from "./intake";
  */
 export function Mine() {
   const t = useTranslations("mine");
+  const locale = useLocale();
+  const language = localeLanguage(locale);
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [dialogOpen, setDialogOpen] = useState(false);
+  // A newer request supersedes an older one: a late reply — e.g. from a
+  // refetch that was in flight when the reader's language changed — must
+  // not overwrite the list it came before (#205).
+  const requestRef = useRef(0);
 
   /** The error state's Retry: re-run the fetch with full status tracking.
    *  A 401 lands here too — the sign-in modal is already open over the
    *  page (the API client asked for it, #147), and Retry loops back
    *  through it. */
   const load = useCallback(async () => {
+    const id = ++requestRef.current;
     setStatus("loading");
     try {
-      const { sessions } = await listSessions(CONFIRMING_PHASES);
+      const { sessions } = await listSessions(CONFIRMING_PHASES, language);
+      if (id !== requestRef.current) return;
       setSessions(sessions);
       setStatus("ready");
     } catch {
+      if (id !== requestRef.current) return;
       setStatus("error");
     }
-  }, []);
+  }, [language]);
 
   // The initial fetch: the route is a static shell, so the view owns its
-  // data (#87). The mount state starts at `loading`.
+  // data (#87). The mount state starts at `loading`; a locale change
+  // re-runs it so the list comes back ordered in the reader's language
+  // (#205).
   useEffect(() => {
+    const id = ++requestRef.current;
     let cancelled = false;
     (async () => {
       try {
-        const { sessions } = await listSessions(CONFIRMING_PHASES);
-        if (!cancelled) {
+        const { sessions } = await listSessions(CONFIRMING_PHASES, language);
+        if (!cancelled && id === requestRef.current) {
           setSessions(sessions);
           setStatus("ready");
         }
       } catch {
-        if (!cancelled) setStatus("error");
+        if (!cancelled && id === requestRef.current) setStatus("error");
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [language]);
 
   // #147: a successful sign-in through the modal restores an expired-token
   // visit, with no navigation. A sign-out is not subscribed to here: the
@@ -104,13 +122,15 @@ export function Mine() {
   /** Re-fetch the History after an accepted intake — a silent re-fetch:
    *  it keeps the current list on failure (#132). */
   const refresh = useCallback(async () => {
+    const id = ++requestRef.current;
     try {
-      const { sessions } = await listSessions(CONFIRMING_PHASES);
+      const { sessions } = await listSessions(CONFIRMING_PHASES, language);
+      if (id !== requestRef.current) return;
       setSessions(sessions);
     } catch {
       /* keep the current list */
     }
-  }, []);
+  }, [language]);
 
   if (status === "loading") {
     return (

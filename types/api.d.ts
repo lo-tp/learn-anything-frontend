@@ -97,12 +97,30 @@ export interface paths {
         };
         /**
          * List Sessions
-         * @description List History: every Session record, newest first, optionally filtered by
-         *     phase(s).
+         * @description List Sessions: every Session record, optionally filtered by phase(s),
+         *     and — when a language is requested — the Sessions in it first.
          *
-         *     Requires a sign-in cookie (#145). Records are not scoped per User yet: every
-         *     signed-in caller is shown the same list (see
-         *     ``tests/routers/test_auth_gate.TestSessionsSharedAcrossUsers``).
+         *     A public read (#178): a Visitor is answered the same list as a User, and no
+         *     cap is applied — the surfaces that show this list have no pager (#143), so
+         *     everything listed has to be in the answer. Which phases to show is the
+         *     caller's question, not a server-side policy: the app asks for the Sessions
+         *     that reached materials, and nothing hides the rest from a Visitor.
+         *
+         *     Language preference (#205): the caller may pass the user's preferred
+         *     language as ``language``. Sessions in that language come first, the rest
+         *     after, and newest first within each group. The backend stores no per-User
+         *     preference — the caller is the one who knows it — and the parameter
+         *     changes order only: no Session is hidden or added, and no filter is
+         *     applied. Without it (or with a blank one) the list keeps its plain
+         *     newest-first order.
+         *
+         *     The Explore feed (``routers.explore``) is the other list surface, and is
+         *     uncapped for the same reason; it stays a separate route because the two are
+         *     expected to diverge.
+         *
+         *     Records are not scoped per User yet: every caller is shown the same list
+         *     (see ``tests/routers/test_auth_gate.TestSessionsSharedAcrossUsers``), and
+         *     the payload carries no owner identity.
          */
         get: operations["list_sessions_sessions_get"];
         put?: never;
@@ -127,6 +145,9 @@ export interface paths {
         /**
          * Get Session
          * @description Get current session state & progress.
+         *
+         *     A public read (#178): opening one Session's deck is browsing, which is what
+         *     a Visitor does (ADR-0004).
          */
         get: operations["get_session_sessions__session_id__get"];
         put?: never;
@@ -148,10 +169,16 @@ export interface paths {
          * List Explore Sessions
          * @description List the public Explore feed: Sessions that reached materials.
          *
-         *     Newest first, capped at ``EXPLORE_LIMIT``. Reuses the ``SessionList`` /
+         *     Every eligible Session, and no cap: there is no pager here, so a cap
+         *     would hide Sessions outright rather than defer them (#178 removes the
+         *     twenty-row cap this route used to apply). Reuses the ``SessionList`` /
          *     ``SessionListItem`` schema from ``/sessions`` and carries no owner
          *     identity — no email, display name, or user id — so a Visitor sees what
          *     people are learning without being told who they are.
+         *
+         *     Order: the same rule as ``GET /sessions`` (#205) — when the caller passes
+         *     a language, the Sessions in it come first and the rest after, and newest
+         *     first within each group; without one, plain newest first.
          */
         get: operations["list_explore_sessions_explore_sessions_get"];
         put?: never;
@@ -295,6 +322,9 @@ export interface paths {
         /**
          * Get Materials
          * @description Poll material generation progress with full content.
+         *
+         *     A public read (#178): this is the deck itself, and a Visitor opens it by
+         *     address (ADR-0004). No sign-in dependency is declared on this route.
          */
         get: operations["get_materials_sessions__session_id__materials_get"];
         put?: never;
@@ -892,6 +922,7 @@ export interface operations {
         parameters: {
             query?: {
                 phase?: components["schemas"]["Phase"][] | null;
+                language?: string | null;
             };
             header?: never;
             path?: never;
@@ -985,7 +1016,9 @@ export interface operations {
     };
     list_explore_sessions_explore_sessions_get: {
         parameters: {
-            query?: never;
+            query?: {
+                language?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -999,6 +1032,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

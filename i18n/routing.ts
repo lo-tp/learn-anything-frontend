@@ -33,3 +33,14 @@ export function hasLocale(value: string | null | undefined): value is Locale {
 export function localeTag(locale: Locale): string {
   return locale === "zh" ? "zh-CN" : "en";
 }
+
+/**
+ * The backend's language name for a locale — the value the backend stores
+ * on `Session.language` (its langid code → name mapping) and that the
+ * session-list endpoints' `language` param matches, so the reader's
+ * language comes first in the list (#205). Unknown values fall back to the
+ * backend's default language (English), the way it reads legacy rows.
+ */
+export function localeLanguage(locale: string): string {
+  return locale === "zh" ? "Chinese" : "English";
+}
