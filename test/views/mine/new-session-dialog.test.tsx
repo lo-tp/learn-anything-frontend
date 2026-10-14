@@ -123,6 +123,75 @@ describe("NewSessionDialog", () => {
     ).toBe(true);
   });
 
+  it("keeps every button disabled while the boundary's chained plan generation is in flight", async () => {
+    // Submitting an answer is not over when the answer request resolves: at
+    // the boundary the core auto-fires the plan generation. That live
+    // request must keep the sheet locked exactly like the answer request
+    // did — until now the buttons flickered back to clickable in between.
+    mockCreateSession.mockResolvedValue({ session_id: "s-1", phase: "probing" });
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
+    mockAnswerProbe.mockResolvedValue({
+      phase: "planning",
+      boundary_map: { f_ma_relation: { floor: "scalar F = ma", ceiling: null } },
+    });
+    mockGeneratePlan.mockReturnValue(new Promise(() => {}));
+    await openDialog(GOAL);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    await screen.findByText(Q1.text);
+
+    const options = Array.from(
+      screen.getByText(Q1.text).closest("div")!.querySelectorAll("button"),
+    ) as HTMLButtonElement[];
+    fireEvent.click(
+      options.find((button) => (button.textContent ?? "").includes("5 m/s²"))!,
+    );
+
+    // The answer request settled; the plan-generation request it chained is
+    // what the sheet now shows…
+    await screen.findByRole("status", {
+      name: /we're drafting your learning plan/i,
+    });
+    // …and every control is disabled while it is in flight.
+    expect(
+      (screen.getByRole("button", { name: /Cancel/ }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: /Send/ }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: "Close" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+
+  it("disables Confirm while a backend request is still in flight", async () => {
+    // The backend jumps straight to generating at the boundary: the confirm
+    // footer appears while the chained request is still running — Confirm
+    // must not be clickable (a hand-off mid-request would race the reply).
+    mockCreateSession.mockResolvedValue({ session_id: "s-1", phase: "probing" });
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
+    mockAnswerProbe.mockResolvedValue({
+      phase: "generating",
+      boundary_map: { f_ma_relation: { floor: "scalar F = ma", ceiling: null } },
+    });
+    mockGeneratePlan.mockReturnValue(new Promise(() => {}));
+    await openDialog(GOAL);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    await screen.findByText(Q1.text);
+
+    const options = Array.from(
+      screen.getByText(Q1.text).closest("div")!.querySelectorAll("button"),
+    ) as HTMLButtonElement[];
+    fireEvent.click(
+      options.find((button) => (button.textContent ?? "").includes("5 m/s²"))!,
+    );
+
+    const confirm = await screen.findByRole("button", { name: /Confirm/ });
+    expect((confirm as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it("hides the intake box and explains what is happening while a request is in flight", async () => {
     mockCreateSession.mockReturnValue(new Promise(() => {}));
     await openDialog(

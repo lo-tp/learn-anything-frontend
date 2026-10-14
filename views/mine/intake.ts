@@ -546,7 +546,12 @@ export function apply(
         return {
           state: {
             ...state,
-            inFlight: null,
+            // The boundary auto-generates the plan: the chained request is a
+            // live backend interaction, so it is marked in flight like every
+            // other one — the dialog keeps its controls disabled from the
+            // answer click through to the landed plan, instead of
+            // re-enabling them in the gap between the two requests.
+            inFlight: "plan",
             batch: null,
             picks: [],
             phase: action.probe.phase,
