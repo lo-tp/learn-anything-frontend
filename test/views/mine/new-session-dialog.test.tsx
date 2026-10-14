@@ -32,6 +32,7 @@ import {
   PLAN_OUT_REVISED,
   Q1,
   Q2,
+  Q3,
   REVIEW_LABEL,
   SHORT,
   TITLE,
@@ -742,42 +743,61 @@ describe("NewSessionDialog", () => {
     expect(await screen.findByRole("status", { name: /Approve to build your lesson/i })).toBeTruthy();
   });
 
-  it("shows a batch-local probe position under the Probing step, updating with each answer", async () => {
-    // Clarify lands on probing and a batch of two is fetched.
+  it("carries the probe position into the next batch: 4 of 6 after a first batch of 3", async () => {
+    // The follow-up batch reuses the fixture options but has distinct question
+    // text, so every card on screen is addressable.
+    const followUps = [Q1, Q2, Q3].map((q) => ({
+      ...q,
+      id: `${q.id}-follow-up`,
+      text: `${q.text} (follow-up)`,
+    }));
+    const answerCard = (questionText: string, optionText: string) => {
+      const buttons = Array.from(
+        screen.getByText(questionText).closest("div")!.querySelectorAll("button"),
+      ) as HTMLButtonElement[];
+      fireEvent.click(
+        buttons.find((button) =>
+          (button.textContent ?? "").includes(optionText),
+        )!,
+      );
+    };
+
     mockCreateSession.mockResolvedValue({ session_id: "s-1", phase: "probing" });
-    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1, Q2] });
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1, Q2, Q3] });
+    mockAnswerProbe
+      // The first batch is answered: the backend is not at the boundary yet,
+      // it serves another three questions.
+      .mockResolvedValueOnce({ phase: "probing", questions: followUps })
+      .mockResolvedValueOnce({
+        phase: "planning",
+        boundary_map: { f_ma_relation: { floor: "scalar F = ma", ceiling: null } },
+      });
+    mockGeneratePlan.mockResolvedValue(PLAN_OUT);
+
     await openDialog(GOAL);
     // The position is hidden while the rail is not on the Probing step.
-    expect(screen.queryByText("Question 1 of 2")).toBeNull();
+    expect(screen.queryByText("Question 1 of 3")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    expect(await screen.findByText("Question 1 of 3")).toBeTruthy();
 
-    // The batch-local position appears under the Probing step (denominator =
-    // the current batch size, 2 — not a cumulative answered count).
-    expect(await screen.findByText("Question 1 of 2")).toBeTruthy();
+    // Each answer click advances the count.
+    answerCard(Q1.text, "5 m/s²");
+    expect(await screen.findByText("Question 2 of 3")).toBeTruthy();
+    answerCard(Q2.text, "doubles");
+    expect(await screen.findByText("Question 3 of 3")).toBeTruthy();
 
-    // Answering the first card advances the position to the second card.
-    const firstOptions = Array.from(
-      screen.getByText(Q1.text).closest("div")!.querySelectorAll("button"),
-    ) as HTMLButtonElement[];
-    fireEvent.click(
-      firstOptions.find((button) => (button.textContent ?? "").includes("5 m/s²"))!,
-    );
-    expect(await screen.findByText("Question 2 of 2")).toBeTruthy();
+    // The follow-up batch continues the count instead of restarting it: the
+    // denominator is every question asked, not just the batch on screen (#137).
+    answerCard(Q3.text, "mass");
+    expect(await screen.findByText("Question 4 of 6")).toBeTruthy();
+    answerCard(followUps[0].text, "5 m/s²");
+    expect(await screen.findByText("Question 5 of 6")).toBeTruthy();
 
     // The position is hidden once the rail leaves the Probing step (planning).
-    mockAnswerProbe.mockResolvedValue({
-      phase: "planning",
-      boundary_map: { f_ma_relation: { floor: "scalar F = ma", ceiling: null } },
-    });
-    mockGeneratePlan.mockResolvedValue(PLAN_OUT);
-    const secondOptions = Array.from(
-      screen.getByText(Q2.text).closest("div")!.querySelectorAll("button"),
-    ) as HTMLButtonElement[];
-    fireEvent.click(
-      secondOptions.find((button) => (button.textContent ?? "").includes("doubles"))!,
-    );
+    answerCard(followUps[1].text, "doubles");
+    answerCard(followUps[2].text, "mass");
     await screen.findByRole("status", { name: /Approve to build your lesson/i });
-    expect(screen.queryByText("Question 2 of 2")).toBeNull();
+    expect(screen.queryByText(/Question \d+ of \d+/)).toBeNull();
   });
 
   it("closes via the header Close button, notifying the parent of the change", async () => {
