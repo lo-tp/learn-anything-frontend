@@ -63,7 +63,7 @@ export type IntakeState = {
   bubbles: Bubble[];
   batch: ProbeCard[] | null;
   picks: number[]; // canonical picks for the current batch, in batch order
-  answered: number; // running total of answered probe questions
+  answered: number; // running total of answered probe questions (the base of the cumulative probe position, #137)
   sessionId: string | null;
   phase: Phase | null;
   plan: PlanBody | null;
@@ -618,10 +618,15 @@ export function apply(
 
     case "apiFailed": {
       let picks = state.picks;
+      let answered = state.answered;
       let clarifyPicks = state.clarifyPicks;
       let bubbles = state.bubbles;
       if (state.inFlight === "batch") {
         picks = picks.slice(0, -1);
+        // The pick that triggered the failed request is un-counted too: the
+        // cumulative probe position is what the learner has answered, so a
+        // reverted answer must move the number back with the card (#137).
+        answered = Math.max(0, state.answered - 1);
         bubbles = markLastProbeActive(bubbles);
       } else if (state.inFlight === "clarify" && state.clarifyBatch !== null) {
         // Revert the final clarify answer so the last question is answerable
@@ -638,6 +643,7 @@ export function apply(
           inFlight: null,
           error: action.message,
           picks,
+          answered,
           clarifyPicks,
           bubbles: rolled.bubbles,
         },
@@ -665,9 +671,11 @@ export type RailData = {
   /** True while a request is in flight — the current step animates. */
   pending: boolean;
   /**
-   * The learner's position within the current probe batch ("Question X of
-   * Y"), rendered under the active Probing step, or null when the rail is
-   * not on the Probing step (#129).
+   * The learner's position in the probe questions asked so far ("Question X
+   * of Y"), rendered under the active Probing step: the answers already
+   * committed plus the position inside the batch on screen, with the total of
+   * both as the denominator (#137). Null when the rail is not on the Probing
+   * step (#129).
    */
   probePosition: string | null;
   /** The batch-local clarify position ("Question X of Y"), rendered under
@@ -738,18 +746,23 @@ export function deriveViewModel(state: IntakeState, t: Translator): IntakeViewMo
   else if (currentStep === 3) counter = t("railCounterGenerating");
   else counter = t("railCounterGenerating"); // all done
 
-  // Batch-local probe position ("Question X of Y") under the active Probing
-  // step. The denominator is the current batch size — never the running
-  // `answered` total, which would read as moving goalposts (#129). It is
-  // hidden whenever the rail is not on the Probing step (no batch, or any
-  // other phase).
-  const probePosition =
-    state.phase === "probing" && state.batch !== null && state.batch.length > 0
-      ? t("railProbePosition", {
-          n: Math.min(state.picks.length + 1, state.batch.length),
-          total: state.batch.length,
-        })
-      : null;
+  // The cumulative probe position ("Question X of Y") under the active
+  // Probing step (#137, superseding the batch-local rule from #129): the
+  // denominator is every question this intake has put on screen — the ones
+  // already answered plus the batch now on screen — so answering a batch of
+  // three and being handed another three reads "4 of 6", not "1 of 3". The
+  // questions committed in earlier batches are the running `answered` total
+  // minus the picks made in this one. It is hidden whenever the rail is not
+  // on the Probing step (no batch, or any other phase).
+  let probePosition: string | null = null;
+  if (state.phase === "probing" && state.batch !== null && state.batch.length > 0) {
+    const answeredBeforeBatch = Math.max(0, state.answered - state.picks.length);
+    const total = answeredBeforeBatch + state.batch.length;
+    probePosition = t("railProbePosition", {
+      n: Math.min(answeredBeforeBatch + state.picks.length + 1, total),
+      total,
+    });
+  }
 
   // The batch-local clarify position under the active Clarifying step, in
   // the same "Question X of Y" shape (the one-at-a-time clarify loop).
