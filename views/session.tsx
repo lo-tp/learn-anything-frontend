@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/tooltip";
 import { SessionSidebar, type SidebarGroup } from "@/components/session/session-sidebar";
 import { SandboxFrame } from "@/components/sandbox/sandbox-frame";
-import { useTheme, type Theme } from "@/hooks/use-theme";
+import { useTheme } from "@/hooks/use-theme";
 import {
   getMaterials,
   getSession,
@@ -28,7 +28,7 @@ import {
   type SessionState,
 } from "@/lib/api-client";
 import { onSignedIn, requestSignIn } from "@/lib/auth-events";
-import { cn } from "@/lib/utils";
+import { cn, sandboxSlideSrc } from "@/lib/utils";
 import { useSignInState } from "@/hooks/use-sign-in-state";
 
 /** How often the view polls while materials are still generating. */
@@ -64,26 +64,6 @@ function readReportsRewrite(read: MaterialsOut, slideId: string): boolean {
     ),
   );
 }
-
-/**
- * The sandbox URL that serves a slide item's content. The app's theme is
- * passed as a query param so the slide page renders in the same palette
- * (`?theme=light` sets the `light` class on the page's `<html>`, #78);
- * absent/dark keeps the page's dark default.
- *
- * That param is the frame's **initial** paint only. A theme change after the
- * frame exists is not a URL change (#185) — see the player wiring below.
- *
- * `fresh` is the other, rarer reason this URL changes (#213): a regenerated
- * slide keeps its ID, and the sandbox harness re-imports
- * `/slides/{id}/bundle.js` through the browser's module map — the same URL is
- * the old bytes. A rewritten slide reaches the reader only at a URL the frame
- * has not already fetched.
- */
-const sandboxSrc = (slideId: string, theme: Theme, fresh = 0) =>
-  `${process.env.NEXT_PUBLIC_SANDBOX_ORIGIN}/slides/${slideId}?theme=${theme}${
-    fresh > 0 ? `&fresh=${fresh}` : ""
-  }`;
 
 /**
  * The `/session/{sessionId}` view (#47). **Client** component — the single
@@ -188,6 +168,17 @@ export function Session({ sessionId }: { sessionId: string }) {
    * the slide it was written from (#213).
    */
   const [frameNonce, setFrameNonce] = useState(0);
+  /**
+   * Slides this view has watched finish a rewrite, and how many times each has
+   * done so. The sidebar's mini previews are separate documents the player's
+   * re-key never touches, so each one needs its own not-yet-fetched URL for
+   * the slide it previews, or it keeps showing the version the slide was
+   * written from (#213).
+   */
+  const [rewrittenSlides, setRewrittenSlides] = useState<ReadonlyMap<
+    string,
+    number
+  >>(new Map());
   /** What this view last believed to be in flight. The flag's *falling edge*
    *  is the only completion signal the API has, so it has to be remembered to
    *  be noticed. */
@@ -372,6 +363,11 @@ export function Session({ sessionId }: { sessionId: string }) {
       return next;
     });
     setFrameNonce((n) => n + 1);
+    setRewrittenSlides((prev) => {
+      const next = new Map(prev);
+      for (const id of finished) next.set(id, (next.get(id) ?? 0) + 1);
+      return next;
+    });
     setRegenDone(true);
   }, [regeneratingSlides]);
 
@@ -429,8 +425,11 @@ export function Session({ sessionId }: { sessionId: string }) {
   // discarded. Themes travel as `DEMO_SET_THEME`, which the harness answers by
   // toggling the `light` class on its own `<html>` — the palette.css the frame
   // loads carries both palettes, so everything repaints in place. The sidebar
-  // mini previews keep a per-theme constant `src` (one fixed slide each) and
-  // are measured not to add history entries.
+  // mini previews keep a per-theme constant `src` (one fixed slide each),
+  // except a slide that has just been rewritten: its preview is a separate
+  // document the player's re-key never touches, so it gets its own `fresh=`
+  // nonce and re-fetches — the rail must not keep showing the version the
+  // reader asked to be replaced (#213).
   /** The shared footer action of the friendly states: a link home. */
   const backToSessions = (
     <Link
@@ -482,7 +481,7 @@ export function Session({ sessionId }: { sessionId: string }) {
     setDeckFrame({
       slug: firstSlideId,
       nonce: frameNonce,
-      url: sandboxSrc(firstSlideId, theme, frameNonce),
+      url: sandboxSlideSrc(firstSlideId, theme, frameNonce),
     });
   }
   const playerSrc = deckFrame?.url ?? null;
@@ -694,6 +693,7 @@ export function Session({ sessionId }: { sessionId: string }) {
         activeIndex={clampedIndex}
         onSelect={setActiveIndex}
         inquiryId={session.session_id}
+        previewFresh={rewrittenSlides}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">

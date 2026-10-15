@@ -75,16 +75,36 @@ describe("SessionSidebar", () => {
     expect(slip.className).toContain("uppercase");
   });
 
-  it("previews the slide card's sandbox route scaled down", () => {
+  it("previews the slide card's sandbox route scaled down, at a constant URL", () => {
     const { container } = renderWithLocale(
       <SessionSidebar groups={groups} activeIndex={0} onSelect={() => {}} inquiryId="sess-1" />,
     );
     const frame = container.querySelector("iframe");
     expect(frame).toBeTruthy();
     expect(frame?.getAttribute("src")).toContain("/slides/slide-1");
+    // A slide nobody has rewritten keeps its constant per-theme URL — no
+    // `fresh=` nonce to re-fetch bytes it has not changed.
+    expect(frame?.getAttribute("src")).not.toContain("fresh=");
     // The preview is a non-interactive, a11y-hidden mini render.
     expect(frame?.getAttribute("aria-hidden")).toBe("true");
     expect(frame?.getAttribute("tabindex")).toBe("-1");
+  });
+
+  it("re-fetches a slide preview after that slide has been rewritten (#213)", () => {
+    const { container } = renderWithLocale(
+      <SessionSidebar
+        groups={groups}
+        activeIndex={0}
+        onSelect={() => {}}
+        inquiryId="sess-1"
+        previewFresh={new Map([["slide-1", 1]])}
+      />,
+    );
+    const frame = container.querySelector("iframe");
+    expect(frame?.getAttribute("src")).toContain("/slides/slide-1");
+    // The preview is its own document: the rewritten slide reaches it only at
+    // a URL it has not fetched yet.
+    expect(frame?.getAttribute("src")).toContain("fresh=1");
   });
 
   it("previews the question card's full content (prompt and options)", () => {
