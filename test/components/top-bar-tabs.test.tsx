@@ -104,13 +104,26 @@ describe("TopBarTabs", () => {
     expect(screen.getByRole("link", { name: "Review" }).getAttribute("aria-current")).toBeNull();
   });
 
-  it("marks no tab active when a signed-in User is on the public feed", () => {
+  it("marks Study active when a signed-in User is on the public feed (#214)", () => {
     identity.signedIn = true;
     identity.user = USER;
     nav.pathname = "/";
     renderWithLocale(<TopBarTabs />);
-    expect(screen.getByRole("link", { name: "Study" }).getAttribute("aria-current")).toBeNull();
+    // Study is the browsing tab a signed-in User is offered, so it owns the
+    // browsing routes, the public feed included.
+    expect(screen.getByRole("link", { name: "Study" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: "Review" }).getAttribute("aria-current")).toBeNull();
     expect(screen.queryByRole("link", { name: "Explore" })).toBeNull();
+  });
+
+  it("marks Explore active at /mine for a Visitor (#214)", () => {
+    // The list read is public (ADR-0006): a Visitor at /mine is on a public
+    // browsing surface, and Explore is the browsing tab they are offered —
+    // so it is the active tab there.
+    nav.pathname = "/mine";
+    renderWithLocale(<TopBarTabs />);
+    expect(screen.getByRole("link", { name: "Explore" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: "Review" }).getAttribute("aria-current")).toBeNull();
   });
 
   it("marks Review active at /review", () => {
@@ -127,6 +140,26 @@ describe("TopBarTabs", () => {
     renderWithLocale(<TopBarTabs />);
     expect(screen.getByRole("link", { name: "Study" }).getAttribute("aria-current")).toBe("page");
     expect(screen.getByRole("link", { name: "Review" }).getAttribute("aria-current")).toBeNull();
+  });
+
+  it("marks exactly one tab active on every route, for both a Visitor and a signed-in User", () => {
+    // Every real page under a locale; a bare /session is not one (the
+    // catch-all redirects it to /mine).
+    const routes = ["/", "/mine", "/session/abc", "/review"];
+    for (const signedIn of [false, true]) {
+      identity.signedIn = signedIn;
+      identity.user = signedIn ? USER : null;
+      for (const path of routes) {
+        nav.pathname = path;
+        renderWithLocale(<TopBarTabs />);
+        const current = screen
+          .getAllByRole("link")
+          .map((link) => link.getAttribute("aria-current"))
+          .filter((value) => value === "page");
+        expect(current, `route ${path} for a ${signedIn ? "signed-in User" : "Visitor"}`).toHaveLength(1);
+        cleanup();
+      }
+    }
   });
 
   it("labels the tabs from the zh catalog under the zh locale", () => {

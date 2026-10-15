@@ -23,11 +23,14 @@ import { cn } from "@/lib/utils";
  * site root and the wordmark, Study stays at `/mine` for a signed-in User.
  *
  * The active tab is derived from the current pathname, so it stays in sync
- * with the route. The session detail pages belong to whichever browsing tab
- * the viewer is shown: Study owns them for a signed-in User, Explore owns
- * them for a Visitor (the pair is mutually exclusive, so only one can claim
- * a session). Labels come from the `topbar` namespace. Always visible —
- * Review must stay reachable on small screens — so the tabs shrink below
+ * with the route. The browsing routes — the public feed at the root, the
+ * list at `/mine`, and the session detail pages — belong to whichever
+ * browsing tab the viewer is shown: Study owns them for a signed-in User,
+ * Explore owns them for a Visitor (the pair is mutually exclusive, so only
+ * one can claim a route). Exactly one tab is therefore active on every
+ * route a tab exists for. Labels come from the `topbar` namespace.
+ * Always visible — Review must stay reachable on small screens — so the
+ * tabs shrink below
  * `md` (the wordmark steps aside there).
  */
 
@@ -39,20 +42,28 @@ type Tab = {
   isActive: (pathname: string) => boolean;
 };
 
+/**
+ * The browsing routes: the public feed at the root, the list at `/mine`, and
+ * the session detail pages. Whichever browsing tab the viewer is shown owns
+ * them all — a Visitor's Explore, a signed-in User's Study.
+ */
+// A bare `/session` is not a route — the catch-all redirects it to
+// `/mine` — so only the session detail pages need matching.
+const isBrowsingRoute = (p: string) =>
+  p === "/" || p === "/mine" || p.startsWith("/session/");
+
 const TABS: Tab[] = [
   {
     key: "explore",
     href: "/",
     isFor: (signedIn) => !signedIn,
-    isActive:
-      (p) => p === "/" || p === "/session" || p.startsWith("/session/"),
+    isActive: isBrowsingRoute,
   },
   {
     key: "study",
     href: "/mine",
     isFor: (signedIn) => signedIn,
-    isActive:
-      (p) => p === "/mine" || p === "/session" || p.startsWith("/session/"),
+    isActive: isBrowsingRoute,
   },
   {
     key: "review",
