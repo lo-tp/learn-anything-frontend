@@ -413,7 +413,7 @@ const MATERIALS = {
         key_points: ["F = ma"],
       },
       items: [
-        { type: "slide", slide_id: "slide-1" },
+        { type: "slide", slide_id: "slide-1", regenerating: false },
         {
           type: "question",
           id: "q-1",

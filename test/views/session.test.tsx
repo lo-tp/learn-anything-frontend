@@ -24,7 +24,16 @@ vi.mock("@/lib/api-client", () => ({
   getSignedInUser: vi.fn(),
   postReviewCard: vi.fn(),
   regenerateSlide: vi.fn(),
-  ApiError: class ApiError extends Error {},
+  // Mirrors the real class's shape: the status travels with the message, which
+  // is how the view tells a backend refusal from a transport failure (#213).
+  ApiError: class MockApiError extends Error {
+    constructor(
+      message: string,
+      readonly status?: number,
+    ) {
+      super(message);
+    }
+  },
 }));
 
 // The deck's audience is the page's sign-in state (#143/#151), which one
@@ -1255,6 +1264,96 @@ describe("asking for one slide back (#213)", () => {
     expect(
       await screen.findByText("This slide couldn't be regenerated."),
     ).toBeTruthy();
+  });
+
+  it("shows the loading state from its own request, before any newer read lands", async () => {
+    // The read the 202 asks for never lands: the indicator can only be the
+    // view's own mark for a slide it just asked about (#213).
+    mockGetMaterials
+      .mockResolvedValueOnce(deckWithRewrite(false))
+      .mockImplementationOnce(() => new Promise(() => {}));
+    renderSession();
+    await settle();
+
+    fireEvent.click(screen.getByRole("button", REGEN_CONTROL));
+    fireEvent.click(screen.getByRole("button", { name: /^regenerate$/i }));
+    await act(async () => {});
+
+    expect(mockRegenerateSlide).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("status", { name: /regenerating this slide/i })).toBeTruthy();
+    expect(screen.queryByRole("button", REGEN_CONTROL)).toBeNull();
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("keeps the indicator while the deck says the rewrite is running, then clears it and stops polling", async () => {
+    vi.useFakeTimers();
+    try {
+      mockGetMaterials
+        .mockResolvedValueOnce(deckWithRewrite(false)) // mount
+        .mockResolvedValueOnce(deckWithRewrite(true)) // the read the 202 asks for
+        .mockResolvedValueOnce(deckWithRewrite(true)) // still running
+        .mockResolvedValue(deckWithRewrite(false)); // finished
+      renderSession();
+      await act(async () => {});
+      expect(mockGetMaterials).toHaveBeenCalledTimes(1);
+
+      fireEvent.click(screen.getByRole("button", REGEN_CONTROL));
+      fireEvent.click(screen.getByRole("button", { name: /^regenerate$/i }));
+      await act(async () => {});
+      // The 202 is followed by a read at once, and that read carries the flag.
+      expect(mockGetMaterials).toHaveBeenCalledTimes(2);
+      expect(screen.getByRole("status", { name: /regenerating this slide/i })).toBeTruthy();
+
+      // Still running: the deck is polled, and the indicator stays.
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+      await act(async () => {});
+      expect(mockGetMaterials).toHaveBeenCalledTimes(3);
+      expect(screen.getByRole("status", { name: /regenerating this slide/i })).toBeTruthy();
+
+      // Finished: the indicator clears, the control comes back, the frame is
+      // re-keyed, and there is nothing left to poll.
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+      await act(async () => {});
+      expect(
+        screen.queryByRole("status", { name: /regenerating this slide/i }),
+      ).toBeNull();
+      expect(screen.getByRole("button", REGEN_CONTROL)).toBeTruthy();
+      expect(screen.getByTitle("Sandbox").getAttribute("src")).toContain("fresh=");
+
+      const reads = mockGetMaterials.mock.calls.length;
+      act(() => {
+        vi.advanceTimersByTime(9000);
+      });
+      await act(async () => {});
+      expect(mockGetMaterials).toHaveBeenCalledTimes(reads);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reads a refusal that means a rewrite is already running as in-flight, not as a message", async () => {
+    mockRegenerateSlide.mockRejectedValue(
+      new ApiError("This slide is already being regenerated", 409),
+    );
+    mockGetMaterials
+      .mockResolvedValueOnce(deckWithRewrite(false)) // mount
+      .mockResolvedValue(deckWithRewrite(true)); // the re-read after the refusal
+    renderSession();
+    await settle();
+
+    fireEvent.click(screen.getByRole("button", REGEN_CONTROL));
+    fireEvent.click(screen.getByRole("button", { name: /^regenerate$/i }));
+    await act(async () => {});
+
+    // The sheet closed rather than lectured, and the deck's own flag is what
+    // the reader is shown — which is also what makes a second request
+    // unofferable.
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.getByRole("status", { name: /regenerating this slide/i })).toBeTruthy();
   });
 
   it("answers a refusal with the reason the backend gave", async () => {
