@@ -132,6 +132,27 @@
       "body": "Sign in to keep your missed questions — they'll come back for review when you need them.",
       "action": "Sign in",
       "replayFailed": "We couldn't save your progress. Your missed questions are still here — sign in again to try."
+    },
+    "regenerate": {
+      "label": "Regenerate this slide",
+      "hint": "Ask for this slide again",
+      "inProgress": {
+        "label": "Regenerating this slide",
+        "hint": "This slide is being generated. The new version appears when it is ready."
+      },
+      "announced": {
+        "done": "Your slide has been rewritten — the new version is on screen."
+      },
+      "sheet": {
+        "title": "Regenerate this slide",
+        "note": "Say what to change about this slide. Every other slide stays as it is.",
+        "label": "What should be different?",
+        "placeholder": "Make it more visual. Walk it slower. Add a worked example.",
+        "submit": "Regenerate",
+        "submitting": "Sending…",
+        "cancel": "Cancel",
+        "errorFallback": "This slide couldn't be regenerated."
+      }
     }
   },
   "phases": {
