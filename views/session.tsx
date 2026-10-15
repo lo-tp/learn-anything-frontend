@@ -38,6 +38,34 @@ const POLL_INTERVAL_MS = 3000;
 const PRE_MATERIAL = new Set(["clarifying", "probing", "planning", "reviewing"]);
 
 /**
+ * The statuses whose answer is a sentence the backend wrote for a learner
+ * (#197): mock mode, no such slide, and the three 409s (the deck is
+ * generating, this slide is already being rewritten, this slide predates stored
+ * content specs). Anything else — a 5xx, a transport failure — is not the
+ * backend talking, so the app speaks in its own words instead of passing an
+ * internal message through.
+ */
+const BACKEND_REFUSALS = new Set([400, 404, 409]);
+
+function refusalText(error: unknown): string {
+  const detail = (error as { status?: unknown; message?: unknown } | undefined)
+    ?.message;
+  const status = (error as { status?: unknown } | undefined)?.status;
+  const text = typeof detail === "string" ? detail : "";
+  return typeof status === "number" && BACKEND_REFUSALS.has(status) ? text : "";
+}
+
+/** Does this deck read report this slide as being rewritten? */
+function readReportsRewrite(read: MaterialsOut, slideId: string): boolean {
+  return read.generated_steps.some((step) =>
+    step.items.some(
+      (item) =>
+        item.type === "slide" && item.slide_id === slideId && item.regenerating,
+    ),
+  );
+}
+
+/**
  * The sandbox URL that serves a slide item's content. The app's theme is
  * passed as a query param so the slide page renders in the same palette
  * (`?theme=light` sets the `light` class on the page's `<html>`, #78);
@@ -139,14 +167,16 @@ export function Session({ sessionId }: { sessionId: string }) {
   // The slide the regeneration sheet is open for, if any.
   const [regenSheetFor, setRegenSheetFor] = useState<string | null>(null);
   /**
-   * Slides this view has asked for, by ID. A `202` says only that a rewrite
-   * *started*; these marks carry the loading state across the gap until the deck
-   * read reports the slide's own `regenerating` flag, which is what the
-   * indicator is built from from then on.
+   * Slides this view has asked for, each paired with the deck read that was
+   * current when the request was made (#213). A `202` says only that a rewrite
+   * *started*, and the deck read that answered the request is the one that
+   * carries the slide's own flag — so a mark lives exactly as long as no newer
+   * read has contradicted or taken over from it. A mark with no snapshot to
+   * compare against could never be lifted: the slide would sit in flight forever.
    */
-  const [requestedRegens, setRequestedRegens] = useState<ReadonlySet<string>>(
-    new Set(),
-  );
+  const [requestedRegens, setRequestedRegens] = useState<
+    ReadonlyMap<string, MaterialsOut | null>
+  >(new Map());
   // The request round-trip, so the sheet cannot be pressed twice.
   const [regenSubmitting, setRegenSubmitting] = useState(false);
   // A refusal's text, shown in the sheet that asked for it.
@@ -175,14 +205,17 @@ export function Session({ sessionId }: { sessionId: string }) {
    * One deck read. `inFlight` is the guard that keeps two polls from ever
    * overlapping — the interval's tick and a view-triggered refresh share it.
    */
-  const refreshMaterials = useCallback(async () => {
-    if (inFlight.current) return;
+  const refreshMaterials = useCallback(async (): Promise<MaterialsOut | null> => {
+    if (inFlight.current) return null; // the guard is shared: one read at a time
     inFlight.current = true;
     try {
-      setMaterials(await getMaterials(sessionId));
+      const read = await getMaterials(sessionId);
+      setMaterials(read);
       setPollError(false);
+      return read;
     } catch {
       setPollError(true);
+      return null;
     } finally {
       inFlight.current = false;
     }
@@ -268,18 +301,33 @@ export function Session({ sessionId }: { sessionId: string }) {
 
   // ── Which slides are being rewritten (#213) ────────────────────────────
   /**
-   * The deck read's own flag, plus this view's marks for requests it has just
-   * sent. The server's flag is the truth the indicator shows; the marks only
-   * cover the stretch between a `202` and the read that confirms it.
+   * The requests whose snapshot is still the current deck read — the stretch
+   * where this view has asked for a slide and no read newer than its own ask
+   * has landed. As soon as a newer read lands the mark is retired: that read
+   * either carries the slide's own flag (the flag takes over) or says the slide
+   * is not being rewritten (the rewrite already ended).
+   */
+  const liveRequests = useMemo(() => {
+    const live = new Set<string>();
+    for (const [slideId, snapshot] of requestedRegens) {
+      if (snapshot === materials) live.add(slideId);
+    }
+    return live;
+  }, [requestedRegens, materials]);
+
+  /**
+   * In flight, for the indicator and for the poll's own guard: the deck read's
+   * flag — the truth — plus the live requests above, which only cover the gap
+   * before that flag can be seen.
    */
   const regeneratingSlides = useMemo(() => {
     const ids = new Set<string>();
     for (const item of deck) {
       if (item.type === "slide" && item.regenerating) ids.add(item.slide_id);
     }
-    for (const id of requestedRegens) ids.add(id);
+    for (const id of liveRequests) ids.add(id);
     return ids;
-  }, [deck, requestedRegens]);
+  }, [deck, liveRequests]);
   const anyRegenerating = regeneratingSlides.size > 0;
 
   /**
@@ -319,7 +367,7 @@ export function Session({ sessionId }: { sessionId: string }) {
     if (finished.length === 0) return;
 
     setRequestedRegens((prev) => {
-      const next = new Set(prev);
+      const next = new Map(prev);
       for (const id of finished) next.delete(id);
       return next;
     });
@@ -513,27 +561,36 @@ export function Session({ sessionId }: { sessionId: string }) {
    * view's reading of the answer:
    *
    * - **202 — started, not done.** The slide is marked in the same commit that
-   *   answered, so the very next deck read carries it; the mark above only
-   *   covers the stretch until then, and `refreshMaterials` shortens even that.
-   * - **Any refusal — the reason, in the sheet that asked.** A 409 can mean the
-   *   deck is generating, that this slide is already being rewritten, or that it
-   *   predates stored content specs (#197). The first two are the deck having
-   *   moved under the request, so the deck is re-read rather than guessed at;
-   *   the last is a dead end the learner has to be told about in so many words.
+   *   answered, so the very next deck read carries it; the mark above covers the
+   *   stretch until then, and `refreshMaterials` shortens even that.
+   * - **A refusal that is the deck having moved under the request** — most often
+   *   “this slide is already being regenerated”. Re-read first: if the deck now
+   *   says this slide *is* being rewritten, the honest answer is the loading
+   *   state and a closed sheet, not a message, and the control is gone so no
+   *   second request can be made.
+   * - **Any other refusal — its reason, in the sheet that asked.** “This slide
+   *   predates stored content specs; regenerate the whole deck instead” is a dead
+   *   end the learner has to be told about in so many words. A failure that is
+   *   not one of the backend's own refusals gets the app's words instead
+   *   (`refusalText`), never an internal message.
    */
   const submitRegeneration = async (slideId: string, feedback: string | null) => {
     setRegenSubmitting(true);
     setRegenError(null);
     try {
       await regenerateSlide(sessionId, slideId, feedback);
-      setRequestedRegens((prev) => new Set(prev).add(slideId));
+      setRequestedRegens((prev) => new Map(prev).set(slideId, materials));
       setRegenSheetFor(null);
       setRegenDone(false);
       void refreshMaterials();
     } catch (error) {
-      const detail = (error as { message?: unknown } | undefined)?.message;
-      setRegenError(typeof detail === "string" ? detail : "");
-      void refreshMaterials();
+      const fresh = await refreshMaterials();
+      if (fresh !== null && readReportsRewrite(fresh, slideId)) {
+        setRegenSheetFor(null);
+        setRegenDone(false);
+        return;
+      }
+      setRegenError(refusalText(error));
     } finally {
       setRegenSubmitting(false);
     }
