@@ -1,8 +1,33 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import type { Theme } from "@/hooks/use-theme"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+/**
+ * The sandbox URL that serves a slide item's content.
+ *
+ * The app's theme is passed as a query param so the slide page renders in the
+ * same palette (`?theme=light` sets the `light` class on the page's `<html>`
+ * for its *initial* paint, #78).
+ *
+ * `fresh` is the other, rarer, reason this URL changes (#213): a regenerated
+ * slide keeps its ID, and a browser re-importing `/slides/{id}/bundle.js` at a
+ * URL it has already fetched gets the module map's copy — the old bytes. The
+ * rewritten slide reaches its reader only at a URL they have not fetched yet.
+ * Shared by the deck's player frame and the sidebar's mini previews, which are
+ * separate documents and must each be re-keyed on their own.
+ */
+export function sandboxSlideSrc(
+  slideId: string,
+  theme: Theme,
+  fresh = 0,
+): string {
+  return `${process.env.NEXT_PUBLIC_SANDBOX_ORIGIN}/slides/${slideId}?theme=${theme}${
+    fresh > 0 ? `&fresh=${fresh}` : ""
+  }`;
 }
 
 /**

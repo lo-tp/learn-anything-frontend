@@ -1313,7 +1313,8 @@ describe("asking for one slide back (#213)", () => {
       expect(screen.getByRole("status", { name: /regenerating this slide/i })).toBeTruthy();
 
       // Finished: the indicator clears, the control comes back, the frame is
-      // re-keyed, and there is nothing left to poll.
+      // re-keyed, and the rewritten slide's sidebar preview re-fetches — the
+      // rail must not keep showing the version the reader asked to replace.
       act(() => {
         vi.advanceTimersByTime(3000);
       });
@@ -1323,6 +1324,9 @@ describe("asking for one slide back (#213)", () => {
       ).toBeNull();
       expect(screen.getByRole("button", REGEN_CONTROL)).toBeTruthy();
       expect(screen.getByTitle("Sandbox").getAttribute("src")).toContain("fresh=");
+      expect(
+        document.querySelector("iframe[aria-hidden='true']")?.getAttribute("src"),
+      ).toContain("fresh=");
 
       const reads = mockGetMaterials.mock.calls.length;
       act(() => {
