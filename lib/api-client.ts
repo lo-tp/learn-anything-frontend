@@ -41,7 +41,6 @@ export type MaterialsOut = components["schemas"]["MaterialsOut"];
 export type MaterialOut = components["schemas"]["MaterialOut"];
 export type SlideItem = components["schemas"]["SlideItem"];
 export type QuestionItem = components["schemas"]["QuestionItem"];
-export type RegenerateIn = components["schemas"]["RegenerateIn"];
 export type RegenerateOut = components["schemas"]["RegenerateOut"];
 
 /** Thrown when the backend answers with a declared error (e.g. 422). */
