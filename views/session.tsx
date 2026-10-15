@@ -8,6 +8,8 @@ import { ControlBar } from "@/components/control-bar";
 import { PhaseIndicator } from "@/components/phase-indicator";
 import { StatePanel } from "@/components/state-panel";
 import { QuizQuestion } from "@/components/session/quiz-question";
+import { RegenerateSlideSheet } from "@/components/session/regenerate-slide-sheet";
+import { SlideRegenerateControl } from "@/components/session/slide-regenerate";
 import {
   Tooltip,
   TooltipContent,
@@ -20,6 +22,7 @@ import {
   getMaterials,
   getSession,
   postReviewCard,
+  regenerateSlide,
   type MaterialsOut,
   type ReviewCardIn,
   type SessionState,
@@ -42,9 +45,17 @@ const PRE_MATERIAL = new Set(["clarifying", "probing", "planning", "reviewing"])
  *
  * That param is the frame's **initial** paint only. A theme change after the
  * frame exists is not a URL change (#185) — see the player wiring below.
+ *
+ * `fresh` is the other, rarer reason this URL changes (#213): a regenerated
+ * slide keeps its ID, and the sandbox harness re-imports
+ * `/slides/{id}/bundle.js` through the browser's module map — the same URL is
+ * the old bytes. A rewritten slide reaches the reader only at a URL the frame
+ * has not already fetched.
  */
-const sandboxSrc = (slideId: string, theme: Theme) =>
-  `${process.env.NEXT_PUBLIC_SANDBOX_ORIGIN}/slides/${slideId}?theme=${theme}`;
+const sandboxSrc = (slideId: string, theme: Theme, fresh = 0) =>
+  `${process.env.NEXT_PUBLIC_SANDBOX_ORIGIN}/slides/${slideId}?theme=${theme}${
+    fresh > 0 ? `&fresh=${fresh}` : ""
+  }`;
 
 /**
  * The `/session/{sessionId}` view (#47). **Client** component — the single
@@ -124,6 +135,35 @@ export function Session({ sessionId }: { sessionId: string }) {
   const inFlight = useRef(false);
   // Ref so the sign-in handler reads the current pending misses (#152)
   const pendingMissesRef = useRef<ReviewCardIn[]>([]);
+  // ── One-slide regeneration (#213) ─────────────────────────────────────
+  // The slide the regeneration sheet is open for, if any.
+  const [regenSheetFor, setRegenSheetFor] = useState<string | null>(null);
+  /**
+   * Slides this view has asked for, by ID. A `202` says only that a rewrite
+   * *started*; these marks carry the loading state across the gap until the deck
+   * read reports the slide's own `regenerating` flag, which is what the
+   * indicator is built from from then on.
+   */
+  const [requestedRegens, setRequestedRegens] = useState<ReadonlySet<string>>(
+    new Set(),
+  );
+  // The request round-trip, so the sheet cannot be pressed twice.
+  const [regenSubmitting, setRegenSubmitting] = useState(false);
+  // A refusal's text, shown in the sheet that asked for it.
+  const [regenError, setRegenError] = useState<string | null>(null);
+  /**
+   * Bumped when a rewrite finishes. The player frame's URL is the only thing
+   * that can bring the new slide to the reader: the slide keeps its ID, and a
+   * frame re-importing the URL it already fetched gets the module map's copy —
+   * the slide it was written from (#213).
+   */
+  const [frameNonce, setFrameNonce] = useState(0);
+  /** What this view last believed to be in flight. The flag's *falling edge*
+   *  is the only completion signal the API has, so it has to be remembered to
+   *  be noticed. */
+  const seenRegenerating = useRef<ReadonlySet<string>>(new Set());
+  // True when a rewrite just finished: what the live region says about it.
+  const [regenDone, setRegenDone] = useState(false);
   const t = useTranslations("session");
   const { theme } = useTheme();
 
@@ -132,7 +172,23 @@ export function Session({ sessionId }: { sessionId: string }) {
   const generating = phase === "generating";
 
   /**
-   * The initial fetch: session state and materials in parallel, each
+   * One deck read. `inFlight` is the guard that keeps two polls from ever
+   * overlapping — the interval's tick and a view-triggered refresh share it.
+   */
+  const refreshMaterials = useCallback(async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    try {
+      setMaterials(await getMaterials(sessionId));
+      setPollError(false);
+    } catch {
+      setPollError(true);
+    } finally {
+      inFlight.current = false;
+    }
+  }, [sessionId]);
+
+  /** The initial fetch: session state and materials in parallel, each
    * tolerating its own failure (the backend may be unreachable, or the
    * session/materials may not exist yet — the view renders the friendly
    * states, so there is no `notFound()`). #87
@@ -193,25 +249,6 @@ export function Session({ sessionId }: { sessionId: string }) {
     };
   }, []);
 
-  /** Poll every 3s while generating; the cleanup stops it on phase change. */
-  useEffect(() => {
-    if (!generating) return;
-    const poll = async () => {
-      if (inFlight.current) return; // never overlap in-flight polls
-      inFlight.current = true;
-      try {
-        setMaterials(await getMaterials(sessionId));
-        setPollError(false);
-      } catch {
-        setPollError(true);
-      } finally {
-        inFlight.current = false;
-      }
-    };
-    const timer = setInterval(poll, POLL_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [generating, sessionId]);
-
   /** The flattened deck: every slide/question in step order, tagged with its parent step_id. */
   const deck = useMemo(
     () => (materials?.generated_steps ?? []).flatMap((step) =>
@@ -228,6 +265,67 @@ export function Session({ sessionId }: { sessionId: string }) {
       items: step.items.map((item) => ({ index: offset++, item })),
     }));
   }, [materials]);
+
+  // ── Which slides are being rewritten (#213) ────────────────────────────
+  /**
+   * The deck read's own flag, plus this view's marks for requests it has just
+   * sent. The server's flag is the truth the indicator shows; the marks only
+   * cover the stretch between a `202` and the read that confirms it.
+   */
+  const regeneratingSlides = useMemo(() => {
+    const ids = new Set<string>();
+    for (const item of deck) {
+      if (item.type === "slide" && item.regenerating) ids.add(item.slide_id);
+    }
+    for (const id of requestedRegens) ids.add(id);
+    return ids;
+  }, [deck, requestedRegens]);
+  const anyRegenerating = regeneratingSlides.size > 0;
+
+  /**
+   * Poll every 3s while the deck is generating **or** while one of its slides
+   * is being rewritten (#213). `regenerating` is the only completion signal the
+   * API has, and it lives in this read; the cleanup stops the interval when
+   * neither is true any more.
+   */
+  useEffect(() => {
+    if (!generating && !anyRegenerating) return;
+    const timer = setInterval(() => {
+      void refreshMaterials();
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [generating, anyRegenerating, refreshMaterials]);
+
+  /**
+   * The falling edge of that flag is the completion signal (#197's follow-up):
+   * a rewrite that was in flight and now is not. Everything the view does on
+   * that edge — drop its own mark, re-key the player frame, say so to a screen
+   * reader — is a once-per-rewrite act, so the previous set is kept in a ref
+   * and compared instead of re-deriving the moment.
+   *
+   * It fires for a rewrite that started somewhere else too (another tab, a
+   * rewrite that was already running when this deck was opened), which is the
+   * honest reading: the slide in front of the reader changed.
+   */
+  useEffect(() => {
+    const previous = seenRegenerating.current;
+    seenRegenerating.current = regeneratingSlides;
+
+    // A new rewrite started: the next news this region tells is new text, so a
+    // later completion is announced rather than repeating the last sentence.
+    if (regeneratingSlides.size > previous.size) setRegenDone(false);
+
+    const finished = [...previous].filter((id) => !regeneratingSlides.has(id));
+    if (finished.length === 0) return;
+
+    setRequestedRegens((prev) => {
+      const next = new Set(prev);
+      for (const id of finished) next.delete(id);
+      return next;
+    });
+    setFrameNonce((n) => n + 1);
+    setRegenDone(true);
+  }, [regeneratingSlides]);
 
   // ── Active item + slide player (hooks must run before any early return) ──
   const total = deck.length;
@@ -256,7 +354,10 @@ export function Session({ sessionId }: { sessionId: string }) {
    * fields are never the deck's — see `deckMoveFor`.
    */
   useEffect(() => {
-    if (total === 0) return;
+    // The sheet is a modal ask about one slide: while it is open the deck is
+    // held still, so the reader cannot walk away from the slide they are asking
+    // about mid-question (#213).
+    if (total === 0 || regenSheetFor !== null) return;
     const onKey = (e: KeyboardEvent) => {
       const move = deckMoveFor(e);
       if (move === null) return;
@@ -265,7 +366,7 @@ export function Session({ sessionId }: { sessionId: string }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [total, stepDeck]);
+  }, [total, stepDeck, regenSheetFor]);
 
   // The slide player is one persistent iframe whose `src` is built **once per
   // deck** and never changes after that: it always loads the session's first
@@ -305,22 +406,36 @@ export function Session({ sessionId }: { sessionId: string }) {
    * `src` would be a frame reload and a reload lands on the frame's own slug,
    * item 1 (see the note above).
    *
-   * The theme it carries is the one `<html>` has when the deck first appears,
-   * which is already the reader's stored theme: `useTheme` adopts the stored
-   * value in a `useLayoutEffect` before paint (`hooks/use-theme.ts`) and the
-   * deck only renders once the materials fetch has resolved. A cold load
-   * therefore paints in that palette with no dark-frame flash.
+   * A finished slide rewrite is the one other thing that rebuilds it (#213), and
+   * it is keyed on `frameNonce`, never on the theme: the deck's first slide
+   * stays the slide the frame loads, and the reader lands back on the item they
+   * were on through the existing `load` / `SANDBOX_READY` resync.
+   *
+   * The theme it carries is the one `<html>` has when the frame is built, which
+   * is already the reader's stored theme: `useTheme` adopts the stored value in
+   * a `useLayoutEffect` before paint (`hooks/use-theme.ts`) and the deck only
+   * renders once the materials fetch has resolved. A cold load therefore paints
+   * in that palette with no dark-frame flash.
    */
   const [deckFrame, setDeckFrame] = useState<{
     slug: string;
+    nonce: number;
     url: string;
   } | null>(null);
-  if (firstSlideId && deckFrame?.slug !== firstSlideId) {
-    // React's render-time state adjustment: the deck's first slide is the key,
-    // so a new deck gets a new URL and a theme change (same slug) does not
-    // re-enter this branch — the frame keeps the `?theme=` of its first paint
-    // and is re-themed by message instead (#185).
-    setDeckFrame({ slug: firstSlideId, url: sandboxSrc(firstSlideId, theme) });
+  if (
+    firstSlideId &&
+    (deckFrame?.slug !== firstSlideId || deckFrame.nonce !== frameNonce)
+  ) {
+    // React's render-time state adjustment: the deck's first slide and the
+    // current nonce are the key, so a new deck or a finished rewrite gets a new
+    // URL, and a theme change (same slug, same nonce) does not re-enter this
+    // branch — the frame keeps the `?theme=` of its first paint and is re-themed
+    // by message instead (#185).
+    setDeckFrame({
+      slug: firstSlideId,
+      nonce: frameNonce,
+      url: sandboxSrc(firstSlideId, theme, frameNonce),
+    });
   }
   const playerSrc = deckFrame?.url ?? null;
 
@@ -376,6 +491,53 @@ export function Session({ sessionId }: { sessionId: string }) {
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, [postToPlayer]);
+
+  // ── Asking for one slide back (#213) ──────────────────────────────
+  /**
+   * The control press. A User is asked what they want changed; a Visitor is not,
+   * because this is a gated write (#178) and a doomed request is a worse answer
+   * than the sign-in ask. `requestSignIn` opens the modal over this deck, in
+   * place (#147).
+   */
+  const askForRegeneration = (slideId: string) => {
+    if (!isUser) {
+      requestSignIn();
+      return;
+    }
+    setRegenError(null);
+    setRegenSheetFor(slideId);
+  };
+
+  /**
+   * The sheet's submit. What it sent is the request; what happens next is the
+   * view's reading of the answer:
+   *
+   * - **202 — started, not done.** The slide is marked in the same commit that
+   *   answered, so the very next deck read carries it; the mark above only
+   *   covers the stretch until then, and `refreshMaterials` shortens even that.
+   * - **Any refusal — the reason, in the sheet that asked.** A 409 can mean the
+   *   deck is generating, that this slide is already being rewritten, or that it
+   *   predates stored content specs (#197). The first two are the deck having
+   *   moved under the request, so the deck is re-read rather than guessed at;
+   *   the last is a dead end the learner has to be told about in so many words.
+   */
+  const submitRegeneration = async (slideId: string, feedback: string | null) => {
+    setRegenSubmitting(true);
+    setRegenError(null);
+    try {
+      await regenerateSlide(sessionId, slideId, feedback);
+      setRequestedRegens((prev) => new Set(prev).add(slideId));
+      setRegenSheetFor(null);
+      setRegenDone(false);
+      void refreshMaterials();
+    } catch (error) {
+      const detail = (error as { message?: unknown } | undefined)?.message;
+      setRegenError(typeof detail === "string" ? detail : "");
+      void refreshMaterials();
+    } finally {
+      setRegenSubmitting(false);
+    }
+  };
 
   // ── Render branches, in priority order ──────────────────────────
 
@@ -459,6 +621,15 @@ export function Session({ sessionId }: { sessionId: string }) {
   const headerTitleVoice =
     "font-display text-base font-semibold text-on-surface";
 
+  /**
+   * The slide the regeneration affordance belongs to, or null. It is offered on
+   * a slide and on nothing else: not on a question, and not while the deck is
+   * still being written (`generating`) — the whole-deck route already owns that
+   * work, and the backend refuses a single-slide request in that phase (#197).
+   */
+  const slideOnScreen =
+    active.type === "slide" && !generating ? active.slide_id : null;
+
   return (
     <div className="flex h-full overflow-hidden">
       <SessionSidebar
@@ -498,12 +669,27 @@ export function Session({ sessionId }: { sessionId: string }) {
 
         <main className="min-h-0 flex-1 overflow-y-auto p-6">
           {firstSlideId && playerSrc && (
-            <div className={active.type === "slide" ? "h-full" : "hidden"}>
+            <div
+              className={active.type === "slide" ? "relative h-full" : "hidden"}
+            >
               <SandboxFrame
                 ref={playerRef}
                 src={playerSrc}
                 onLoad={handlePlayerLoad}
               />
+              {/* The ask-for-it-back control, at the corner of the slide area it
+                  is shown in (#213). It sits inside the frame's own bounds rather
+                  than in the header band: the request is about *this* slide, and a
+                  control that floats over a rendered surface has to be legible on
+                  whatever the slide happens to be painted with. */}
+              {slideOnScreen !== null && (
+                <div className="absolute right-3 top-3 z-10">
+                  <SlideRegenerateControl
+                    regenerating={regeneratingSlides.has(slideOnScreen)}
+                    onRequest={() => askForRegeneration(slideOnScreen)}
+                  />
+                </div>
+              )}
             </div>
           )}
           {active.type === "question" && (
@@ -574,6 +760,33 @@ export function Session({ sessionId }: { sessionId: string }) {
             onNext={() => stepDeck("next")}
           />
         </footer>
+
+        {/* One live region for the whole deck, always mounted: what it announces
+            is a change in its text, and a region that appears only when there is
+            news is a region a screen reader may not be listening to yet (#213). */}
+        <span role="status" aria-live="polite" className="sr-only">
+          {regenDone ? t("regenerate.announced.done") : ""}
+        </span>
+
+        {regenSheetFor !== null && (
+          <RegenerateSlideSheet
+            key={regenSheetFor}
+            open
+            onOpenChange={() => {
+              // The sheet is mounted open, so the only change Radix can be
+              // asking for is a close — Escape, the overlay, and the sheet's own
+              // Cancel all land here. Closing also clears the refusal: it
+              // belonged to the ask that was just abandoned.
+              setRegenSheetFor(null);
+              setRegenError(null);
+            }}
+            onSubmit={(feedback) =>
+              void submitRegeneration(regenSheetFor, feedback)
+            }
+            pending={regenSubmitting}
+            error={regenError}
+          />
+        )}
       </div>
     </div>
   );
