@@ -28,6 +28,7 @@ const {
   logoutAuth,
   postReviewCard,
   registerAuth,
+  regenerateSlide,
   startProbe,
   updateMe,
   handleUnauthorized,
@@ -245,6 +246,65 @@ describe("session endpoints", () => {
       expect(err).toBeInstanceOf(ApiError);
       expect((err as { message: string }).message).toBe("boom");
     });
+  });
+});
+
+describe("regenerateSlide (#197/#213)", () => {
+  const ACCEPTED = {
+    slide_id: "slide-1",
+    message: "Regeneration started.",
+  };
+
+  it("POSTs the one-slide route with the learner's feedback", async () => {
+    fetchMock.mockResolvedValue(json(ACCEPTED, 202));
+
+    const result = await regenerateSlide("s-1", "slide-1", "make it more visual");
+
+    const request = fetchMock.mock.calls[0][0] as Request;
+    expect(request.url).toBe(
+      `${BACKEND}/sessions/s-1/slides/slide-1/regenerate`,
+    );
+    expect(await request.clone().text()).toBe(
+      JSON.stringify({ feedback: "make it more visual" }),
+    );
+    expect(result).toEqual(ACCEPTED);
+  });
+
+  it("sends an explicit null feedback when the learner asked for a plain retry", async () => {
+    fetchMock.mockResolvedValue(json(ACCEPTED, 202));
+
+    await regenerateSlide("s-1", "slide-1");
+
+    const request = fetchMock.mock.calls[0][0] as Request;
+    expect(await request.clone().text()).toBe(JSON.stringify({ feedback: null }));
+  });
+
+  it("reports a refusal with its status, so the caller can tell one 409 from another", async () => {
+    fetchMock.mockResolvedValue(
+      json(
+        {
+          detail:
+            "This slide has no stored content spec — it was generated before specs were stored.",
+        },
+        409,
+      ),
+    );
+
+    const err = await regenerateSlide("s-1", "slide-1", "x").catch((e) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err.status).toBe(409);
+    expect(err.message).toContain("no stored content spec");
+  });
+
+  it("asks for the sign-in modal on a 401 — a gated write (#178)", async () => {
+    const ask = vi.fn();
+    const unsubscribe = onRequestSignIn(ask);
+    fetchMock.mockResolvedValue(json({ detail: "Not authenticated" }, 401));
+
+    const err = await regenerateSlide("s-1", "slide-1", "x").catch((e) => e);
+    unsubscribe();
+    expect(ask).toHaveBeenCalledTimes(1);
+    expect(err).toBeInstanceOf(ApiError);
   });
 });
 

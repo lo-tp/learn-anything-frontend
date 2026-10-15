@@ -41,6 +41,8 @@ export type MaterialsOut = components["schemas"]["MaterialsOut"];
 export type MaterialOut = components["schemas"]["MaterialOut"];
 export type SlideItem = components["schemas"]["SlideItem"];
 export type QuestionItem = components["schemas"]["QuestionItem"];
+export type RegenerateIn = components["schemas"]["RegenerateIn"];
+export type RegenerateOut = components["schemas"]["RegenerateOut"];
 
 /** Thrown when the backend answers with a declared error (e.g. 422). */
 export class ApiError extends Error {
@@ -301,6 +303,42 @@ export async function approvePlan(sessionId: string): Promise<ApproveOut> {
   const { data, error, response } = await api.POST(
     "/sessions/{session_id}/plan/approve",
     { params: { path: { session_id: sessionId } }, credentials: "include" },
+  );
+  if (!data) throw guardUnauthorized(response, error, response?.status);
+  return data;
+}
+
+/**
+ * `POST /sessions/{session_id}/slides/{slide_id}/regenerate` — ask for one
+ * slide of the deck to be written again, leaving every other slide alone
+ * (#197 → #213).
+ *
+ * A gated write (#178): it changes the deck, so a Visitor's request answers
+ * 401 and `guardUnauthorized` opens the sign-in modal over the deck.
+ *
+ * `202` is not “done”, it is “started”: the backend writes the slide in the
+ * background and the deck read carries `SlideItem.regenerating` while it runs.
+ * A `feedback` of `""`/`undefined` is sent as an explicit `null` — “write this
+ * slide again as it was asked for”, which is the same request the endpoint
+ * makes with no body at all, stated rather than left implied.
+ *
+ * Refusals arrive as `ApiError`s carrying the status: a 409 is “the deck is
+ * generating”, “this slide is already being regenerated”, or “this slide has
+ * no stored content spec”, and only the caller holding the deck can tell those
+ * apart, so the status and detail are handed up unchanged.
+ */
+export async function regenerateSlide(
+  sessionId: string,
+  slideId: string,
+  feedback?: string | null,
+): Promise<RegenerateOut> {
+  const { data, error, response } = await api.POST(
+    "/sessions/{session_id}/slides/{slide_id}/regenerate",
+    {
+      params: { path: { session_id: sessionId, slide_id: slideId } },
+      body: { feedback: feedback?.trim() ? feedback.trim() : null },
+      credentials: "include",
+    },
   );
   if (!data) throw guardUnauthorized(response, error, response?.status);
   return data;

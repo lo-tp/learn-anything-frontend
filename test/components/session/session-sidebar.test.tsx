@@ -8,7 +8,12 @@ import { renderWithLocale, clip } from "@/test/test-utils";import {
 } from "@/components/session/session-sidebar";
 import type { SlideItem, QuestionItem } from "@/lib/api-client";
 
-const slide: SlideItem = { type: "slide", slide_id: "slide-1" };
+const slide: SlideItem = {
+  type: "slide",
+  slide_id: "slide-1",
+  // A settled slide: the deck read's flag is false when no rewrite is running.
+  regenerating: false,
+};
 const question: QuestionItem = {
   type: "question",
   id: "q-1",

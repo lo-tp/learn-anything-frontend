@@ -312,6 +312,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sessions/{session_id}/slides/{slide_id}/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Slide Regeneration
+         * @description Regenerate one slide of a deck, leaving every other slide alone.
+         *
+         *     A gated write (#178): it changes the deck, and the request that asks for it
+         *     belongs to whoever is working on that Session.
+         *
+         *     Everything needed to write the slide again is already in this backend: the
+         *     content spec on the slide's own row (#197), the step in the plan, the prior
+         *     steps' summaries, the boundary map, the language. That is what makes a
+         *     single slide a self-contained operation instead of a reason to wipe the deck
+         *     and re-run generation (``POST /dev/sessions/{id}/regenerate``).
+         *
+         *     Answers ``202`` because writing a slide is several model calls: the work runs
+         *     in the background and the row is replaced when a new slide compiles. A
+         *     regeneration that exhausts its attempts changes nothing — the slide the
+         *     learner has stays.
+         *
+         *     The request also marks the slide (``is_regenerating``), in the commit that
+         *     answers it, and the deck read surfaces the mark as ``regenerating`` on the
+         *     slide item. A ``202`` on its own tells a client only that something started,
+         *     and a rewritten slide keeps its ID, so the mark is the only thing it has to
+         *     watch; a second request for a marked slide is refused, which is the rule the
+         *     whole-deck route already holds for a deck. Clearing the mark is the task's
+         *     job, on every outcome.
+         */
+        post: operations["request_slide_regeneration_sessions__session_id__slides__slide_id__regenerate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sessions/{session_id}/materials": {
         parameters: {
             query?: never;
@@ -583,6 +625,18 @@ export interface components {
             /** Explanation */
             explanation: string;
         };
+        /** RegenerateIn */
+        RegenerateIn: {
+            /** Feedback */
+            feedback?: string | null;
+        };
+        /** RegenerateOut */
+        RegenerateOut: {
+            /** Slide Id */
+            slide_id: string;
+            /** Message */
+            message: string;
+        };
         /** RegisterRequest */
         RegisterRequest: {
             /**
@@ -708,6 +762,8 @@ export interface components {
             type: "slide";
             /** Slide Id */
             slide_id: string;
+            /** Regenerating */
+            regenerating: boolean;
         };
         /** SlideOut */
         SlideOut: {
@@ -1230,6 +1286,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApproveOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_slide_regeneration_sessions__session_id__slides__slide_id__regenerate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                slide_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RegenerateIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegenerateOut"];
                 };
             };
             /** @description Validation Error */
