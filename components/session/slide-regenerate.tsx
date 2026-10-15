@@ -21,7 +21,8 @@ import { cn } from "@/lib/utils";
  * controls, so the one state that most needs its explanation would be the one
  * state that never shows it. The in-flight control is the same
  * `role="status"` + `title` treatment the phase stamp already wears
- * (`components/phase-indicator.tsx`): the spinner *is* the message, and its
+ * (`components/phase-indicator.tsx`): the spinner *is* the message, its ink is
+ * the same engagement blue that stamp uses for work-in-progress, and its
  * `aria-label` carries the same sentence for a screen reader.
  *
  * **It refuses a second request by having no control to press**, which is the
@@ -53,7 +54,7 @@ export function SlideRegenerateControl({
         role="status"
         aria-label={t("regenerate.inProgress.label")}
         title={t("regenerate.inProgress.hint")}
-        className={cn(CONTROL_BOX, "text-primary")}
+        className={cn(CONTROL_BOX, "text-engage")}
       >
         <Loader2 className="size-4 animate-spin" aria-hidden />
       </span>
