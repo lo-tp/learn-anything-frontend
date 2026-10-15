@@ -6,21 +6,24 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import type { Theme } from "@/hooks/use-theme";
 import { Session, deckMoveFor } from "@/views/session";
 import {
+  ApiError,
   getMaterials,
   getSession,
   getSignedInUser,
   postReviewCard,
+  regenerateSlide,
   type MaterialsOut,
   type ReviewCardOut,
   type SessionState,
 } from "@/lib/api-client";
-import { notifySignedIn, notifySignedOut } from "@/lib/auth-events";
+import { notifySignedIn, notifySignedOut, onRequestSignIn } from "@/lib/auth-events";
 
 vi.mock("@/lib/api-client", () => ({
   getSession: vi.fn(),
   getMaterials: vi.fn(),
   getSignedInUser: vi.fn(),
   postReviewCard: vi.fn(),
+  regenerateSlide: vi.fn(),
   ApiError: class ApiError extends Error {},
 }));
 
@@ -34,6 +37,7 @@ const mockGetSession = vi.mocked(getSession);
 const mockGetMaterials = vi.mocked(getMaterials);
 const mockGetSignedInUser = vi.mocked(getSignedInUser);
 const mockPostReviewCard = vi.mocked(postReviewCard);
+const mockRegenerateSlide = vi.mocked(regenerateSlide);
 
 beforeEach(() => {
   mockGetSession
@@ -57,6 +61,11 @@ beforeEach(() => {
       step_id: null,
       due_at: "",
     } satisfies ReviewCardOut);
+  // A regeneration request is accepted by default: the backend's answer is a
+  // 202, which says only that the rewrite started (#197).
+  mockRegenerateSlide
+    .mockReset()
+    .mockResolvedValue({ slide_id: "slide-1", message: "Regeneration started." });
 });
 
 afterEach(() => {
@@ -90,7 +99,7 @@ function materials(overrides: Partial<MaterialsOut> = {}): MaterialsOut {
           key_points: ["F = ma"],
         },
         items: [
-          { type: "slide", slide_id: "slide-1" },
+          { type: "slide", slide_id: "slide-1", regenerating: false },
           {
             type: "question",
             id: "q-1",
@@ -785,8 +794,8 @@ function twoSlideDeck(): MaterialsOut {
           key_points: ["F = ma"],
         },
         items: [
-          { type: "slide", slide_id: "slide-1" },
-          { type: "slide", slide_id: "slide-2" },
+          { type: "slide", slide_id: "slide-1", regenerating: false },
+          { type: "slide", slide_id: "slide-2", regenerating: false },
         ],
       },
     ],
@@ -995,5 +1004,275 @@ describe("Session slide player across a theme switch (#185)", () => {
     );
     await act(async () => {});
     expect(screen.queryByTitle("Sandbox")).toBeNull();
+  });
+});
+
+/**
+ * #213 — asking for one slide back.
+ *
+ * The deck's first write: a control on the slide, a sheet that turns the
+ * learner's note into the request's `feedback`, the deck read's
+ * `SlideItem.regenerating` flag as the only truth about an in-flight rewrite,
+ * the poll that watches it, and the frame re-key that puts the rewritten slide
+ * on screen (#197's backend half is what makes any of this possible).
+ *
+ * A two-slide deck is the shape these tests need: a slide to ask about, and a
+ * second item to notice when the view has changed what it is showing.
+ */
+function deckWithRewrite(regenerating: boolean): MaterialsOut {
+  return materials({
+    generated_steps: [
+      {
+        step_id: "st-1",
+        summary: {
+          step_id: "st-1",
+          title: "Force and mass",
+          key_points: ["F = ma"],
+        },
+        items: [
+          { type: "slide", slide_id: "slide-1", regenerating },
+          { type: "slide", slide_id: "slide-2", regenerating: false },
+        ],
+      },
+    ],
+  });
+}
+
+const REGEN_CONTROL = { name: /regenerate this slide/i };
+
+describe("asking for one slide back (#213)", () => {
+  it("offers the control at the corner of the slide the reader is on", async () => {
+    mockGetMaterials.mockResolvedValue(deckWithRewrite(false));
+    renderSession();
+    await settle();
+    expect(screen.getByRole("button", REGEN_CONTROL)).toBeTruthy();
+  });
+
+  it("offers it on no question item", async () => {
+    renderSession();
+    await settle();
+    fireEvent.click(screen.getByRole("button", { name: "Next slide" }));
+    expect(screen.queryByRole("button", REGEN_CONTROL)).toBeNull();
+  });
+
+  it("offers it on no slide while the deck is still generating", async () => {
+    mockGetMaterials.mockResolvedValue({
+      ...deckWithRewrite(false),
+      phase: "generating",
+    });
+    renderSession();
+    await settle();
+    expect(counterAt(1, 2)).toBeTruthy();
+    expect(screen.queryByRole("button", REGEN_CONTROL)).toBeNull();
+  });
+
+  it("opens a sheet that asks what should be different about this slide", async () => {
+    mockGetMaterials.mockResolvedValue(deckWithRewrite(false));
+    renderSession();
+    await settle();
+
+    fireEvent.click(screen.getByRole("button", REGEN_CONTROL));
+
+    expect(screen.getByRole("textbox")).toBeTruthy();
+    expect(screen.getByText("What should be different?")).toBeTruthy();
+    expect(mockRegenerateSlide).not.toHaveBeenCalled();
+  });
+
+  it("sends what the learner typed, with the slide it belongs to", async () => {
+    mockGetMaterials.mockResolvedValue(deckWithRewrite(false));
+    renderSession();
+    await settle();
+
+    fireEvent.click(screen.getByRole("button", REGEN_CONTROL));
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "make it more visual" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^regenerate$/i }));
+    await act(async () => {});
+
+    expect(mockRegenerateSlide).toHaveBeenCalledWith(
+      "s-1",
+      "slide-1",
+      "make it more visual",
+    );
+  });
+
+  it("asks a Visitor to sign in rather than starting a write they do not own", async () => {
+    asVisitor();
+    const ask = vi.fn();
+    const stop = onRequestSignIn(ask);
+    mockGetMaterials.mockResolvedValue(deckWithRewrite(false));
+    renderSession();
+    await settle();
+
+    fireEvent.click(screen.getByRole("button", REGEN_CONTROL));
+
+    expect(ask).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("textbox")).toBeNull();
+    stop();
+  });
+
+  it("is a loading indicator, not a control, for a slide the deck says is being rewritten", async () => {
+    mockGetMaterials.mockResolvedValue(deckWithRewrite(true));
+    renderSession();
+    await settle();
+
+    expect(screen.getByRole("status", { name: /regenerating this slide/i })).toBeTruthy();
+    expect(screen.queryByRole("button", REGEN_CONTROL)).toBeNull();
+  });
+
+  it("polls the deck while a slide is being rewritten, and stops when none is", async () => {
+    vi.useFakeTimers();
+    try {
+      mockGetMaterials
+        .mockResolvedValueOnce(deckWithRewrite(true))
+        .mockResolvedValue(deckWithRewrite(false));
+      renderSession();
+      await act(async () => {});
+      expect(counterAt(1, 2)).toBeTruthy();
+      expect(mockGetMaterials).toHaveBeenCalledTimes(1);
+
+      // A rewrite is in flight: the deck read is polled.
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+      await act(async () => {});
+      expect(mockGetMaterials).toHaveBeenCalledTimes(2);
+
+      // It finished: nothing is in flight, so the polling stops again.
+      act(() => {
+        vi.advanceTimersByTime(9000);
+      });
+      await act(async () => {});
+      expect(mockGetMaterials).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("re-keys the player frame when the rewrite finishes, so the new slide is fetched", async () => {
+    vi.useFakeTimers();
+    try {
+      mockGetMaterials
+        .mockResolvedValueOnce(deckWithRewrite(true))
+        .mockResolvedValue(deckWithRewrite(false));
+      renderSession();
+      await act(async () => {});
+
+      const frame = screen.getByTitle("Sandbox") as HTMLIFrameElement;
+      const before = frame.getAttribute("src");
+      expect(before).toContain("/slides/slide-1?theme=");
+      expect(before).not.toContain("fresh=");
+
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+      await act(async () => {});
+
+      // The rewritten slide keeps its ID, and the harness' module map would
+      // serve the old bytes at that same URL: a new URL is the only thing that
+      // can bring the new slide to the reader (#213).
+      expect(frame.getAttribute("src")).not.toBe(before);
+      expect(frame.getAttribute("src")).toContain("fresh=");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("re-keys the frame for a finished rewrite and for no theme change (#185)", async () => {
+    vi.useFakeTimers();
+    try {
+      setHtmlTheme("dark");
+      mockGetMaterials
+        .mockResolvedValueOnce(deckWithRewrite(true))
+        .mockResolvedValue(deckWithRewrite(false));
+      renderPlayerWithToggle();
+      await act(async () => {});
+
+      const frame = screen.getByTitle("Sandbox") as HTMLIFrameElement;
+
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+      await act(async () => {});
+      const rekeyed = frame.getAttribute("src");
+      expect(rekeyed).toContain("fresh=");
+
+      // The re-key navigated the frame, so its window is a new one: post the
+      // messages *it* receives.
+      const posts = playerPosts(frame);
+      fireEvent.click(screen.getByRole("button", { name: "Toggle theme" }));
+      await act(async () => {});
+
+      // A theme still travels as a message: the frame is never re-keyed for it.
+      expect(frame.getAttribute("src")).toBe(rekeyed);
+      expect(posts).toContainEqual({ type: "DEMO_SET_THEME", theme: "light" });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("holds the deck still while the sheet is open", async () => {
+    mockGetMaterials.mockResolvedValue(deckWithRewrite(false));
+    renderSession();
+    await settle();
+
+    fireEvent.click(screen.getByRole("button", REGEN_CONTROL));
+    fireEvent.keyDown(document.body, { key: "ArrowDown" });
+
+    expect(counterAt(1, 2)).toBeTruthy();
+  });
+
+  it("carries no note from one slide to the next", async () => {
+    mockGetMaterials.mockResolvedValue(deckWithRewrite(false));
+    renderSession();
+    await settle();
+
+    fireEvent.click(screen.getByRole("button", REGEN_CONTROL));
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "make it more visual" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+    expect(screen.queryByRole("textbox")).toBeNull();
+
+    // The next ask is about a different slide, and starts blank: a note about
+    // one slide is not an instruction for another.
+    fireEvent.click(screen.getByRole("button", { name: "Next slide" }));
+    fireEvent.click(screen.getByRole("button", REGEN_CONTROL));
+    expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("");
+  });
+
+  it("says something of its own when the refusal came with no reason attached", async () => {
+    // A transport failure, not a backend refusal: no detail text to show.
+    mockRegenerateSlide.mockRejectedValue({});
+    mockGetMaterials.mockResolvedValue(deckWithRewrite(false));
+    renderSession();
+    await settle();
+
+    fireEvent.click(screen.getByRole("button", REGEN_CONTROL));
+    fireEvent.click(screen.getByRole("button", { name: /^regenerate$/i }));
+
+    expect(
+      await screen.findByText("This slide couldn't be regenerated."),
+    ).toBeTruthy();
+  });
+
+  it("answers a refusal with the reason the backend gave", async () => {
+    mockRegenerateSlide.mockRejectedValue(
+      new ApiError(
+        "This slide has no stored content spec — Regenerate the whole deck instead.",
+        409,
+      ),
+    );
+    mockGetMaterials.mockResolvedValue(deckWithRewrite(false));
+    renderSession();
+    await settle();
+
+    fireEvent.click(screen.getByRole("button", REGEN_CONTROL));
+    fireEvent.click(screen.getByRole("button", { name: /^regenerate$/i }));
+
+    expect(
+      await screen.findByText(/no stored content spec/i),
+    ).toBeTruthy();
   });
 });
