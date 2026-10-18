@@ -471,6 +471,39 @@ describe("NewSessionDialog", () => {
     expect(screen.getByText("10 m/s²")).toBeTruthy();
   });
 
+  it("renders the end of the probe as a panel that names what the learner did (#204)", async () => {
+    mockCreateSession.mockResolvedValue({ session_id: "s-1", phase: "probing" });
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
+    mockAnswerProbe.mockResolvedValue({
+      phase: "planning",
+      boundary_map: { f_ma_relation: { floor: "scalar F = ma", ceiling: null } },
+    });
+    mockGeneratePlan.mockResolvedValue(PLAN_OUT);
+    await openDialog(GOAL);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    const question = await screen.findByText(Q1.text);
+    const buttons = Array.from(
+      question.closest("fieldset")!.querySelectorAll("button"),
+    ) as HTMLButtonElement[];
+    fireEvent.click(
+      buttons.find((button) => (button.textContent ?? "").includes("5 m/s²"))!,
+    );
+
+    // The phase end is a block on the record, not spare text between answers:
+    // the sheet's filled container, carrying the verified Check.
+    const reached = await screen.findByText(/to get here/i);
+    const panel = reached.closest("div")!;
+    expect(panel.classList.contains("bg-surface-container-lowest")).toBe(true);
+    expect(panel.classList.contains("rounded-md")).toBe(true);
+
+    // And it says what happened in the learner's terms — the work they did,
+    // not the core's phase name.
+    expect(reached.textContent).toContain("You've answered 1 question");
+    expect(reached.textContent).toContain("your learning plan is ready");
+    expect(screen.queryByText(/Boundary established/i)).toBeNull();
+  });
+
   it("says what the boundary checks are for before the first one lands (#204)", async () => {
     mockCreateSession.mockResolvedValue({ session_id: "s-1", phase: "probing" });
     mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
@@ -776,6 +809,53 @@ describe("NewSessionDialog", () => {
     const rail = sheet.querySelector('[role="status"]') as HTMLElement;
     expect(rail.classList.contains("double-rule-b")).toBe(true);
     expect(rail.querySelectorAll("ol > li")).toHaveLength(4);
+  });
+
+  it("puts every action at the right end of the item it belongs to (#204)", async () => {
+    const rowOf = (button: HTMLElement) => button.parentElement!.classList;
+
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: ["What do you already know about force?"],
+    });
+    mockClarifySession.mockResolvedValue({ session_id: "s-1", phase: "probing" });
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
+    mockAnswerProbe.mockResolvedValue({
+      phase: "planning",
+      boundary_map: { f_ma_relation: { floor: "scalar F = ma", ceiling: null } },
+    });
+    mockGeneratePlan.mockResolvedValue(PLAN_OUT);
+    mockApprovePlan.mockResolvedValue({ phase: "generating", message: "Plan approved." });
+
+    await openDialog(GOAL);
+    // The goal field's own action.
+    expect(rowOf(screen.getByRole("button", { name: /Send/ })).contains("justify-end")).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    const field = await screen.findByLabelText("What do you already know about force?");
+    fireEvent.change(field, { target: { value: "I remember F = ma from school." } });
+    expect(rowOf(screen.getByRole("button", { name: /Send/ })).contains("justify-end")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    const question = await screen.findByText(Q1.text);
+    const options = Array.from(
+      question.closest("fieldset")!.querySelectorAll("button"),
+    ) as HTMLButtonElement[];
+    fireEvent.click(
+      options.find((button) => (button.textContent ?? "").includes("5 m/s²"))!,
+    );
+
+    // The plan pair.
+    const update = await screen.findByRole("button", { name: /Update plan/ });
+    const approve = screen.getByRole("button", { name: /Approve plan/ });
+    expect(rowOf(update).contains("justify-end")).toBe(true);
+    expect(rowOf(approve).contains("justify-end")).toBe(true);
+
+    fireEvent.click(approve);
+    // The control that files the finished sheet, inside its panel.
+    const file = await screen.findByRole("button", { name: /Back to my sessions/ });
+    expect(rowOf(file).contains("justify-end")).toBe(true);
   });
 
   it("measures the whole form once, at the record column (#204)", async () => {

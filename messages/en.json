@@ -84,7 +84,7 @@
     "approvePlan": "Approve plan",
     "errorFallback": "Something went wrong starting your session. Please try again.",
     "yourNarrowedGoal": "Your narrowed goal is: {goal}",
-    "boundaryEstablished": "Boundary established after {n, plural, one {# question} other {# questions}}. Your learning plan is ready.",
+    "boundaryEstablished": "You've answered {n, plural, one {# question} other {# questions}} to get here. Now we know where your understanding starts — your learning plan is ready.",
     "thinFeedback": "That's a bit thin — add a little more detail.",
     "errorNoQuestions": "No questions were received — please try again.",
     "errorApproveHint": "Type 'approve' to approve the plan, or describe how to adjust it.",
@@ -100,7 +100,7 @@
     "railCounterPlanning": "Approve to build your lesson",
     "railCounterGenerating": "Your lesson is on the way",
     "railProbePosition": "Question {n} of {total}",
-    "onTheWaySubline": "You can safely close this window — your lesson will be ready when you get back.",
+    "onTheWaySubline": "You went from naming a goal to approving a plan — that part is done. Your lesson is being built now, and you can safely close this window: it will be ready when you come back.",
     "backToSessions": "Back to my sessions"
   },
   "session": {

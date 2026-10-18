@@ -35,7 +35,10 @@ export type ProbeCard = {
  *  single block of text. A `you` turn sent with a request carries
  *  `optimistic: true`: it is on screen immediately and is the one `apiFailed`
  *  rolls back (see the note on `IntakeState`). A `plan` entry is a full
- *  generated plan; every adjustment replaces it with another one. */
+ *  generated plan; every adjustment replaces it with another one. A
+ *  `milestone` is what the flow says when a phase ends: it asks nothing, is
+ *  never an ask, and the sheet renders it as a panel rather than a line, so a
+ *  phase the learner worked through reads as something they reached (#204). */
 export type Bubble =
   | {
       kind: "text";
@@ -57,6 +60,7 @@ export type Bubble =
       optimistic?: boolean;
     }
   | { kind: "probe"; card: ProbeCard; state: "active" | "answered"; picked?: number }
+  | { kind: "milestone"; text: string }
   | { kind: "plan"; plan: PlanBody };
 
 /** Which request is in flight (at most one at a time). */
@@ -618,7 +622,10 @@ export function apply(
             phase: action.probe.phase,
             bubbles: [
               ...state.bubbles,
-              { kind: "text", from: "ai", text: t("boundaryEstablished", { n: state.answered }) },
+              // The end of the probe is the one moment the learner should feel
+              // rather than read past: it names what they did, in their terms,
+              // and the sheet renders a milestone as a panel (#204).
+              { kind: "milestone", text: t("boundaryEstablished", { n: state.answered }) },
             ],
           },
           effects: [{ type: "api", call: "generatePlan", sessionId: state.sessionId }],

@@ -411,9 +411,9 @@ describe("intake core — probe loop", () => {
     // answering and the plan appearing).
     expect(state.inFlight).toBe("plan");
     expect(deriveViewModel(state, t).pending).toBe(true);
+    // The boundary is a milestone, not a line of prose: it carries no ask.
     expect(state.bubbles.at(-1)).toEqual({
-      kind: "text",
-      from: "ai",
+      kind: "milestone",
       text: t("boundaryEstablished", { n: 2 }),
     });
   });
@@ -578,8 +578,7 @@ describe("intake core — failures (roll the you-turn back into the input)", () 
     // The boundary turn reached the backend, so it stays in the transcript;
     // only the plan draft is retried.
     expect(state.bubbles.at(-1)).toMatchObject({
-      kind: "text",
-      from: "ai",
+      kind: "milestone",
       text: t("boundaryEstablished", { n: 2 }),
     });
     // With the request cleared, a submit re-arms the same generation.
@@ -614,8 +613,7 @@ describe("intake core — failures (roll the you-turn back into the input)", () 
       probe: probe(null),
     });
     expect(atBoundary.bubbles.at(-1)).toMatchObject({
-      kind: "text",
-      from: "ai",
+      kind: "milestone",
       text: t("boundaryEstablished", { n: 2 }),
     });
   });
