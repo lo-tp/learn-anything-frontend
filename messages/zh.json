@@ -69,6 +69,7 @@
     "pendingReview": "正在根据你的反馈更新计划，需要几秒钟。",
     "pendingProbeAnswer": "正在核对你的答案，请稍等。",
     "pendingProbeGenerate": "正在生成题目以检测你当前的掌握程度，请稍等。",
+    "probePurpose": "接下来是几道简短的题目，用来看你已经知道哪些内容。你的回答会告诉我们该从哪里开始 —— 你已经会的，计划就会跳过。",
     "pendingClarify": "正在理解你分享的内容，请稍等。",
     "pendingDefault": "正在明确你想学习的内容，请稍等。",
     "confirm": "确认",
