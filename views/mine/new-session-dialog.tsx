@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { MathText } from "@/components/math-text";
+import { ProgressRail } from "@/components/progress-rail";
 import {
   Dialog,
   DialogClose,
@@ -30,8 +31,13 @@ import { useSessionIntake } from "./use-session-intake";
  * changes it in one field and approves it with one control.
  *
  * While a request is in flight the open ask's control is replaced by a line
- * saying what is happening; nothing floats over the sheet, and no position is
- * drawn as a bar or a row of markers — the header states it in words.
+ * saying what is happening; nothing floats over the sheet.
+ *
+ * The header and the progress rail are the sheet's original ones — the owner
+ * pinned them in #204 (“keep the header”), so the masthead is the printed one
+ * and progress is the four-step bubble track, not a substitute device. What
+ * the redesign replaced is the body of the sheet: the transcript became the
+ * form's own record.
  *
  * Pure presentation: the intake core (`intake.ts`) derives every decision and
  * the binding (`use-session-intake.ts`) runs the requests; this file only
@@ -145,6 +151,18 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** A disabled action on this sheet stays readable. The shared control dims a
+ *  whole disabled block to 50%, which drops the ink block's own label to
+ *  about 2.4:1 — a primary action on the first viewport that reads as
+ *  broken rather than as not yet available. The palette's annotation family
+ *  is used instead: a quiet pencil block at ~8:1 on paper and ~9:1 on the
+ *  night desk, and an outlined action that keeps its rule and its pencil
+ *  label at full strength. */
+const DISABLED_INK =
+  "disabled:bg-secondary-container disabled:text-on-secondary-container disabled:opacity-100";
+const DISABLED_OUTLINE =
+  "disabled:border-outline-variant disabled:text-on-surface-variant disabled:opacity-100";
+
 export function NewSessionDialog({
   open,
   onOpenChange,
@@ -229,9 +247,6 @@ export function NewSessionDialog({
         >
           <WrittenText text={fieldLabel} />
         </label>
-        {view.rail.clarifyPosition !== null && (
-          <p className="mt-1 text-[14px] text-on-surface-variant">{view.rail.clarifyPosition}</p>
-        )}
         <textarea
           id="intake-answer"
           ref={attachTextarea}
@@ -251,7 +266,7 @@ export function NewSessionDialog({
                 variant="outline"
                 disabled={view.pending || !canAdjustPlan}
                 onClick={() => void submit(paragraph)}
-                className="h-auto px-4 py-2.5 text-[15px]"
+                className={`h-auto px-4 py-2.5 text-[15px] ${DISABLED_OUTLINE}`}
               >
                 {t("updatePlan")}
               </Button>
@@ -259,7 +274,7 @@ export function NewSessionDialog({
                 type="button"
                 disabled={view.pending}
                 onClick={approve}
-                className="h-auto gap-2 px-4 py-2.5 text-[15px]"
+                className={`h-auto gap-2 px-4 py-2.5 text-[15px] ${DISABLED_INK}`}
               >
                 <Check className="size-4" aria-hidden />
                 {t("approvePlan")}
@@ -269,7 +284,7 @@ export function NewSessionDialog({
             <Button
               type="submit"
               disabled={!canSubmitAnswer}
-              className="h-auto gap-2 px-4 py-2.5 text-[15px]"
+              className={`h-auto gap-2 px-4 py-2.5 text-[15px] ${DISABLED_INK}`}
             >
               <Send className="size-4" aria-hidden />
               {view.pending ? t("sending") : t("send")}
@@ -281,18 +296,14 @@ export function NewSessionDialog({
   }
 
   /** A boundary check: the options are the control — a click is the answer.
-   *  The fieldset is the card: its question, its position, its options. */
+   *  The fieldset is the card: its question and its options. Position belongs
+   *  to the rail above, which is where the sheet states it once. */
   function renderChoiceField(card: ProbeCard) {
     return (
       <fieldset>
         <legend className="text-[15px] font-semibold leading-6 text-on-surface">
           <MathText content={card.text} />
         </legend>
-        {view.rail.probePosition !== null && (
-          <p className="mt-1 text-[14px] text-on-surface-variant">
-            {view.rail.probePosition}
-          </p>
-        )}
         <ProbeOptions card={card} disabled={view.pending} onPick={pickOption} />
         {renderError()}
       </fieldset>
@@ -301,12 +312,12 @@ export function NewSessionDialog({
 
   /** The state a completed intake leaves the sheet in: the plan is approved
    *  and the materials are being made. The record stays on screen — it is the
-   *  learner's own record. */
+   *  learner's own record. The panel names nothing: the masthead and the rail
+   *  already state the state, and a third copy would only repeat it. */
   function renderOnTheWay() {
     return (
       <div
         role="status"
-        aria-label={t("railCounterGenerating")}
         className="rounded-md border border-outline-variant bg-surface-container-lowest p-4"
       >
         <p className="flex items-start gap-2.5 text-[15px] leading-6 text-on-surface">
@@ -334,7 +345,7 @@ export function NewSessionDialog({
           type="button"
           disabled={view.pending}
           onClick={confirm}
-          className="h-auto gap-2 px-4 py-2.5 text-[15px]"
+          className={`h-auto gap-2 px-4 py-2.5 text-[15px] ${DISABLED_INK}`}
         >
           <Check className="size-4" aria-hidden />
           {t("confirm")}
@@ -365,22 +376,15 @@ export function NewSessionDialog({
         className="inset-0 flex h-full w-full max-h-none max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 bg-surface p-0 text-on-surface sm:max-w-none"
       >
         <form onSubmit={handleSubmit} className="flex min-h-0 w-full flex-1 flex-col">
-          <header className="shrink-0 border-b border-outline-variant bg-surface">
-            <div className="mx-auto flex w-full max-w-2xl items-start justify-between gap-4 px-4 py-4 md:px-6">
-              <div className="min-w-0">
-                <DialogTitle className="text-[20px] font-semibold text-on-surface">
-                  {view.onTheWay ? t("railCounterGenerating") : t("title")}
-                </DialogTitle>
-                {!view.onTheWay && (
-                  <p
-                    role="status"
-                    aria-label={view.rail.counter}
-                    className="mt-1 text-[14px] leading-5 text-on-surface-variant"
-                  >
-                    {view.rail.counter}
-                  </p>
-                )}
-              </div>
+          {/* Masthead — the sheet's original header, kept as the owner asked
+              (#204): title on the left in the display face, close on the
+              right, closed with the printed double rule. The chrome never
+              shrinks; the record absorbs every height change. */}
+          <header className="flex shrink-0 items-center justify-between gap-4 px-6 py-4 double-rule-b">
+            <DialogTitle className="text-left font-display text-xl font-bold uppercase tracking-[0.06em] text-on-surface">
+              {view.onTheWay ? t("railCounterGenerating") : t("title")}
+            </DialogTitle>
+            <div className="flex items-center gap-3">
               <DialogClose asChild>
                 <button
                   type="button"
@@ -393,6 +397,11 @@ export function NewSessionDialog({
               </DialogClose>
             </div>
           </header>
+
+          {/* Progress rail — the four-step bubble track under the masthead,
+              also kept (#204). It is the sheet's `status` role: the counter
+              it names is never printed as text. */}
+          <ProgressRail rail={view.rail} />
 
           <div ref={recordRef} className="min-h-0 flex-1 overflow-y-auto">
             <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-6 md:px-6">
@@ -480,7 +489,7 @@ function RecordEntryView({
   if (entry.kind === "goal") {
     // The narrowed goal: the one line on the sheet set in the highlighter.
     return (
-      <p className="-mx-2 rounded-sm bg-[var(--marker)] px-2 py-1 text-[15px] font-semibold leading-6 text-on-surface">
+      <p className="max-w-[68ch] rounded-sm bg-[var(--marker)] px-2 py-1 text-[15px] font-semibold leading-6 text-on-surface">
         <MathText content={entry.text} />
       </p>
     );
@@ -496,7 +505,7 @@ function RecordEntryView({
 
   if (entry.kind === "answer") {
     return (
-      <div className="border-t border-outline-variant pt-1">
+      <div className="max-w-[68ch] border-t border-outline-variant pt-1">
         {entry.asked !== null && (
           <p className="max-w-[68ch] text-[15px] leading-6 text-on-surface-variant">
             <WrittenText text={entry.asked} />
@@ -513,7 +522,7 @@ function RecordEntryView({
   if (entry.kind === "answeredProbe") {
     const wasCorrect = entry.picked === entry.card.correct_index;
     return (
-      <div className="border-t border-outline-variant pt-1">
+      <div className="max-w-[68ch] border-t border-outline-variant pt-1">
         <p className="max-w-[68ch] text-[15px] leading-6 text-on-surface-variant">
           <MathText content={entry.card.text} />
         </p>
@@ -543,7 +552,7 @@ function RecordEntryView({
   const titleOf = (id: string) =>
     plan.steps.find((step) => step.id === id)?.title ?? id;
   return (
-    <div className="border-t border-outline-variant pt-1">
+    <div className="max-w-[68ch] border-t border-outline-variant pt-1">
       <h3 className="max-w-[68ch] text-[15px] font-semibold leading-6 text-on-surface">
         <MathText content={plan.prose_summary} />
       </h3>

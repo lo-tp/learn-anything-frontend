@@ -59,7 +59,14 @@ export function ProgressRail({ rail }: { rail: RailData }) {
                 />
                 <span
                   className={cn(
-                    "font-mono text-[11px] font-semibold uppercase tracking-[0.14em]",
+                    // Four mono-caps step names do not fit a phone. Below `sm`
+                    // the row keeps the bubbles, the rules and the name of the
+                    // step you are on, and moves the other three names to
+                    // assistive technology only. Same device at every width;
+                    // only the captions around the current one are dropped.
+                    step.state === "current"
+                      ? "font-mono text-[11px] font-semibold uppercase tracking-[0.14em]"
+                      : "sr-only font-mono text-[11px] font-semibold uppercase tracking-[0.14em] sm:not-sr-only",
                     step.state === "current" && "text-primary",
                     step.state === "done" && "text-on-surface",
                     step.state === "future" && "text-on-surface-variant",

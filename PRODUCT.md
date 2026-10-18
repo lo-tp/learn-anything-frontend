@@ -76,6 +76,16 @@ as a personal review deck (spaced repetition) across sessions.
 - "Electric Vivid Modern" (`design/DESIGN.md`) is explicitly NOT binding;
   the incumbent dark "Syntactic Deep" palette is evidence and anti-reference,
   not a constraint.
+- The colour palette IS binding: `public/palette.css`, both renditions, and
+  every reserved role meaning (`DESIGN.md` Colours). A redesign may replace a
+  surface's world; it may not re-cut the palette.
+- The Session intake sheet is a **plain form** — labelled fields, familiar
+  controls, one ask at a time, nothing decorative standing in for a control
+  (#204: "I just want a simple form, it does not to very fancy. It must be
+  easy to use.").
+- The intake sheet's **header band and its four-step progress rail are pinned**
+  by the owner (#204: "keep the header", "use the original header"). They are
+  not free to redesign; the body of the sheet is.
 
 ## Evidence on Hand
 
