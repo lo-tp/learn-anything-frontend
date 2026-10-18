@@ -791,3 +791,217 @@ describe("intake core — clarify position (batch-local)", () => {
     expect(positionAt("physics")).toBe(t("railProbePosition", { n: 2, total: 2 }));
   });
 });
+
+describe("intake core — the ask the surface is given", () => {
+  it("asks for nothing before a session exists", () => {
+    // The opening prompt is the sheet's standing instruction, not an ask: the
+    // surface asks for the goal with its own label.
+    expect(deriveViewModel(mk(), t).ask).toBe(null);
+  });
+
+  it("names the next clarify question as the ask", () => {
+    const vm = deriveViewModel(
+      mk({
+        sessionId: "s-1",
+        phase: "clarifying",
+        clarifyBatch: ["What topic?", "What depth?"],
+        clarifyPicks: [],
+      }),
+      t,
+    );
+    expect(vm.ask).toEqual({ kind: "text", text: "What topic?" });
+  });
+
+  it("hands the option card on screen to the surface as a choice", () => {
+    const vm = deriveViewModel(
+      mk({ sessionId: "s-1", phase: "probing", batch: [Q1, Q2], picks: [] }),
+      t,
+    );
+    expect(vm.ask).toEqual({ kind: "choice", card: Q1 });
+  });
+
+  it("asks for the adjustment while the plan is on screen", () => {
+    const vm = deriveViewModel(
+      mk({ sessionId: "s-1", phase: "reviewing", plan: PLAN_OUT.plan }),
+      t,
+    );
+    expect(vm.reviewing).toBe(true);
+    expect(vm.ask).toEqual({ kind: "text", text: t("labelReview") });
+  });
+
+  it("falls back to the last thing the app printed in prose", () => {
+    const vm = deriveViewModel(
+      mk({
+        sessionId: "s-1",
+        phase: "clarifying",
+        bubbles: [
+          { kind: "text", from: "ai", text: "opening" },
+          { kind: "text", from: "you", text: "a bit of physics" },
+          { kind: "text", from: "ai", text: "Which part of it?" },
+        ],
+      }),
+      t,
+    );
+    expect(vm.ask).toEqual({ kind: "text", text: "Which part of it?" });
+  });
+
+  it("asks for nothing while a request is in flight", () => {
+    const vm = deriveViewModel(
+      mk({
+        sessionId: "s-1",
+        phase: "clarifying",
+        clarifyBatch: ["What topic?"],
+        clarifyPicks: [],
+        inFlight: "clarify",
+      }),
+      t,
+    );
+    expect(vm.ask).toBe(null);
+  });
+
+  it("asks for nothing while the plan is being drafted", () => {
+    const vm = deriveViewModel(
+      mk({ sessionId: "s-1", phase: "planning", inFlight: "plan" }),
+      t,
+    );
+    expect(vm.ask).toBe(null);
+  });
+
+  it("asks for nothing once the intake has handed off", () => {
+    const vm = deriveViewModel(mk({ phase: "generating", onTheWay: true }), t);
+    expect(vm.ask).toBe(null);
+  });
+});
+
+describe("intake core — approving from a control", () => {
+  it("sends the approval itself when a plan is on screen", () => {
+    const s0 = mk({ sessionId: "s-1", phase: "reviewing", plan: PLAN_OUT.plan });
+    const { state, effects } = step(s0, { type: "approve" });
+    expect(effects).toEqual([
+      { type: "api", call: "approvePlan", sessionId: "s-1" },
+    ]);
+    expect(state.inFlight).toBe("approve");
+    // Approving is a control, not a learner turn.
+    expect(state.bubbles).toHaveLength(1);
+  });
+
+  it("is a no-op with no plan on screen", () => {
+    const { state, effects } = step(
+      mk({ sessionId: "s-1", phase: "probing" }),
+      { type: "approve" },
+    );
+    expect(effects).toEqual([]);
+    expect(state.inFlight).toBe(null);
+  });
+
+  it("is a no-op while another request is in flight", () => {
+    const { state, effects } = step(
+      mk({
+        sessionId: "s-1",
+        phase: "reviewing",
+        plan: PLAN_OUT.plan,
+        inFlight: "adjust",
+      }),
+      { type: "approve" },
+    );
+    expect(effects).toEqual([]);
+    expect(state.inFlight).toBe("adjust");
+  });
+});
+
+describe("intake core — an empty field is not an answer", () => {
+  it("does not start a session on a blank goal", () => {
+    const { state, effects } = step(mk(), { type: "submit", text: "   " });
+    expect(effects).toEqual([]);
+    expect(state.inFlight).toBeNull();
+    expect(state.sessionId).toBeNull();
+    // Nothing is recorded either: the record stays at the opening prompt.
+    expect(state.bubbles).toHaveLength(1);
+  });
+
+  it("starts the session as soon as there is a word to start from", () => {
+    const { effects } = step(mk(), { type: "submit", text: "physics" });
+    expect(effects).toEqual([{ type: "api", call: "createSession", goal: "physics" }]);
+  });
+});
+
+describe("intake core — position is stated only when there is a queue", () => {
+  it("says nothing about position for a single clarify question", () => {
+    const vm = deriveViewModel(
+      mk({
+        sessionId: "s-1",
+        phase: "clarifying",
+        clarifyBatch: ["Only question?"],
+        clarifyPicks: [],
+      }),
+      t,
+    );
+    expect(vm.rail.clarifyPosition).toBeNull();
+    // The question itself is still the ask the surface renders.
+    expect(vm.ask).toEqual({ kind: "text", text: "Only question?" });
+  });
+
+  it("counts clarify questions when there is more than one", () => {
+    const vm = deriveViewModel(
+      mk({
+        sessionId: "s-1",
+        phase: "clarifying",
+        clarifyBatch: ["First?", "Second?"],
+        clarifyPicks: [],
+      }),
+      t,
+    );
+    expect(vm.rail.clarifyPosition).toBe(
+      t("railProbePosition", { n: 1, total: 2 }),
+    );
+  });
+
+  it("says nothing about position for a single boundary question", () => {
+    const vm = deriveViewModel(
+      mk({ sessionId: "s-1", phase: "probing", batch: [Q1], picks: [] }),
+      t,
+    );
+    expect(vm.rail.probePosition).toBeNull();
+    expect(vm.ask).toEqual({ kind: "choice", card: Q1 });
+  });
+});
+
+describe("intake core — which open field wants words", () => {
+  const withAsk = (over: Partial<IntakeState>) =>
+    deriveViewModel(mk(over), t).fieldRequiresText;
+
+  it("marks the goal field as one that needs an answer", () => {
+    expect(withAsk({})).toBe(true);
+  });
+
+  it("marks a clarifying question as one that needs an answer", () => {
+    expect(
+      withAsk({
+        sessionId: "s-1",
+        phase: "clarifying",
+        clarifyBatch: ["What do you already know?"],
+        clarifyPicks: [],
+      }),
+    ).toBe(true);
+  });
+
+  it("marks the plan adjustment as its own concern", () => {
+    expect(withAsk({ sessionId: "s-1", phase: "reviewing", plan: PLAN_OUT.plan })).toBe(
+      false,
+    );
+  });
+
+  it("marks nothing as needing words when the answer is a click", () => {
+    expect(withAsk({ sessionId: "s-1", phase: "probing", batch: [Q1], picks: [] })).toBe(
+      false,
+    );
+  });
+
+  it("marks nothing while a request is in flight", () => {
+    expect(withAsk({ inFlight: "clarify" })).toBe(false);
+  });
+
+  it("marks nothing once the intake has handed off", () => {
+    expect(withAsk({ phase: "generating", onTheWay: true })).toBe(false);
+  });
+});

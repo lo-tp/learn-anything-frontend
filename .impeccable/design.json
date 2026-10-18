@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-02T14:15:00Z",
+  "generatedAt": "2026-10-18T03:20:00Z",
   "title": "Design System: Learn Anything — The Answer Sheet (Colour Press)",
   "extensions": {
     "colorMeta": {
@@ -15,7 +15,7 @@
         "role": "action",
         "displayName": "Engagement Blue",
         "canonical": "#1450a3",
-        "note": "Maps to --engage (text --on-engage #fffaf0; --ring is this blue in both themes). Touches ONLY activity and interaction: focus rings, current/active bubbles, working+executing stamps, active nav tab, the REVEAL outline control, option hover, plan step letters, markdown links. Night desk: #58a6ff (#0a1526 text). Never static or structural color.",
+        "note": "Maps to --engage (text --on-engage #fffaf0; --ring is this blue in both themes). Touches ONLY activity and interaction: focus rings, current/active bubbles, working+executing stamps, active nav tab, the REVEAL outline control, option hover, the intake sheet's open-field focus and option-row hover, markdown links. Night desk: #4299f0 (#0b141e text). Never static or structural color, and never a plan number.",
         "tonalRamp": ["oklch(20% 0.08 255)", "oklch(30% 0.12 255)", "oklch(40% 0.15 255)", "oklch(50% 0.16 255)", "oklch(60% 0.15 255)", "oklch(70% 0.13 255)", "oklch(82% 0.09 255)", "oklch(93% 0.05 255)"]
       },
       "riso-pink-red": {
@@ -134,16 +134,17 @@
         "role": "accent",
         "displayName": "Highlighter Wash",
         "canonical": "color-mix(in oklab, #ffcb05 48%, transparent)",
-        "note": "The --marker pigment: riso yellow. Applied only as a translucent wash (48% light / 32% night desk) on the learner's own narrowed goal in the intake transcript. Bounded exception; nothing else may use it.",
+        "note": "The --marker pigment: riso yellow. Applied only as a translucent wash (48% light / 32% night desk) on the narrowed-goal line the app echoes back onto the Session intake sheet. Bounded exception; nothing else may use it.",
         "tonalRamp": ["oklch(25% 0.1 95)", "oklch(38% 0.13 95)", "oklch(50% 0.15 95)", "oklch(62% 0.16 95)", "oklch(72% 0.16 95)", "oklch(82% 0.14 95)", "oklch(90% 0.1 95)", "oklch(97% 0.05 95)"]
       }
     },
     "typographyMeta": {
-      "display": { "displayName": "Record Header", "purpose": "The record header band title and dialog masthead: Archivo 700 uppercase, widened tracking, closed by a double rule." },
+      "display": { "displayName": "Record Header", "purpose": "The record header band title only (History, Explore): Archivo 700 uppercase, widened tracking, closed by a double rule. No surface carries a 20px display masthead any more." },
       "headline": { "displayName": "Form Heading", "purpose": "Empty-state and status-panel headings." },
-      "title": { "displayName": "Sheet Title", "purpose": "Sheet card goal titles, quiz prompts, session workspace header line." },
-      "body": { "displayName": "Teaching Voice", "purpose": "All teaching copy and option text; plain Source Sans 3 at 15px+, legible at any age, never uppercase." },
-      "label": { "displayName": "Form Caps", "purpose": "Monospace uppercase caps: stamps, rail step names, nav tabs, REVEAL, AGAIN/HARD/GOOD/EASY, verdict lines. The build's extension of the mono vocabulary to FORM labels." },
+      "title": { "displayName": "Sheet Title", "purpose": "Sheet card goal titles, quiz prompts, session workspace header line - Archivo 600 at 20px. The Session intake sheet's title is the same 20px rung in the body face at 600, sentence case: the rung is a size, not a claim on the display face." },
+      "body": { "displayName": "Teaching Voice", "purpose": "All teaching copy, option text, plan steps, and the words the learner wrote; plain Source Sans 3 at 15px (600 where a line heads a field or a plan step), legible at any age, never uppercase. It is also the only voice the Session intake sheet uses." },
+      "meta": { "displayName": "Meta Note", "purpose": "The 14px annotation rung: field labels, the position sentence in the intake header, in-flight notes, error lines, verdict captions, probe explanations, the plan's 'Builds on:' line, status-panel notes. Pencil meta by default, the role ink when the line reports a verdict. Labels and verdicts take the 600 weight; single-line meta closes to a 1.43 leading, reading notes stay at 1.71. Never uppercase, never monospace." },
+      "label": { "displayName": "Form Caps", "purpose": "Monospace uppercase caps: stamps, rail step names, nav tabs, REVEAL, AGAIN/HARD/GOOD/EASY, verdict lines, and the form keys on the sign-in and regenerate-slide sheets. One voice per sheet: the intake sheet's labels are meta in the body face instead." },
       "code": { "displayName": "Form Codes", "purpose": "Monospace data: red sheet numbers, zero-padded counters, timestamps, batch positions." }
     },
     "shadows": [
@@ -161,7 +162,8 @@
       { "name": "sheet-settle", "value": "240ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "A sheet card lands on the desk (6px rise); list cards stagger 40ms apart, capped at 320ms." },
       { "name": "pen-draw", "value": "320ms cubic-bezier(0.16, 1, 0.3, 1); second stroke delayed 140ms", "purpose": "The red-pen cross: two hand-drawn pathLength strokes, never an icon dash trick." },
       { "name": "dot-breathe", "value": "1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite", "purpose": "The breathing engagement-blue dot inside a current bubble." },
-      { "name": "reduced-motion guard", "value": "@media (prefers-reduced-motion: reduce) { animation: none }", "purpose": "Every authored animation is switched off; the flow never depends on motion to be understood." }
+      { "name": "reduced-motion guard", "value": "@media (prefers-reduced-motion: reduce) { animation: none }", "purpose": "Every authored animation is switched off; the flow never depends on motion to be understood." },
+      { "name": "plain-form surface motion", "value": "shared dialog open 100ms (fade-in + zoom-in-95); 150ms colour transitions on option rows and fields; the ink block's 1px lift to --shadow-sheet-raised; animate-spin while a request is in flight", "purpose": "What the Session intake sheet actually does, recorded so it is not mistaken for the press grammar: none of bubble-fill / stamp-press / sheet-settle / pen-draw / dot-breathe appears on that surface." }
     ],
     "breakpoints": [
       { "name": "md", "value": "768px" }
@@ -196,9 +198,25 @@
       "name": "Quiz Option Box",
       "kind": "card",
       "refersTo": "option-box",
-      "description": "A printed lettered option; hover shifts the border to engagement blue (the interaction ink). Revealed states: correct marked green, wrong pick struck with the red-pen cross.",
+      "description": "A printed lettered option on the surfaces that print questions (quiz cards, the review deck); hover shifts the border to engagement blue (the interaction ink). Revealed states: correct marked green, wrong pick struck with the red-pen cross. The intake sheet's boundary checks use plain Intake Option Rows instead - both treatments are current.",
       "html": "<div class=\"ds-options\"><button class=\"ds-option\"><span class=\"ds-letter\">A</span><span class=\"ds-text\">The correct answer</span></button><button class=\"ds-option ds-reveal-correct\"><span class=\"ds-letter ds-letter-correct\">B</span><span class=\"ds-text\">The right one</span><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 6 9 17l-5-5\"/></svg></button><button class=\"ds-option ds-reveal-wrong\"><span class=\"ds-letter ds-letter-wrong\">C</span><span class=\"ds-text\">A lapse</span><svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\"><path d=\"M2.6 2.9 L13.1 13.4\" stroke=\"currentColor\" stroke-width=\"2.1\" stroke-linecap=\"round\"/><path d=\"M13.2 2.7 L2.9 13.2\" stroke=\"currentColor\" stroke-width=\"2.1\" stroke-linecap=\"round\"/></svg></button></div>",
       "css": ".ds-options { display: flex; flex-direction: column; gap: 8px; } .ds-option { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: var(--surface-container-lowest, #fffaf0); color: var(--on-surface, #181420); border: 1px solid var(--outline-variant, #d3c6b0); border-radius: 4px; padding: 12px 16px; transition: border-color 150ms; } .ds-option:hover { border-color: var(--engage, #1450a3); } .ds-option:focus-visible { outline: 2px solid var(--ring, #1450a3); outline-offset: 2px; } .ds-text { flex: 1; font-family: 'Source Sans 3', sans-serif; font-size: 15px; } .ds-letter { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1px solid var(--outline-variant, #d3c6b0); border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: var(--on-surface-variant, #4d4438); } .ds-reveal-correct { border-color: color-mix(in oklab, var(--tertiary, #167a3f) 60%, transparent); background: color-mix(in oklab, var(--tertiary-container, #c9e8d2) 50%, transparent); color: var(--tertiary, #167a3f); } .ds-letter-correct { border-color: var(--tertiary, #167a3f); background: var(--tertiary, #167a3f); color: var(--on-tertiary, #fffaf0); } .ds-reveal-wrong { border-color: color-mix(in oklab, var(--error, #c81e5b) 60%, transparent); background: color-mix(in oklab, var(--error-container, #f9dbe4) 40%, transparent); color: var(--error, #c81e5b); } .ds-letter-wrong { border-color: var(--error, #c81e5b); background: var(--error, #c81e5b); color: var(--on-error, #fffaf0); }"
+    },
+    {
+      "name": "Intake Answer Field (recorded, and open ask)",
+      "kind": "input",
+      "refersTo": "intake-field",
+      "description": "The Session intake sheet's two states in one frame: an answer already recorded sits in a filled paper container under its 14px label; the one thing still being asked sits in the same family of field with the question itself as its label. Sentence-case body type throughout - no caps, no monospace.",
+      "html": "<div class=\"ds-intake-item\"><p class=\"ds-intake-question\">What do you already know about force, mass, and acceleration?</p><p class=\"ds-intake-label\">Your answer</p><div class=\"ds-intake-field\">I remember F = ma from school, but I never worked with vectors or several forces at once.</div><p class=\"ds-intake-ask\">How should we adjust the plan?</p><textarea class=\"ds-intake-field-open\" rows=\"2\" placeholder=\"Describe what to change - one clear instruction is enough.\"></textarea></div>",
+      "css": ".ds-intake-item { display: flex; flex-direction: column; max-width: 672px; } .ds-intake-question { max-width: 68ch; font-family: 'Source Sans 3', sans-serif; font-size: 15px; line-height: 24px; color: var(--on-surface-variant, #4d4438); } .ds-intake-label { margin-top: 16px; font-family: 'Source Sans 3', sans-serif; font-size: 14px; font-weight: 600; color: var(--on-surface-variant, #4d4438); } .ds-intake-field { margin-top: 6px; max-width: 68ch; background: var(--surface-container-lowest, #fffaf0); color: var(--on-surface, #181420); border: 1px solid var(--outline-variant, #d3c6b0); border-radius: 4px; padding: 12px 16px; font-family: 'Source Sans 3', sans-serif; font-size: 15px; line-height: 24px; } .ds-intake-ask { margin-top: 20px; font-family: 'Source Sans 3', sans-serif; font-size: 15px; font-weight: 600; line-height: 24px; color: var(--on-surface, #181420); } .ds-intake-field-open { margin-top: 8px; width: 100%; resize: none; background: var(--surface-container-lowest, #fffaf0); color: var(--on-surface, #181420); border: 1px solid var(--outline-variant, #d3c6b0); border-radius: 4px; padding: 16px; font-family: 'Source Sans 3', sans-serif; font-size: 15px; line-height: 24px; outline: none; transition: border-color 150ms; } .ds-intake-field-open::placeholder { color: var(--on-surface-variant, #4d4438); } .ds-intake-field-open:focus-visible { border-color: var(--engage, #1450a3); box-shadow: 0 0 0 2px color-mix(in oklab, var(--engage, #1450a3) 25%, transparent); }"
+    },
+    {
+      "name": "Intake Option Row (open choice)",
+      "kind": "button",
+      "refersTo": "intake-option-row",
+      "description": "A boundary check on the plain form: full-width outlined rows with no letter square and no leading marker - the row is the control, and pressing it is the answer. A blue border on hover/focus is the only signal it gives.",
+      "html": "<div class=\"ds-intake-rows\"><button class=\"ds-intake-row\">9.8 m/s&#178;</button><button class=\"ds-intake-row\">5 m/s&#178;</button><button class=\"ds-intake-row\">I don't know</button></div>",
+      "css": ".ds-intake-rows { display: flex; flex-direction: column; gap: 8px; max-width: 672px; } .ds-intake-row { width: 100%; text-align: left; background: transparent; color: var(--on-surface, #181420); border: 1px solid var(--outline-variant, #d3c6b0); border-radius: 4px; padding: 12px 16px; font-family: 'Source Sans 3', sans-serif; font-size: 15px; line-height: 24px; transition: border-color 150ms; } .ds-intake-row:hover { border-color: var(--engage, #1450a3); } .ds-intake-row:focus-visible { outline: 2px solid var(--ring, #1450a3); outline-offset: 2px; } .ds-intake-row:disabled { opacity: 0.6; }"
     },
     {
       "name": "Sheet Card (History / Review deck)",
@@ -235,46 +253,54 @@
   ],
   "narrative": {
     "northStar": "The Answer Sheet (Colour Press)",
-    "overview": "Study is a sheet you fill in. Every surface is printed paper: a record header closed by a double rule, sessions as paper cards punched for a binder, questions as lettered option boxes, progress as a row of filled bubbles, phase as a rotated rubber stamp pressed onto the page. The system holds to a colour press — ink-black carries the structure, engagement blue marks activity, riso pink-red corrects, riso green verifies, pencil annotates, and every inquiry is printed in its own spot color, so the History reads as a color-coded map of what you are curious about — on a warm press-paper ground with a faint grain (3.5% opacity) that says \"sheet\", not \"panel\".\n\nThe world ships in two complete renditions: riso paper (light) and the night desk (dark, the same press inverted with fluorescent inks). No role changes meaning between them. The color system was replaced on 2026-10-02 by the owner's chosen \"Colour Press\" direction; every non-color rule of the Answer Sheet world carries forward unchanged.\n\nType carries the same printed-form logic: Archivo sets record headers like a printed masthead; Source Sans 3 is the plain body voice legible at any age; JetBrains Mono is the form's own hand — codes, counters, and the caps pressed into stamps and controls.",
+    "overview": "Study is a sheet you fill in. Every surface is printed paper: a record header closed by a double rule, sessions as paper cards punched for a binder, questions as lettered option boxes, progress as a row of filled bubbles, phase as a rotated rubber stamp pressed onto the page. The system holds to a colour press — ink-black carries the structure, engagement blue marks activity, riso pink-red corrects, riso green verifies, pencil annotates, and every inquiry is printed in its own spot color, so the History reads as a color-coded map of what you are curious about — on a warm press-paper ground with a faint grain (3.5% opacity) that says \"sheet\", not \"panel\".\n\nSince 2026-10-18 the \"sheet you fill in\" is drawn literally on one surface: the Session intake is a plain form on that same ground — one column of labelled items, the record of what was asked and answered kept on the sheet itself, the one open ask below it, filled containers for answers and outlined full-width rows for open choices. It borrows none of the printed-form devices, and the palette was pinned at the same time: a redesign may replace type, geometry, material, composition and motion but never re-colour the app. Everything else still prints: record headers, filed cards, lettered option boxes, stamps and bubbles. Both idioms draw their colour roles, depth, and type ramp from the same tokens.\n\nThe world ships in two complete renditions: riso paper (light) and the night desk (dark, the same press inverted with glowing inks on a warm desk). No role changes meaning between them. The color system was replaced on 2026-10-02 by the owner's chosen \"Colour Press\" direction; every non-color rule of the Answer Sheet world carried forward into it.\n\nType carries the printed-form logic on the record surfaces: Archivo sets record headers like a printed masthead; Source Sans 3 is the plain body voice legible at any age; JetBrains Mono is the record's own hand — codes, counters, and the caps pressed into stamps and controls. The Session intake sheet uses only the middle voice: 20px title / 15px reading text / 14px labels and meta, sentence case.",
     "keyCharacteristics": [
       "Colour-press discipline: ink structures; engagement blue touches only activity and interaction; pink-red corrects; green verifies; pencil annotates; inquiry spots identify.",
       "Every inquiry carries a deterministic identity spot (blue / flame / violet / ochre) on its sheet edge and sidebar step blocks — History reads as a color-coded map of curiosities.",
-      "Bubbles are the sole progress device — empty, filled (ink), current (blue ring + breathing blue dot), or active (filled blue). No progress bars.",
-      "Stamps (slightly rotated, double-ruled, monospace caps) are the phase vocabulary; session cards carry no stage vocabulary at all (product decision #46).",
-      "Square-cut form geometry: form surfaces at or below 6px radius; full circles reserved for bubbles and punch holes.",
-      "Ruled-paper panels, double-rule dividers, a ruled meta strip with a red monospace \"No.\" on every sheet card, and the halftone dot screen printed in exactly two signature places.",
-      "No glow, no gradients, no glass. Depth is the contact shadow of paper on a desk."
+      "Bubbles are the sole progress device — empty, filled (ink), current (blue ring + breathing blue dot), or active (filled blue). No progress bars. On the intake sheet position is stated in words instead.",
+      "Stamps (slightly rotated, double-ruled, monospace caps) are the phase vocabulary on the live session workspace; session cards carry no stage vocabulary at all (product decision #46).",
+      "Square-cut form geometry: form surfaces at or below 6px radius; full circles reserved for bubbles and punch holes. The intake sheet has no silhouette of its own — full-bleed, fields and rows cut at 4px.",
+      "Ruled-paper writing areas, double-rule dividers, punch-hole margins, a ruled meta strip with a red monospace \"No.\" on every filed card, and the halftone dot screen as a signature accent.",
+      "Two form idioms, cleanly separated: record surfaces print like a form (Archivo caps, monospace keys, ruled paper); the Session intake sheet is a plain form on 20/15/14 sentence-case body type. Neither idiom is banned — each belongs to its own surface.",
+      "No glow, no gradients, no glass. Depth is the contact shadow of paper on a desk, or one tonal step between ground and field on the plain form."
     ],
     "rules": [
       { "name": "The Colour Press Rule", "body": "Every color in the app holds its reserved role: ink structures, the blue touches only activity and interaction, pink-red corrects, green verifies, pencil annotates, inquiry spots identify. A color that crosses its reservation is a bug, not a variant.", "section": "colors" },
       { "name": "The Identity Is Not a Verdict Rule", "body": "The inquiry fan is exactly blue / flame / violet / ochre, assigned deterministically per session; it deliberately excludes the correction pink-red and the verified green. Identity is never a verdict.", "section": "colors" },
-      { "name": "The Red Sheet Number Rule", "body": "Every filed sheet prints its identity as a red monospace \"No.\" on its ruled header strip. It is the card's fingerprint, not decoration.", "section": "colors" },
-      { "name": "The Highlighter Exception", "body": "--marker (riso yellow wash) is the one wash outside the press, bounded to the learner's own narrowed goal in the intake transcript. A highlighter belongs on an answer sheet — but only on the learner's own answer.", "section": "colors" },
-      { "name": "The Printed-Form Rule", "body": "Headings are set like a printed form: Archivo, uppercase where it is a form header or masthead, with widened tracking. The teaching voice itself is never uppercase and never the display face.", "section": "typography" },
-      { "name": "The Mono-Vocabulary Rule", "body": "JetBrains Mono is the form's hand: codes and counters per the brief, extended by the build to FORM labels — the caps on stamps, nav tabs, and the REVEAL / AGAIN / HARD / GOOD / EASY controls. Mono never sets body copy or teaching prose.", "section": "typography" },
-      { "name": "The Sheet-Contact Rule", "body": "Every lifted thing shows its edge. A shadow is always a contact line plus a tight drop; anything diffuse, wide, or colored is outside this world.", "section": "elevation" },
-      { "name": "The One Ink Block Rule", "body": "Each page carries exactly one heavy solid-ink primary CTA; everything else is an outline, a chip, or a plain link.", "section": "components" },
-      { "name": "The Bubble-Only Progress Rule", "body": "Progress is a row of bubbles in four states only — empty, filled, current, active. There are no bars, rings, or percentage meters.", "section": "components" }
+      { "name": "The Red Sheet Number Rule", "body": "Every filed sheet — a history card, a review card, the empty sheet — prints its identity as a red monospace \"No.\" on its ruled header strip. It is the card's fingerprint, not decoration.", "section": "colors" },
+      { "name": "The Highlighter Exception", "body": "--marker (riso yellow wash, 48% on paper / 32% on the night desk) is the one wash outside the press, bounded to the narrowed-goal line the app echoes back onto the Session intake sheet. A highlighter belongs on an answer sheet — but only on the learner's own answer.", "section": "colors" },
+      { "name": "The Printed-Form Rule", "body": "Record headings are set like a printed form: Archivo, uppercase where it is a record header band, with widened tracking. The teaching voice itself is never uppercase and never the display face.", "section": "typography" },
+      { "name": "The One Voice Per Sheet Rule", "body": "A surface picks one label voice and uses it everywhere on that surface. The sign-in and regenerate-slide sheets print monospace form keys; the Session intake sheet is set entirely in the body face — 20px title / 15px reading text / 14px labels and meta, sentence case, no caps, no monospace.", "section": "typography" },
+      { "name": "The Mono-Vocabulary Rule", "body": "JetBrains Mono is the record's hand: codes and counters per the brief, extended by the build to FORM labels — the caps on stamps, nav tabs, the sign-in fields, and the REVEAL / AGAIN / HARD / GOOD / EASY controls. Mono never sets body copy or teaching prose, and the intake sheet's labels are meta in the body face, not form keys.", "section": "typography" },
+      { "name": "The Sheet-Contact Rule", "body": "Every lifted thing shows its edge. A shadow is always a contact line plus a tight drop; anything diffuse, wide, or colored is outside this world. A surface that lifts nothing — the plain form — says so with tone instead, and takes no shadow to look like it has depth.", "section": "elevation" },
+      { "name": "The One Ink Block Rule", "body": "Each page or sheet carries exactly one heavy solid-ink primary CTA; everything else is an outline, a chip, or a plain link. It is set in the body face at 15px, sentence case — the ink block is a sentence, not a form key.", "section": "components" },
+      { "name": "The One State Device Rule", "body": "On the intake sheet a container's fill is its state, and it is the only state device that sheet has: filled paper means the answer is already recorded; an outlined full-width row means the choice is still open. No leading marker, no check, no ring — a circle that never fills promises a selection state the row does not have.", "section": "colors" },
+      { "name": "The Bubble-Only Progress Rule", "body": "Where the system draws progress it is a row of bubbles in four states only — empty, filled, current, active. There are no bars, rings, or percentage meters. A surface the learner is filling in states position in a sentence of text instead, which is not a meter and not a second progress device.", "section": "components" }
     ],
     "dos": [
-      "Do keep every color inside its press role: ink structures, the engagement blue only marks activity and interaction (focus, current, running, active nav, reveal), pink-red only corrects, green only verifies, pencil only annotates.",
+      "Do keep every color inside its press role: ink structures, the engagement blue only marks activity and interaction (focus, current, running, active nav, reveal, an open row's hover), pink-red only corrects, green only verifies, pencil only annotates.",
       "Do give each inquiry its spot from inquiryInk and use it only as identity — sheet-card edge and sidebar step blocks.",
       "Do mark progress with bubbles only — empty, filled, current, active — and connect walked steps with solid ink rules, ahead steps with dashed ones.",
       "Do set phase as a stamp: rotated -2 degrees, double-outlined, monospace caps, pressed in; blue while working, green when complete, pink-red on error.",
-      "Do file every sheet the same way: punch-hole margin, ruled header strip, red monospace \"No.\", 6px corners, sheet-contact shadow.",
-      "Do give each page exactly one ink block — the heavy solid-ink primary CTA.",
-      "Do use the highlighter wash (--marker) on the learner's own narrowed goal in intake, and there only.",
-      "Do keep type legible at any age in both scripts: Source Sans 3 body at 15px+, uppercase Archivo only for form headers, mono only for codes/counters/form labels.",
-      "Do ship every surface in both renditions — riso paper and night desk — from the same role tokens."
+      "Do file every filed card the same way — history, review, and empty-state cards: punch-hole margin, ruled header strip, red monospace \"No.\", 6px corners, sheet-contact shadow. The intake sheet is not a filed card; it is the sheet being filled.",
+      "Do run a surface the learner fills in as a plain form: one column (max-w-2xl, copy held to 68ch), 20px title / 15px reading text / 14px labels and meta, sentence case, actions beside the item they belong to.",
+      "Do keep the filled-versus-outlined distinction as the only state device on a form sheet: filled paper (--surface-container-lowest, 1px rule) for what is already recorded, an outlined full-width row for what is still waiting to be pressed.",
+      "Do say where the learner is in words on a surface being filled in (\"3 steps to your lesson\", \"Approve to build your lesson\"). Bubbles are how the system draws progress; they are not the only way position may be stated.",
+      "Do give each page or sheet exactly one ink block — the heavy solid-ink primary CTA — and set it in the body face at 15px, sentence case.",
+      "Do use the highlighter wash (--marker) on the learner's own narrowed goal on the intake sheet, and there only.",
+      "Do keep type legible at any age in both scripts: Source Sans 3 body at 15px with the 14px meta rung beneath it, uppercase Archivo only for record header bands, mono only for codes, counters, and form keys on the surfaces that print in that voice.",
+      "Do ship every surface in both renditions — riso paper and night desk — from the same role tokens, fields kept one step above the ground."
     ],
     "donts": [
       "Don't use pink-red on anything that succeeded, or green on anything unverified (including the confidence scale).",
       "Don't assign the correction pink-red or the verified green as an inquiry identity spot; the fan is blue / flame / violet / ochre.",
-      "Don't use the engagement blue on anything static or structural — headings, sheet bodies, completed bubbles stay ink.",
+      "Don't use the engagement blue on anything static or structural — headings, sheet bodies, completed bubbles, plan numbers stay out of it.",
       "Don't put stage or phase vocabulary on session cards (product decision #46).",
+      "Don't dress the Session intake sheet in the record devices: ruled paper, stamps, bubbles, lettered option boxes, monospace caps, the display face, or left-ruled chat bubbles. Each stays native to the surfaces that still use it.",
+      "Don't put a meter where a sentence will do, or a marker on a row whose only state is 'press me'.",
       "Don't round form surfaces past 8px; full circles are reserved for bubbles and punch holes.",
-      "Don't use glow, gradients, glass, or diffuse ambient shadows — depth is contact plus a tight drop.",
-      "Don't use progress bars, rings, or percentage meters; the bubble row is the progress device.",
+      "Don't use glow, gradients, glass, or diffuse ambient shadows anywhere — depth is contact plus a tight drop, or one tonal step between ground and field.",
+      "Don't use progress bars, rings, or percentage meters; where the system draws progress, the bubble row is the device.",
       "Don't treat LLM-authored slide content in the sandbox iframe as app chrome; the system frames it, never styles it from outside.",
       "Don't invent a second highlighter, a second accent family, or a decorative color; the press has its quota."
     ]

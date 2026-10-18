@@ -76,20 +76,17 @@ describe("NewSessionDialog", () => {
   it("shows the intake form from the design", async () => {
     await openDialog();
     expect(screen.getByRole("heading", { name: TITLE })).toBeTruthy();
-    // The Recent Messages section always shows the fixed opening prompt.
-    expect(screen.getByText("Recent Messages")).toBeTruthy();
-    expect(screen.getByText("1 message")).toBeTruthy();
+    // The sheet's standing instruction is the core's opening prompt.
     expect(
       screen.getByText(/Tell us what you'd like to explore or learn/),
     ).toBeTruthy();
+    // The one thing the form opens with: the goal, asked once, in a field.
+    expect(screen.getByLabelText(LABEL)).toBeTruthy();
     expect(
-      screen.getByPlaceholderText(/Continue the discussion/),
+      screen.getByPlaceholderText(/Write it in your own words/),
     ).toBeTruthy();
     expect(
       screen.getByRole("button", { name: /Send/ }),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("button", { name: /Cancel/ }),
     ).toBeTruthy();
     // A single close button (the header's), not the Dialog's built-in one.
     expect(screen.getAllByRole("button", { name: "Close" })).toHaveLength(1);
@@ -104,27 +101,26 @@ describe("NewSessionDialog", () => {
     ).toBeTruthy();
   });
 
-  it("shows a pending state and disables the buttons while the request is in flight", async () => {
+  it("explains what is running and disables the sheet's one dismissal while the request is in flight", async () => {
     mockCreateSession.mockReturnValue(new Promise(() => {}));
     await openDialog(
       "I want to understand Rust ownership and borrowing rules in depth.",
     );
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
-    const pending = await screen.findByRole("button", { name: /Sending/ });
-    expect((pending as HTMLButtonElement).disabled).toBe(true);
-    expect(
-      (screen.getByRole("button", { name: /Cancel/ }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
-    // The header close button is disabled while the request is in flight.
+    // The open ask's control gives way to a line naming what is happening…
+    await screen.findByRole("status", {
+      name: /we're working out what you want to learn/i,
+    });
+    // …and the sheet's only dismissal is disabled, so the intake cannot be
+    // closed with a request outstanding.
     expect(
       (screen.getByRole("button", { name: "Close" }) as HTMLButtonElement)
         .disabled,
     ).toBe(true);
   });
 
-  it("keeps every button disabled while the boundary's chained plan generation is in flight", async () => {
+  it("holds the sheet still while the boundary's chained plan generation runs", async () => {
     // Submitting an answer is not over when the answer request resolves: at
     // the boundary the core auto-fires the plan generation. That live
     // request must keep the sheet locked exactly like the answer request
@@ -141,26 +137,21 @@ describe("NewSessionDialog", () => {
     await screen.findByText(Q1.text);
 
     const options = Array.from(
-      screen.getByText(Q1.text).closest("div")!.querySelectorAll("button"),
+      screen.getByText(Q1.text).closest("fieldset")!.querySelectorAll("button"),
     ) as HTMLButtonElement[];
     fireEvent.click(
       options.find((button) => (button.textContent ?? "").includes("5 m/s²"))!,
     );
 
-    // The answer request settled; the plan-generation request it chained is
-    // what the sheet now shows…
+    // The answered card stays on the sheet with its answer and its verdict;
+    // the plan-generation request the answer chained is what the sheet now
+    // names…
+    await screen.findByText("Correct.");
     await screen.findByRole("status", {
       name: /we're drafting your learning plan/i,
     });
-    // …and every control is disabled while it is in flight.
-    expect(
-      (screen.getByRole("button", { name: /Cancel/ }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
-    expect(
-      (screen.getByRole("button", { name: /Send/ }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
+    // …and there is nothing left to press while it runs.
+    expect(screen.queryByRole("button", { name: /Send/ })).toBeNull();
     expect(
       (screen.getByRole("button", { name: "Close" }) as HTMLButtonElement)
         .disabled,
@@ -183,7 +174,7 @@ describe("NewSessionDialog", () => {
     await screen.findByText(Q1.text);
 
     const options = Array.from(
-      screen.getByText(Q1.text).closest("div")!.querySelectorAll("button"),
+      screen.getByText(Q1.text).closest("fieldset")!.querySelectorAll("button"),
     ) as HTMLButtonElement[];
     fireEvent.click(
       options.find((button) => (button.textContent ?? "").includes("5 m/s²"))!,
@@ -225,15 +216,18 @@ describe("NewSessionDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
     await screen.findByText("First question?");
-    for (const answer of ["First answer.", "Second answer."]) {
-      fireEvent.change(screen.getByLabelText(LABEL), { target: { value: answer } });
-      fireEvent.click(screen.getByRole("button", { name: /Send/ }));
-      await screen.findByText(
-        answer === "First answer." ? "Second question?" : "Third question?",
-      );
-    }
-
-    fireEvent.change(screen.getByLabelText(LABEL), {
+    // Each clarify question is the field it is answered in.
+    fireEvent.change(screen.getByLabelText("First question?"), {
+      target: { value: "First answer." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    await screen.findByText("Second question?");
+    fireEvent.change(screen.getByLabelText("Second question?"), {
+      target: { value: "Second answer." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    await screen.findByText("Third question?");
+    fireEvent.change(screen.getByLabelText("Third question?"), {
       target: { value: "Third answer." },
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
@@ -295,7 +289,7 @@ describe("NewSessionDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
     await screen.findByText("A bit more, please.");
 
-    fireEvent.click(screen.getByRole("button", { name: /Cancel/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
     await vi.waitFor(() => {
       const panel = document.querySelector('[role="dialog"]');
       expect(panel === null || panel.getAttribute("data-state") === "closed")
@@ -346,10 +340,9 @@ describe("NewSessionDialog", () => {
     // The dialog stays open — no hand-off until the learner closes it.
     await screen.findByRole("button", { name: /Back to my sessions/ });
     expect(onAccept).not.toHaveBeenCalled();
-    // The final stage: the "on the way" title moves into the header and
-    // the encouraging icon replaces the transcript and intake controls —
-    // the rail is kept (Generating step active, visible counter text
-    // removed).
+    // The final stage: the "on the way" title moves into the header, the
+    // completion panel replaces the open ask, and the record the learner
+    // filled in stays on the sheet.
     expect(
       screen.getByRole("heading", { name: "Your lesson is on the way" }),
     ).toBeTruthy();
@@ -362,7 +355,7 @@ describe("NewSessionDialog", () => {
     expect(screen.getByText(/safely close this window/i)).toBeTruthy();
     // The approval request fired exactly once — no polling for materials.
     expect(mockApprovePlan).toHaveBeenCalledTimes(1);
-    // The footer is a single "back" button (no Send / Cancel / Confirm).
+    // No Send / Cancel / Confirm is left in that state.
     expect(
       screen.getByRole("button", { name: /Back to my sessions/ }),
     ).toBeTruthy();
@@ -379,8 +372,8 @@ describe("NewSessionDialog", () => {
     fireEvent.keyDown(review, { key: "Enter" });
 
     expect(mockAdjustPlan).toHaveBeenCalledWith("s-1", "drop the last step");
-    // The revised plan lands in a new plan bubble; the dialog stays open
-    // (no hand-off until the learner approves and closes).
+    // The revised plan lands in a new plan entry; the earlier plan is gone
+    // (an adjustment replaces the plan, it does not add a second one).
     expect(
       await screen.findByText("A tighter two-step path from scalar F = ma to vectors."),
     ).toBeTruthy();
@@ -388,7 +381,69 @@ describe("NewSessionDialog", () => {
     expect(screen.getByRole("heading", { name: TITLE })).toBeTruthy();
   });
 
-  it("closes back to the session list from the footer button, notifying the parent", async () => {
+  it("approves the plan from its control, without a command to type", async () => {
+    const onAccept = vi.fn();
+    await reachReview(onAccept);
+
+    // The plan is the contract: a numbered list, its steps, and what each
+    // one builds on.
+    expect(await screen.findByText("Scalar F = ma")).toBeTruthy();
+    expect(screen.getByText("Combining forces")).toBeTruthy();
+    expect(screen.getAllByText(/Builds on:/).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: /Approve plan/ }));
+
+    // The control carries the approval itself — and the adjustment field,
+    // empty or not, is never what gets sent.
+    await vi.waitFor(() => expect(mockApprovePlan).toHaveBeenCalledTimes(1));
+    expect(mockAdjustPlan).not.toHaveBeenCalled();
+    await screen.findByRole("button", { name: /Back to my sessions/ });
+    expect(onAccept).not.toHaveBeenCalled();
+  });
+
+  it("keeps 'update plan' disabled until the learner says what to change", async () => {
+    const onAccept = vi.fn();
+    const review = await reachReview(onAccept);
+
+    const updateOf = () =>
+      screen.getByRole("button", {
+        name: /Update plan/,
+      }) as HTMLButtonElement;
+    expect(updateOf().disabled).toBe(true);
+
+    fireEvent.change(review, { target: { value: "drop the last step" } });
+    await vi.waitFor(() => expect(updateOf().disabled).toBe(false));
+
+    mockAdjustPlan.mockResolvedValue(PLAN_OUT_REVISED);
+    fireEvent.click(updateOf());
+    await vi.waitFor(() =>
+      expect(mockAdjustPlan).toHaveBeenCalledWith("s-1", "drop the last step"),
+    );
+  });
+
+  it("marks a wrong boundary answer as wrong and keeps the reason on the sheet", async () => {
+    mockCreateSession.mockResolvedValue({ session_id: "s-1", phase: "probing" });
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
+    mockAnswerProbe.mockResolvedValue({ phase: "probing", questions: [Q2] });
+    await openDialog(GOAL);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    await screen.findByText(Q1.text);
+
+    const buttons = Array.from(
+      screen.getByText(Q1.text).closest("fieldset")!.querySelectorAll("button"),
+    ) as HTMLButtonElement[];
+    fireEvent.click(
+      buttons.find((button) => (button.textContent ?? "").includes("10 m/s²"))!,
+    );
+
+    // The record states the answer, the verdict, and why — in the reserved
+    // correction ink, never in a colour alone.
+    expect(await screen.findByText("Not quite.")).toBeTruthy();
+    expect(screen.getByText(Q1.explanation)).toBeTruthy();
+    expect(screen.getByText("10 m/s²")).toBeTruthy();
+  });
+
+  it("closes back to the session list from the 'back to my sessions' control, notifying the parent", async () => {
     const onAccept = vi.fn();
     const review = await reachReview(onAccept);
     fireEvent.change(review, { target: { value: "approve" } });
@@ -530,7 +585,9 @@ describe("NewSessionDialog", () => {
 
     await screen.findByText("A bit more, please.");
     // The textarea is enabled again for the next turn, so focus returns to it.
-    expect(document.activeElement).toBe(screen.getByLabelText(LABEL));
+    expect(document.activeElement).toBe(
+      screen.getByLabelText("A bit more, please."),
+    );
   });
 
   it("submits the intake on a bare Enter key", async () => {
@@ -558,7 +615,7 @@ describe("NewSessionDialog", () => {
     expect(screen.getByRole("button", { name: /Send/ })).toBeTruthy();
   });
 
-  it("renders a multi-line learner answer as a bulleted list in the transcript", async () => {
+  it("renders a multi-line learner answer as a bulleted list in the record", async () => {
     mockCreateSession.mockResolvedValue({
       session_id: "s-1",
       phase: "clarifying",
@@ -570,14 +627,14 @@ describe("NewSessionDialog", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
 
-    // The "you" bubble splits the answer into per-line items, each rendered
-    // as its own bullet in the transcript.
+    // The learner's turn splits into per-line items, each its own bullet in
+    // the filled answer.
     await screen.findByText("A bit more, please.");
     expect(screen.getByText("First line of my answer")).toBeTruthy();
     expect(screen.getByText("Second line of my answer")).toBeTruthy();
   });
 
-  it("scrolls the recent messages to the bottom when a new message arrives", async () => {
+  it("keeps the record scrolled to the item that just landed", async () => {
     mockCreateSession.mockResolvedValue({
       session_id: "s-1",
       phase: "clarifying",
@@ -604,7 +661,7 @@ describe("NewSessionDialog", () => {
       configurable: true,
     });
 
-    fireEvent.change(screen.getByLabelText(LABEL), {
+    fireEvent.change(screen.getByLabelText("A bit more, please."), {
       target: { value: "More detail." },
     });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
@@ -613,13 +670,13 @@ describe("NewSessionDialog", () => {
     expect(setScrollTop).toHaveBeenCalledWith(panel.scrollHeight);
   });
 
-  it("bounds the sheet so the transcript scrolls instead of overflowing it", async () => {
+  it("bounds the sheet so the record scrolls instead of overflowing it", async () => {
     // jsdom has no layout engine, so this guards the height contract the
     // scrolling depends on: the sheet is a bounded flex column, the form is
-    // allowed to shrink to it, and the transcript is the flex child that
-    // absorbs the overflow. (The shared DialogContent is a grid; a grid row
-    // only stretches into free space, so a long transcript used to grow the
-    // sheet past the viewport and clip the footer off-screen.)
+    // allowed to shrink to it, and the record is the flex child that absorbs
+    // every height change. (The shared DialogContent is a grid; a grid row
+    // only stretches into free space, so a long record would grow the sheet
+    // past the viewport and clip the open ask off-screen.)
     await openDialog();
     const sheet = document.querySelector(
       '[data-slot="dialog-content"]',
@@ -635,15 +692,15 @@ describe("NewSessionDialog", () => {
     expect(panel.classList.contains("flex-1")).toBe(true);
     expect(panel.classList.contains("min-h-0")).toBe(true);
 
-    // The sheet chrome (masthead + rail via `double-rule-b`, footer as the
-    // form's last child) never shrinks: the transcript absorbs every height
-    // change.
-    const rules = sheet.querySelectorAll(".double-rule-b");
-    expect(rules).toHaveLength(2);
-    for (const el of Array.from(rules)) {
-      expect(el.classList.contains("shrink-0")).toBe(true);
-    }
-    expect((form.lastElementChild as HTMLElement).classList.contains("shrink-0")).toBe(true);
+    // The header never shrinks: the record takes every change.
+    const header = sheet.querySelector("header") as HTMLElement;
+    expect(header.classList.contains("shrink-0")).toBe(true);
+
+    // The sheet is a form: none of the ruled-paper chrome it replaced is
+    // still on it.
+    expect(
+      sheet.querySelectorAll(".double-rule-b, .ruled-paper"),
+    ).toHaveLength(0);
   });
 
   it("shows a transport error and stays open when the request fails", async () => {
@@ -670,15 +727,17 @@ describe("NewSessionDialog", () => {
     await screen.findByText("A bit more, please.");
 
     // The answer is on screen with the request, then rolls back when it fails.
-    fireEvent.change(screen.getByLabelText(LABEL), { target: { value: "My answer." } });
+    fireEvent.change(screen.getByLabelText("A bit more, please."), {
+      target: { value: "My answer." },
+    });
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
     await screen.findByText(/went wrong|try again/i);
 
-    // The rolled-back answer is not left in the transcript (the transcript's
-    // text is in spans; the textarea itself holds the restored value).
+    // The rolled-back answer is not left in the record (record text is in
+    // spans; the textarea itself holds the restored value).
     expect(screen.queryByText("My answer.", { selector: "span" })).toBeNull();
     expect(
-      (screen.getByLabelText(LABEL)) as HTMLTextAreaElement,
+      (screen.getByLabelText("A bit more, please.")) as HTMLTextAreaElement,
     ).toHaveProperty("value", "My answer.");
   });
 
@@ -697,12 +756,12 @@ describe("NewSessionDialog", () => {
     ).toBe(SHORT);
   });
 
-  it("shows the progress rail with the ready counter before the first submit", async () => {
+  it("states the position in words before the first submit", async () => {
     await openDialog();
     expect(screen.getByRole("status", { name: /3 steps to your lesson/i })).toBeTruthy();
   });
 
-  it("updates the rail counter to Clarifying after the first submit", async () => {
+  it("updates the stated position after the first submit", async () => {
     mockCreateSession.mockResolvedValue({
       session_id: "s-1",
       phase: "clarifying",
@@ -713,7 +772,7 @@ describe("NewSessionDialog", () => {
     expect(await screen.findByRole("status", { name: /2 steps to your lesson/i })).toBeTruthy();
   });
 
-  it("tracks the rail through probing and into planning", async () => {
+  it("states the position through probing and into planning", async () => {
     // Clarify lands on probing and the first question is fetched.
     mockCreateSession.mockResolvedValue({
       session_id: "s-1",
@@ -733,7 +792,7 @@ describe("NewSessionDialog", () => {
     // Click the probe card's correct option — the answer path is a click,
     // not the textarea.
     const probeButtons = Array.from(
-      screen.getByText(Q1.text).closest("div")!.querySelectorAll("button"),
+      screen.getByText(Q1.text).closest("fieldset")!.querySelectorAll("button"),
     ) as HTMLButtonElement[];
     fireEvent.click(
       probeButtons.find((button) =>
@@ -753,7 +812,7 @@ describe("NewSessionDialog", () => {
     }));
     const answerCard = (questionText: string, optionText: string) => {
       const buttons = Array.from(
-        screen.getByText(questionText).closest("div")!.querySelectorAll("button"),
+        screen.getByText(questionText).closest("fieldset")!.querySelectorAll("button"),
       ) as HTMLButtonElement[];
       fireEvent.click(
         buttons.find((button) =>
@@ -775,7 +834,7 @@ describe("NewSessionDialog", () => {
     mockGeneratePlan.mockResolvedValue(PLAN_OUT);
 
     await openDialog(GOAL);
-    // The position is hidden while the rail is not on the Probing step.
+    // No position is stated while nothing is being answered.
     expect(screen.queryByText("Question 1 of 3")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Send/ }));
     expect(await screen.findByText("Question 1 of 3")).toBeTruthy();
@@ -793,7 +852,7 @@ describe("NewSessionDialog", () => {
     answerCard(followUps[0].text, "5 m/s²");
     expect(await screen.findByText("Question 5 of 6")).toBeTruthy();
 
-    // The position is hidden once the rail leaves the Probing step (planning).
+    // The position is dropped once nothing is being answered (planning).
     answerCard(followUps[1].text, "doubles");
     answerCard(followUps[2].text, "mass");
     await screen.findByRole("status", { name: /Approve to build your lesson/i });
@@ -816,3 +875,24 @@ describe("NewSessionDialog", () => {
 });
 
 
+
+describe("NewSessionDialog — the first field", () => {
+  it("keeps Send inert until the goal has an answer in it", async () => {
+    await openDialog();
+    const send = screen.getByRole("button", { name: /Send/ });
+    expect(send.hasAttribute("disabled")).toBe(true);
+    expect(mockCreateSession).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText(LABEL), {
+      target: { value: "Newton's second law." },
+    });
+    expect(send.hasAttribute("disabled")).toBe(false);
+  });
+
+  it("does not create a session when the empty field is submitted", async () => {
+    await openDialog();
+    fireEvent.submit(screen.getByRole("textbox"));
+    expect(mockCreateSession).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Something went wrong/)).toBeNull();
+  });
+});
