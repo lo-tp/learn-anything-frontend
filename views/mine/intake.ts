@@ -30,17 +30,23 @@ export type ProbeCard = {
   explanation: string;
 };
 
-/** A render-ready unit of the "Recent Messages" history. The dialog renders
- *  each `kind` and does no per-entry branching on hidden state. A `you`
- *  bubble sent with a request carries `optimistic: true`: it is on screen
- *  immediately and is the one `apiFailed` rolls back (see the note on
- *  `IntakeState`). */
+/** A render-ready unit of the intake record. The `you` entries are what the
+ *  learner said — one block or several lines; every turn the app prints is a
+ *  single block of text. A `you` turn sent with a request carries
+ *  `optimistic: true`: it is on screen immediately and is the one `apiFailed`
+ *  rolls back (see the note on `IntakeState`). A `plan` entry is a full
+ *  generated plan; every adjustment replaces it with another one. */
 export type Bubble =
   | {
       kind: "text";
-      from: "you" | "ai";
-      text: string | string[];
+      from: "ai";
+      text: string;
       highlighted?: boolean;
+    }
+  | {
+      kind: "text";
+      from: "you";
+      text: string | string[];
       optimistic?: boolean;
     }
   | { kind: "probe"; card: ProbeCard; state: "active" | "answered"; picked?: number }
@@ -97,6 +103,10 @@ export type IntakeState = {
 export type Action =
   | { type: "submit"; text: string }
   | { type: "pickOption"; canonicalIndex: number }
+  /** Approve through a control instead of by typing the command, so the
+   *  learner never has to type a word in a language they may not be reading
+   *  the form in. Typing `approve` still works. */
+  | { type: "approve" }
   | { type: "confirm" }
   | { type: "close" };
 
@@ -266,6 +276,18 @@ export function apply(
       return { state: initialState(t), effects, clearInput: true };
     }
 
+    case "approve": {
+      // Approving from a control: the same path the typed command takes, so
+      // the plan must be on screen and nothing may be in flight.
+      if (state.inFlight !== null || state.plan === null || state.sessionId === null)
+        return { state, effects: [], clearInput: false };
+      return {
+        state: { ...state, error: null, inFlight: "approve" },
+        effects: [{ type: "api", call: "approvePlan", sessionId: state.sessionId }],
+        clearInput: false,
+      };
+    }
+
     case "confirm":
       // The confirm step hands off the same way: the accept effect triggers
       // the History refetch.
@@ -389,8 +411,12 @@ export function apply(
 
       // Clarifying / initial: the first send creates the session and records
       // the learner's reply to the opening prompt — like every other turn,
-      // the "you" bubble goes on screen with the request.
+      // the "you" bubble goes on screen with the request. A blank first
+      // answer is a no-op, exactly as in the clarify loop: an empty field is
+      // not an answer, and the sheet must not create a session on one.
       if (state.sessionId === null) {
+        if (action.text.trim() === "")
+          return { state, effects: [], clearInput: false };
         return {
           state: {
             ...clear,
@@ -691,6 +717,15 @@ export type RailData = {
   clarifyPosition: string | null;
 };
 
+/** The one thing the intake is currently asking for, in the shape a surface
+ *  needs to render it: a text answer, a choice between options, or nothing
+ *  (a request is in flight, the plan is being drafted, or the intake is
+ *  finished). */
+export type IntakeAsk =
+  | { kind: "text"; text: string }
+  | { kind: "choice"; card: ProbeCard }
+  | null;
+
 /** The dialog's render-ready view-model, derived from the core state. */
 export type IntakeViewModel = {
   bubbles: Bubble[];
@@ -701,6 +736,14 @@ export type IntakeViewModel = {
   showPending: boolean;
   pendingNote: string;
   error: string | null;
+  /** The generated plan is on screen: the plan is the thing being changed. */
+  reviewing: boolean;
+  /** What the sheet is asking right now (see `IntakeAsk`). */
+  ask: IntakeAsk;
+  /** True when the field the sheet has open wants words: an empty submission
+   *  would start a session, or answer a question, with nothing in it. The
+   *  plan adjustment is exempt — its own control carries that guard. */
+  fieldRequiresText: boolean;
   intake: {
     label: string;
     placeholder: string;
@@ -772,10 +815,15 @@ export function deriveViewModel(state: IntakeState, t: Translator): IntakeViewMo
   if (state.phase === "probing" && state.batch !== null && state.batch.length > 0) {
     const answeredBeforeBatch = state.answered - state.picks.length;
     const total = answeredBeforeBatch + state.batch.length;
-    probePosition = t("railProbePosition", {
-      n: Math.min(answeredBeforeBatch + state.picks.length + 1, total),
-      total,
-    });
+    // A single question asked is not a queue: "Question 1 of 1" promises a
+    // sequence that does not exist, so the position is stated only when there
+    // is one to state.
+    if (total > 1) {
+      probePosition = t("railProbePosition", {
+        n: Math.min(answeredBeforeBatch + state.picks.length + 1, total),
+        total,
+      });
+    }
   }
 
   // The batch-local clarify position under the active Clarifying step, in
@@ -783,6 +831,7 @@ export function deriveViewModel(state: IntakeState, t: Translator): IntakeViewMo
   const clarifyPosition =
     state.phase === "clarifying" &&
     state.clarifyBatch !== null &&
+    state.clarifyBatch.length > 1 &&
     state.clarifyPicks.length < state.clarifyBatch.length
       ? t("railProbePosition", {
           n: state.clarifyPicks.length + 1,
@@ -798,6 +847,43 @@ export function deriveViewModel(state: IntakeState, t: Translator): IntakeViewMo
     clarifyPosition,
   };
 
+  // What the sheet is asking for right now. It is stated once, in one place:
+  // the structured ask the core is working through (the next clarify question,
+  // the option card on screen, the plan adjustment) — and, when the app asked
+  // in plain prose instead of opening a batch, the last thing it printed.
+  // Nothing is asked while a request is in flight, while the plan is being
+  // drafted, or once the intake has handed off.
+  let ask: IntakeAsk = null;
+  const askable =
+    !pending && !awaitingPlan && !state.onTheWay && !confirming;
+  if (askable) {
+    if (state.clarifyBatch !== null && state.sessionId !== null) {
+      const index = state.clarifyPicks.length;
+      if (index < state.clarifyBatch.length)
+        ask = { kind: "text", text: state.clarifyBatch[index] };
+    } else if (activeProbe && state.batch !== null) {
+      ask = { kind: "choice", card: state.batch[state.picks.length] };
+    } else if (reviewing) {
+      ask = { kind: "text", text: t("labelReview") };
+    } else if (state.sessionId !== null) {
+      // Skip the fixed opening prompt (index 0) and the narrowed-goal echo:
+      // neither is a question the learner answers in a field.
+      const asked = state.bubbles
+        .slice(1)
+        .filter(
+          (bubble): bubble is Extract<Bubble, { kind: "text"; from: "ai" }> =>
+            bubble.kind === "text" && bubble.from === "ai" && !bubble.highlighted,
+        );
+      const last = asked.at(-1);
+      if (last !== undefined) ask = { kind: "text", text: last.text };
+    }
+  }
+
+  // A field that is an ask wants an answer. The goal and every clarifying
+  // question are answered in words; a boundary check is answered by a click,
+  // and the plan adjustment has its own inert-until-typed control.
+  const fieldRequiresText = askable && !reviewing && ask?.kind !== "choice";
+
   return {
     bubbles: state.bubbles,
     phase: state.phase,
@@ -807,6 +893,9 @@ export function deriveViewModel(state: IntakeState, t: Translator): IntakeViewMo
     showPending: pending || awaitingPlan,
     pendingNote,
     error: state.error,
+    reviewing,
+    ask,
+    fieldRequiresText,
     intake: {
       label: probing ? t("labelProbe") : reviewing ? t("labelReview") : t("labelClarify"),
       placeholder: reviewing ? t("placeholderReview") : t("placeholderDefault"),

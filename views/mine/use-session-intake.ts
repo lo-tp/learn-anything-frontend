@@ -49,7 +49,7 @@ export function useSessionIntake({
   });
 
   const [paragraph, setParagraph] = useState("");
-  const messagesPanelRef = useRef<HTMLDivElement>(null);
+  const recordRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [textareaMounted, setTextareaMounted] = useState(false);
   /** Callback ref: track the node and flag it mounted (the Radix portal
@@ -141,6 +141,14 @@ export function useSessionIntake({
     dispatch({ type: "pickOption", canonicalIndex });
   }
 
+  /** Approve the plan through its control. The core guards it the same way
+   *  the typed command is guarded: a plan must be on screen and nothing may
+   *  be in flight. */
+  function approve() {
+    if (stateRef.current.inFlight) return;
+    dispatch({ type: "approve" });
+  }
+
   function close() {
     // Both the footer button and the header Close reach here. Closing from
     // the "on the way" state emits the accept effect (a History refetch);
@@ -168,9 +176,9 @@ export function useSessionIntake({
     close();
   }
 
-  // Auto-scroll the "Recent Messages" panel to the bottom on each new bubble.
+  // Keep the record scrolled to the item that just landed.
   useEffect(() => {
-    const panel = messagesPanelRef.current;
+    const panel = recordRef.current;
     if (panel) panel.scrollTop = panel.scrollHeight;
   }, [view.bubbles.length]);
 
@@ -189,10 +197,11 @@ export function useSessionIntake({
     setParagraph,
     submit,
     pickOption,
+    approve,
     close,
     confirm,
     handleOpenChange,
-    messagesPanelRef,
+    recordRef,
     textareaRef,
     attachTextarea,
   };
