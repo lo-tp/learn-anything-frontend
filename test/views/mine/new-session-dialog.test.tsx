@@ -92,6 +92,34 @@ describe("NewSessionDialog", () => {
     expect(screen.getAllByRole("button", { name: "Close" })).toHaveLength(1);
   });
 
+  it("keeps the sheet's original header — the printed masthead and the rail (#204)", async () => {
+    // The owner pinned this part of the surface in #204 ("keep the header").
+    // Everything below it is the redesign; the header is not.
+    await openDialog();
+    const title = screen.getByRole("heading", { name: TITLE });
+    expect(title.className).toContain("font-display");
+    expect(title.className).toContain("uppercase");
+    const masthead = title.closest("header") as HTMLElement;
+    expect(masthead.classList.contains("double-rule-b")).toBe(true);
+
+    // The progress device is the four-step bubble rail, closed with its own
+    // double rule — not a bar, not a sentence of text under the title.
+    const rail = masthead.nextElementSibling as HTMLElement;
+    expect(rail.getAttribute("role")).toBe("status");
+    expect(rail.classList.contains("double-rule-b")).toBe(true);
+    const steps = rail.querySelectorAll("ol > li");
+    expect(steps).toHaveLength(4);
+    expect(rail.textContent).toContain("Clarifying");
+    expect(rail.textContent).toContain("Probing");
+    expect(rail.textContent).toContain("Planning");
+    expect(rail.textContent).toContain("Generating");
+
+    // Position is stated in one place only: the rail names it for assistive
+    // technology and prints a count only while a batch is being answered.
+    expect(rail.getAttribute("aria-label")).toBe("3 steps to your lesson");
+    expect(rail.textContent).not.toContain("Question");
+  });
+
   it("shows the opening prompt from the zh catalog under the zh locale", async () => {
     await openDialog("", () => {}, "zh");
     expect(
@@ -696,11 +724,18 @@ describe("NewSessionDialog", () => {
     const header = sheet.querySelector("header") as HTMLElement;
     expect(header.classList.contains("shrink-0")).toBe(true);
 
-    // The sheet is a form: none of the ruled-paper chrome it replaced is
-    // still on it.
-    expect(
-      sheet.querySelectorAll(".double-rule-b, .ruled-paper"),
-    ).toHaveLength(0);
+    // The sheet keeps the printed chrome it was given (#204): the masthead
+    // and the rail are each closed with the double rule. What the redesign
+    // removed stays removed — the ruled-paper transcript panel it replaced.
+    const rules = sheet.querySelectorAll(".double-rule-b");
+    expect(rules).toHaveLength(2);
+    expect(sheet.querySelectorAll(".ruled-paper")).toHaveLength(0);
+
+    // The rail is the sheet's only progress device: bubbles and step names,
+    // never a bar or a meter.
+    const rail = sheet.querySelector('[role="status"]') as HTMLElement;
+    expect(rail.classList.contains("double-rule-b")).toBe(true);
+    expect(rail.querySelectorAll("ol > li")).toHaveLength(4);
   });
 
   it("shows a transport error and stays open when the request fails", async () => {
