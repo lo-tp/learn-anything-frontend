@@ -471,6 +471,46 @@ describe("NewSessionDialog", () => {
     expect(screen.getByText("10 m/s²")).toBeTruthy();
   });
 
+  it("says what the boundary checks are for before the first one lands (#204)", async () => {
+    mockCreateSession.mockResolvedValue({ session_id: "s-1", phase: "probing" });
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
+    mockAnswerProbe.mockResolvedValue({ phase: "probing", questions: [Q2] });
+    await openDialog(GOAL);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    // The reason is on the sheet before the question it explains.
+    const purpose = await screen.findByText(/find out what you already know/i);
+    const question = await screen.findByText(Q1.text);
+    expect(purpose.compareDocumentPosition(question) & 0x04).toBeTruthy();
+
+    // It is a statement, not a field: nothing is labelled with it, and the
+    // option rows are still the control that answers.
+    expect(
+      screen.queryByRole("textbox", { name: /find out what you already know/i }),
+    ).toBeNull();
+
+    const buttons = Array.from(
+      screen.getByText(Q1.text).closest("fieldset")!.querySelectorAll("button"),
+    ) as HTMLButtonElement[];
+    fireEvent.click(
+      buttons.find((button) => (button.textContent ?? "").includes("5 m/s²"))!,
+    );
+
+    // The purpose is said once per intake: the follow-up batch that lands now
+    // is explained by the line already on the sheet.
+    await screen.findByText(Q2.text);
+    expect(screen.getAllByText(/find out what you already know/i)).toHaveLength(1);
+  });
+
+  it("says what the boundary checks are for under the zh locale", async () => {
+    mockCreateSession.mockResolvedValue({ session_id: "s-1", phase: "probing" });
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
+    await openDialog(GOAL, undefined, "zh");
+    fireEvent.click(screen.getByRole("button", { name: /发送/ }));
+
+    expect(await screen.findByText(/你已经知道哪些内容/)).toBeTruthy();
+  });
+
   it("closes back to the session list from the 'back to my sessions' control, notifying the parent", async () => {
     const onAccept = vi.fn();
     const review = await reachReview(onAccept);
@@ -825,9 +865,11 @@ describe("NewSessionDialog", () => {
     });
     mockGeneratePlan.mockResolvedValue(PLAN_OUT);
     // Click the probe card's correct option — the answer path is a click,
-    // not the textarea.
+    // not the textarea. The card is awaited, not assumed: the rail names the
+    // Probing step when the phase lands, one request before the question does.
+    const question = await screen.findByText(Q1.text);
     const probeButtons = Array.from(
-      screen.getByText(Q1.text).closest("fieldset")!.querySelectorAll("button"),
+      question.closest("fieldset")!.querySelectorAll("button"),
     ) as HTMLButtonElement[];
     fireEvent.click(
       probeButtons.find((button) =>

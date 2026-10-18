@@ -72,6 +72,7 @@ declare const messages: {
     "pendingReview": "We're updating your plan to match your feedback. This takes a few seconds.",
     "pendingProbeAnswer": "We're checking your answer. Give it a moment.",
     "pendingProbeGenerate": "We're generating questions to check your current level of mastery. Give it a moment.",
+    "probePurpose": "Next, a few short questions to find out what you already know. Your answers tell us where to start — the plan skips what you can already do.",
     "pendingClarify": "We're working through what you shared. Give it a moment.",
     "pendingDefault": "We're working out what you want to learn. Give it a moment.",
     "confirm": "Confirm",

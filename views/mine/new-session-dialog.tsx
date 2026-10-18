@@ -55,11 +55,12 @@ type RecordEntry =
 
 /**
  * Project the core's bubbles into the record. The first app turn is the
- * sheet's standing instruction (its opening prompt), never a record entry;
- * an app question is held until the learner answers it, so a question and its
- * answer land in the record together; the ask that is still open is held by
- * the core's view-model instead. A plan entry replaces every earlier one: the
- * plan on screen is the whole contract.
+ * sheet's standing instruction (its opening prompt), never a record entry; an
+ * app statement (a line that asks nothing) is a note; an app question is held
+ * until the learner answers it, so a question and its answer land in the record
+ * together; the ask that is still open is held by the core's view-model
+ * instead. A plan entry replaces every earlier one: the plan on screen is the
+ * whole contract.
  */
 function projectRecord(
   bubbles: Bubble[],
@@ -78,6 +79,10 @@ function projectRecord(
       if (bubble.highlighted) {
         entries.push({ kind: "goal", text: bubble.text });
         asked = null;
+      } else if (bubble.statement) {
+        // A statement asks nothing: it is a note in the record, not a question
+        // held for an answer, so it holds nothing back.
+        entries.push({ kind: "note", text: bubble.text });
       } else {
         asked = bubble.text;
       }

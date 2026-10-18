@@ -42,6 +42,13 @@ export type Bubble =
       from: "ai";
       text: string;
       highlighted?: boolean;
+      /**
+       * True for an app line that asks the learner nothing: a statement about
+       * what the flow is doing, not a question. It is never the open ask, and
+       * the sheet renders it as a note (DESIGN.md, Session Intake Sheet →
+       * The record).
+       */
+      statement?: boolean;
     }
   | {
       kind: "text";
@@ -190,6 +197,18 @@ export function splitAnswer(text: string): string | string[] {
     .filter((line) => line.length > 0);
   if (lines.length === 1) return lines[0];
   return lines;
+}
+
+/**
+ * Has this intake already stated what its next step is for? A statement is
+ * said once per intake — the sheet keeps it on screen, so a later batch needs
+ * no second announcement (and a retried request never prints it twice).
+ */
+function hasStatement(bubbles: Bubble[]): boolean {
+  return bubbles.some(
+    (bubble) =>
+      bubble.kind === "text" && bubble.from === "ai" && bubble.statement === true,
+  );
 }
 
 function toProbeCard(question: ProbeQuestionOut): ProbeCard {
@@ -554,6 +573,14 @@ export function apply(
         };
       }
       const cards = questions.map(toProbeCard);
+      // The first boundary check is announced before it is asked (#204). A
+      // knowledge question that lands with no stated reason reads as a test
+      // item, and the only line that ever explained these ones was the
+      // transient in-flight note, which is gone by the time the first card
+      // appears. Stated once per intake, never once per batch.
+      const announce: Bubble[] = hasStatement(state.bubbles)
+        ? []
+        : [{ kind: "text", from: "ai", text: t("probePurpose"), statement: true }];
       return {
         state: {
           ...state,
@@ -561,7 +588,11 @@ export function apply(
           batch: cards,
           picks: [],
           phase: "probing",
-          bubbles: [...settleYou(state.bubbles), { kind: "probe", card: cards[0], state: "active" }],
+          bubbles: [
+            ...settleYou(state.bubbles),
+            ...announce,
+            { kind: "probe", card: cards[0], state: "active" },
+          ],
         },
         effects: [],
         clearInput: false,
@@ -866,13 +897,17 @@ export function deriveViewModel(state: IntakeState, t: Translator): IntakeViewMo
     } else if (reviewing) {
       ask = { kind: "text", text: t("labelReview") };
     } else if (state.sessionId !== null) {
-      // Skip the fixed opening prompt (index 0) and the narrowed-goal echo:
-      // neither is a question the learner answers in a field.
+      // Skip the fixed opening prompt (index 0), the narrowed-goal echo, and
+      // any statement: none of them is a question the learner answers in a
+      // field.
       const asked = state.bubbles
         .slice(1)
         .filter(
           (bubble): bubble is Extract<Bubble, { kind: "text"; from: "ai" }> =>
-            bubble.kind === "text" && bubble.from === "ai" && !bubble.highlighted,
+            bubble.kind === "text" &&
+            bubble.from === "ai" &&
+            !bubble.highlighted &&
+            !bubble.statement,
         );
       const last = asked.at(-1);
       if (last !== undefined) ask = { kind: "text", text: last.text };
