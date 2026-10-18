@@ -24,8 +24,9 @@ import { useSessionIntake } from "./use-session-intake";
  *
  * Every question the app asked and every answer the learner gave stays on the
  * sheet in the order it happened — the questions as the quiet line above their
- * answer, the answers in the filled state of a field. Only the thing being
- * asked right now is open: one ask, its own control, its action beside it. A
+ * answer, the answers in the filled state of a field, and the line that ends a
+ * phase as the record's one panel. Only the thing being asked right now is
+ * open: one ask, its own control, its action at that item's right end. A
  * generated plan renders as a numbered list (the current one only — an
  * adjustment replaces the plan, it does not add another), and the learner
  * changes it in one field and approves it with one control.
@@ -50,6 +51,13 @@ import { useSessionIntake } from "./use-session-intake";
  * binding's intents (`submit`, `pickOption`, `approve`, `confirm`, `close`).
  */
 
+/** The sheet's actions sit at the right end of the item they belong to
+ *  (#204): one row treatment for `Send`, the plan pair, `Confirm`, and the one
+ *  control that files the finished sheet. Still beside the item, still no
+ *  floating action bar — the item's own right edge is where an action goes.
+ */
+const ACTION_ROW = "mt-3 flex flex-wrap items-center justify-end gap-2";
+
 /**
  * The sheet's one measure, stated once, at the record column: a 32rem box
  * padded 16px, so every item inside it is 30rem (480px) wide — a recorded
@@ -69,6 +77,7 @@ const SHEET_MEASURE = "max-w-[32rem]";
 type RecordEntry =
   | { kind: "goal"; text: string }
   | { kind: "note"; text: string }
+  | { kind: "milestone"; text: string }
   | { kind: "answer"; asked: string | null; text: string | string[] }
   | { kind: "answeredProbe"; card: ProbeCard; picked: number | undefined }
   | { kind: "plan"; plan: PlanBody };
@@ -76,8 +85,9 @@ type RecordEntry =
 /**
  * Project the core's bubbles into the record. The first app turn is the
  * sheet's standing instruction (its opening prompt), never a record entry; an
- * app statement (a line that asks nothing) is a note; an app question is held
- * until the learner answers it, so a question and its answer land in the record
+ * app statement (a line that asks nothing) is a note, and a milestone — the
+ * line that ends a phase — is a panel; an app question is held until the
+ * learner answers it, so a question and its answer land in the record
  * together; the ask that is still open is held by the core's view-model
  * instead. A plan entry replaces every earlier one: the plan on screen is the
  * whole contract.
@@ -110,6 +120,12 @@ function projectRecord(
     }
     if (bubble.kind === "text" && bubble.from === "you") {
       entries.push({ kind: "answer", asked, text: bubble.text });
+      asked = null;
+      return;
+    }
+    if (bubble.kind === "milestone") {
+      // A phase end asks nothing, so it holds no question back.
+      entries.push({ kind: "milestone", text: bubble.text });
       asked = null;
       return;
     }
@@ -283,7 +299,7 @@ export function NewSessionDialog({
           className="mt-2 w-full resize-none rounded-md border border-outline-variant bg-surface-container-lowest p-4 text-[15px] leading-6 text-on-surface outline-none transition-colors placeholder:text-on-surface-variant focus-visible:border-engage focus-visible:ring-2 focus-visible:ring-engage/25"
         />
         {renderError()}
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className={ACTION_ROW}>
           {view.reviewing ? (
             <>
               <Button
@@ -351,13 +367,11 @@ export function NewSessionDialog({
           <Check className="mt-0.5 size-4 shrink-0 text-tertiary" aria-hidden />
           {t("onTheWaySubline")}
         </p>
-        <Button
-          type="button"
-          onClick={close}
-          className="mt-3 h-auto px-4 py-2.5 text-[15px]"
-        >
-          {t("backToSessions")}
-        </Button>
+        <div className={ACTION_ROW}>
+          <Button type="button" onClick={close} className="h-auto px-4 py-2.5 text-[15px]">
+            {t("backToSessions")}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -368,15 +382,17 @@ export function NewSessionDialog({
     return (
       <div>
         {view.showPending && <div className="mb-3">{renderWorking()}</div>}
-        <Button
-          type="button"
-          disabled={view.pending}
-          onClick={confirm}
-          className={`h-auto gap-2 px-4 py-2.5 text-[15px] ${DISABLED_INK}`}
-        >
-          <Check className="size-4" aria-hidden />
-          {t("confirm")}
-        </Button>
+        <div className={ACTION_ROW}>
+          <Button
+            type="button"
+            disabled={view.pending}
+            onClick={confirm}
+            className={`h-auto gap-2 px-4 py-2.5 text-[15px] ${DISABLED_INK}`}
+          >
+            <Check className="size-4" aria-hidden />
+            {t("confirm")}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -527,6 +543,21 @@ function RecordEntryView({
       <p className="text-[15px] leading-6 text-on-surface-variant">
         <MathText content={entry.text} />
       </p>
+    );
+  }
+
+  if (entry.kind === "milestone") {
+    // The one thing on the record that reads as a block rather than a line:
+    // the same panel the approved sheet closes on, verified Check included
+    // (#204: a phase the learner worked through should not be printed as
+    // spare text between answers).
+    return (
+      <div className="rounded-md border border-outline-variant bg-surface-container-lowest p-4">
+        <p className="flex items-start gap-2.5 text-[15px] leading-6 text-on-surface">
+          <Check className="mt-0.5 size-4 shrink-0 text-tertiary" aria-hidden />
+          <MathText content={entry.text} />
+        </p>
+      </div>
     );
   }
 

@@ -84,7 +84,7 @@
     "approvePlan": "批准计划",
     "errorFallback": "启动会话时出了点问题，请重试。",
     "yourNarrowedGoal": "你的聚焦目标是：{goal}",
-    "boundaryEstablished": "经过 {n, plural, other {# 道题目}}后，掌握边界已确立。你的学习计划已就绪。",
+    "boundaryEstablished": "你答完了 {n, plural, other {# 道题}}才走到这里。我们已经清楚你的理解从哪里开始 —— 你的学习计划已经就绪。",
     "thinFeedback": "内容有点单薄 —— 请再补充一些细节。",
     "errorNoQuestions": "没有收到题目，请重试。",
     "errorApproveHint": "输入 'approve' 批准计划，或描述如何调整。",
@@ -100,7 +100,7 @@
     "railCounterPlanning": "就差一步啦：批准计划，就可以开始学习",
     "railCounterGenerating": "正在制作课件",
     "railProbePosition": "第 {n} / {total} 题",
-    "onTheWaySubline": "课件正在生成中，你可以先关闭窗口。",
+    "onTheWaySubline": "你从说出目标走到了批准计划 —— 这一步已经完成。课件正在生成中，你可以放心关闭窗口，回来时它就绪了。",
     "backToSessions": "返回我的会话"
   },
   "session": {
