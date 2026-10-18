@@ -339,11 +339,17 @@ describe("intake core — probe loop", () => {
       .state;
     const { state, clearInput } = step(s0, { type: "probeStarted", probe: probe([Q1, Q2]) });
     expect(state.batch).toHaveLength(2);
-    expect(state.bubbles.at(-2)).toEqual({
+    // The purpose line sits under the learner's re-request, the card under it.
+    expect(state.bubbles.at(-3)).toEqual({
       kind: "text",
       from: "you",
       text: "again",
       optimistic: false,
+    });
+    expect(state.bubbles.at(-2)).toMatchObject({
+      kind: "text",
+      from: "ai",
+      statement: true,
     });
     expect(state.bubbles.at(-1)).toMatchObject({ kind: "probe", state: "active" });
     // The input was already cleared when the turn was sent.
@@ -410,6 +416,68 @@ describe("intake core — probe loop", () => {
       from: "ai",
       text: t("boundaryEstablished", { n: 2 }),
     });
+  });
+});
+
+describe("intake core — what the boundary checks are for (#204)", () => {
+  /** The app lines that state what the flow is doing. */
+  const stated = (s: IntakeState) =>
+    s.bubbles.filter(
+      (bubble) =>
+        bubble.kind === "text" && bubble.from === "ai" && bubble.statement === true,
+    );
+
+  it("announces why the boundary checks are asked, before the first one lands", () => {
+    const { state } = step(mk({ sessionId: "s-1", phase: "probing" }), {
+      type: "probeStarted",
+      probe: probe([Q1, Q2]),
+    });
+    // A question with no stated reason reads as a test item: the sheet says
+    // what these questions are for in the same beat that puts the first one
+    // on screen.
+    expect(state.bubbles.at(-2)).toEqual({
+      kind: "text",
+      from: "ai",
+      text: t("probePurpose"),
+      statement: true,
+    });
+    expect(state.bubbles.at(-1)).toMatchObject({ kind: "probe", state: "active" });
+    // The announcement asks nothing: the open ask is still the option card.
+    expect(deriveViewModel(state, t).ask?.kind).toBe("choice");
+  });
+
+  it("is stated once per intake, not once per batch", () => {
+    const drive = (s: IntakeState, action: IntakeAction) => step(s, action).state;
+    let s = mk({ sessionId: "s-1", phase: "probing" });
+    s = drive(s, { type: "probeStarted", probe: probe([Q1, Q2]) });
+    for (const pick of [1, 2]) s = drive(s, { type: "pickOption", canonicalIndex: pick });
+    // A follow-up batch lands: the line that is already on the sheet is the
+    // explanation, so nothing is said again.
+    s = drive(s, { type: "batchResolved", probe: probe([Q3]) });
+    expect(stated(s)).toHaveLength(1);
+  });
+
+  it("is not said when no question lands", () => {
+    const { state } = step(mk({ sessionId: "s-1", phase: "probing" }), {
+      type: "probeStarted",
+      probe: probe(null),
+    });
+    expect(stated(state)).toHaveLength(0);
+  });
+
+  it("is never the ask a field is labelled with", () => {
+    const vm = deriveViewModel(
+      mk({
+        sessionId: "s-1",
+        phase: "probing",
+        bubbles: [
+          ...initialState(t).bubbles,
+          { kind: "text", from: "ai", text: t("probePurpose"), statement: true },
+        ],
+      }),
+      t,
+    );
+    expect(vm.ask).toBeNull();
   });
 });
 
