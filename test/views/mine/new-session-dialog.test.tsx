@@ -778,6 +778,53 @@ describe("NewSessionDialog", () => {
     expect(rail.querySelectorAll("ol > li")).toHaveLength(4);
   });
 
+  it("measures the whole form once, at the record column (#204)", async () => {
+    // jsdom lays nothing out, so this guards the rule directly: the sheet's
+    // width lives on the column, and no item carries a measure of its own.
+    const measureOf = (el: Element) =>
+      [...el.classList].filter((cls) => cls.startsWith("max-w-")).sort();
+
+    const CLARIFY_Q = "What do you already know about force, mass, and acceleration?";
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: [CLARIFY_Q],
+    });
+    mockClarifySession.mockResolvedValue({ session_id: "s-1", phase: "probing" });
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
+
+    await openDialog(GOAL);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    const sheet = document.querySelector('[data-slot="dialog-content"]')!;
+    // The record column is the one place the measure lives.
+    const column = sheet.querySelector(".overflow-y-auto > div")!;
+    const measure = measureOf(column);
+    expect(measure).toHaveLength(1);
+
+    // A recorded answer, the open field it was answered in, and the question
+    // the field is labelled with: none of them carries a width.
+    expect(measureOf(screen.getByText(GOAL).closest("div")!)).toEqual([]);
+    const ask = await screen.findByText(CLARIFY_Q);
+    expect(measureOf(ask.closest("label")!)).toEqual([]);
+    const field = screen.getByRole("textbox");
+    expect(measureOf(field)).toEqual([]);
+
+    // The same for a check answered by a click: its question and its option
+    // rows fill the column, so a check being answered is the width of a check
+    // already answered.
+    fireEvent.change(field, { target: { value: "I remember F = ma from school." } });
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    const question = await screen.findByText(Q1.text);
+    expect(measureOf(question.closest("fieldset")!)).toEqual([]);
+    expect(measureOf(question.closest("legend")!)).toEqual([]);
+    const rows = Array.from(
+      question.closest("fieldset")!.querySelectorAll("button"),
+    );
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) expect(measureOf(row)).toEqual([]);
+  });
+
   it("shows a transport error and stays open when the request fails", async () => {
     mockCreateSession.mockRejectedValue(new Error("network down"));
     await openDialog(
