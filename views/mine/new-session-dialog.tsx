@@ -30,6 +30,11 @@ import { useSessionIntake } from "./use-session-intake";
  * adjustment replaces the plan, it does not add another), and the learner
  * changes it in one field and approves it with one control.
  *
+ * The sheet has one measure: the record column is 30rem wide (`SHEET_MEASURE`)
+ * and everything in it — a recorded answer, the question above it, an open
+ * field, an option row — fills it, so no item on the form is wider than the
+ * answer it sits beside (#204: "Equal width").
+ *
  * While a request is in flight the open ask's control is replaced by a line
  * saying what is happening; nothing floats over the sheet.
  *
@@ -44,6 +49,21 @@ import { useSessionIntake } from "./use-session-intake";
  * projects the core's state into the record and wires the controls to the
  * binding's intents (`submit`, `pickOption`, `approve`, `confirm`, `close`).
  */
+
+/**
+ * The sheet's one measure, stated once, at the record column: a 32rem box
+ * padded 16px, so every item inside it is 30rem (480px) wide — a recorded
+ * answer, the app's question above it, a plan step, an open field, an option
+ * row, the panel the approved sheet ends on. Nothing on the sheet sets a width
+ * for itself (#204: "Equal width").
+ *
+ * It is a length, not a `ch` cap carried item by item, because `ch` resolves
+ * against the element's own type metrics: a `<div>` on the 15px rung and a
+ * `<textarea>` on it measure `ch` differently, which is exactly how the open
+ * field came to be wider than the answers above it. 480px is the 15px body
+ * measure DESIGN.md already sets for this sheet (≈69ch), unchanged.
+ */
+const SHEET_MEASURE = "max-w-[32rem]";
 
 /** One entry of the record — everything already asked and answered. */
 type RecordEntry =
@@ -138,12 +158,12 @@ function WrittenText({ text }: { text: string | string[] }) {
   return <MathText content={lines[0]} />;
 }
 
-/** The field itself, in its filled state: the value the learner gave. A
- *  recorded answer is reading text, so it keeps a readable measure; the open
- *  controls use the full column. */
+/** The field itself, in its filled state: the value the learner gave. It takes
+ *  the sheet's measure from the column, and so does every open control the
+ *  learner will fill in after it. */
 function FilledField({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mt-1.5 max-w-[68ch] rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-3 text-[15px] leading-6 text-on-surface">
+    <div className="mt-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-3 text-[15px] leading-6 text-on-surface">
       {children}
     </div>
   );
@@ -301,8 +321,10 @@ export function NewSessionDialog({
   }
 
   /** A boundary check: the options are the control — a click is the answer.
-   *  The fieldset is the card: its question and its options. Position belongs
-   *  to the rail above, which is where the sheet states it once. */
+   *  The fieldset is the card: its question and its options, filling the
+   *  sheet's measure so a check being answered is the width of a check already
+   *  answered. Position belongs to the rail above, which is where the sheet
+   *  states it once. */
   function renderChoiceField(card: ProbeCard) {
     return (
       <fieldset>
@@ -409,9 +431,9 @@ export function NewSessionDialog({
           <ProgressRail rail={view.rail} />
 
           <div ref={recordRef} className="min-h-0 flex-1 overflow-y-auto">
-            <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-6 md:px-6">
+            <div className={`mx-auto flex w-full ${SHEET_MEASURE} flex-col gap-5 px-4 py-6`}>
               {intro.map((line, i) => (
-                <p key={i} className="max-w-[68ch] text-[15px] leading-6 text-on-surface">
+                <p key={i} className="text-[15px] leading-6 text-on-surface">
                   <MathText content={line} />
                 </p>
               ))}
@@ -494,7 +516,7 @@ function RecordEntryView({
   if (entry.kind === "goal") {
     // The narrowed goal: the one line on the sheet set in the highlighter.
     return (
-      <p className="max-w-[68ch] rounded-sm bg-[var(--marker)] px-2 py-1 text-[15px] font-semibold leading-6 text-on-surface">
+      <p className="rounded-sm bg-[var(--marker)] px-2 py-1 text-[15px] font-semibold leading-6 text-on-surface">
         <MathText content={entry.text} />
       </p>
     );
@@ -502,7 +524,7 @@ function RecordEntryView({
 
   if (entry.kind === "note") {
     return (
-      <p className="max-w-[68ch] text-[15px] leading-6 text-on-surface-variant">
+      <p className="text-[15px] leading-6 text-on-surface-variant">
         <MathText content={entry.text} />
       </p>
     );
@@ -510,9 +532,9 @@ function RecordEntryView({
 
   if (entry.kind === "answer") {
     return (
-      <div className="max-w-[68ch] border-t border-outline-variant pt-1">
+      <div className="border-t border-outline-variant pt-1">
         {entry.asked !== null && (
-          <p className="max-w-[68ch] text-[15px] leading-6 text-on-surface-variant">
+          <p className="text-[15px] leading-6 text-on-surface-variant">
             <WrittenText text={entry.asked} />
           </p>
         )}
@@ -527,8 +549,8 @@ function RecordEntryView({
   if (entry.kind === "answeredProbe") {
     const wasCorrect = entry.picked === entry.card.correct_index;
     return (
-      <div className="max-w-[68ch] border-t border-outline-variant pt-1">
-        <p className="max-w-[68ch] text-[15px] leading-6 text-on-surface-variant">
+      <div className="border-t border-outline-variant pt-1">
+        <p className="text-[15px] leading-6 text-on-surface-variant">
           <MathText content={entry.card.text} />
         </p>
         <FieldLabel>{yourAnswer}</FieldLabel>
@@ -557,8 +579,8 @@ function RecordEntryView({
   const titleOf = (id: string) =>
     plan.steps.find((step) => step.id === id)?.title ?? id;
   return (
-    <div className="max-w-[68ch] border-t border-outline-variant pt-1">
-      <h3 className="max-w-[68ch] text-[15px] font-semibold leading-6 text-on-surface">
+    <div className="border-t border-outline-variant pt-1">
+      <h3 className="text-[15px] font-semibold leading-6 text-on-surface">
         <MathText content={plan.prose_summary} />
       </h3>
       <ol className="mt-3 flex flex-col gap-3">
@@ -567,7 +589,7 @@ function RecordEntryView({
             <span className="w-5 shrink-0 text-right text-[15px] font-semibold text-on-surface-variant [font-variant-numeric:tabular-nums]">
               {index + 1}.
             </span>
-            <div className="min-w-0 max-w-[68ch]">
+            <div className="min-w-0">
               <p className="text-[15px] font-semibold leading-6 text-on-surface">
                 {step.title}
               </p>
