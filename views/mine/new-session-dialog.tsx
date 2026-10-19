@@ -36,7 +36,10 @@ import { useSessionIntake } from "./use-session-intake";
  * The sheet has one measure: the record column is 30rem wide (`SHEET_MEASURE`)
  * and everything in it — a recorded answer, the question above it, an open
  * field, an option row — fills it, so no item on the form is wider than the
- * answer it sits beside (#204: "Equal width").
+ * answer it sits beside (#204: "Equal width"). Its *height* is the viewport's
+ * and stays that way on purpose: the room an on-screen keyboard covers is
+ * reserved inside the record's own scroll, by the binding, and the record is
+ * pinned to the reserved bottom — The Keyboard Room Rule (#230).
  *
  * While a request is in flight the open ask's control is replaced by a line
  * saying what is happening; nothing floats over the sheet.
@@ -236,7 +239,7 @@ export function NewSessionDialog({
     confirm,
     close,
     handleOpenChange,
-    recordRef,
+    attachRecord,
     attachTextarea,
   } = useSessionIntake({ open, onOpenChange, onAccept });
 
@@ -456,7 +459,7 @@ export function NewSessionDialog({
               it names is never printed as text. */}
           <ProgressRail rail={view.rail} />
 
-          <div ref={recordRef} className="min-h-0 flex-1 overflow-y-auto">
+          <div ref={attachRecord} className="min-h-0 flex-1 overflow-y-auto">
             <div className={`mx-auto flex w-full ${SHEET_MEASURE} flex-col gap-5 px-4 py-6`}>
               {intro.map((line, i) => (
                 <p key={i} className="text-[15px] leading-6 text-on-surface">
