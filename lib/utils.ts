@@ -70,6 +70,15 @@ export function optionLetter(index: number): string {
 }
 
 /**
+ * The page number, zero-padded to at least two digits — like a form page
+ * number. The footer's slide counter and the go-to dialog's page grid both
+ * print the deck's pages in this voice (#229).
+ */
+export function padPage(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/**
  * A display order for one question: a permutation of 0..n-1.
  * When `pinLast` is true the last index is kept fixed at the end
  * (the probe's "I don't know" option); all other options are shuffled.
