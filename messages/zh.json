@@ -80,6 +80,7 @@
     "yourGoal": "你想学习的内容",
     "explanation": "为什么",
     "planBuildsOn": "基于：",
+    "earlierPlan": "之前的计划",
     "updatePlan": "更新计划",
     "approvePlan": "批准计划",
     "errorFallback": "启动会话时出了点问题，请重试。",

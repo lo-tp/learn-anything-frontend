@@ -27,9 +27,11 @@ import { useSessionIntake } from "./use-session-intake";
  * answer, the answers in the filled state of a field, and the line that ends a
  * phase as the record's one panel. Only the thing being asked right now is
  * open: one ask, its own control, its action at that item's right end. A
- * generated plan renders as a numbered list (the current one only — an
- * adjustment replaces the plan, it does not add another), and the learner
- * changes it in one field and approves it with one control.
+ * generated plan renders as a numbered list, and the learner changes it in
+ * one field and approves it with one control. An adjustment does not hide
+ * what was there before: the earlier plan stays on the sheet as a record
+ * entry, annotated as the plan before this one and set in the pencil tone,
+ * so the learner can see what the change changed (#223).
  *
  * The sheet has one measure: the record column is 30rem wide (`SHEET_MEASURE`)
  * and everything in it — a recorded answer, the question above it, an open
@@ -73,14 +75,17 @@ const ACTION_ROW = "mt-3 flex flex-wrap items-center justify-end gap-2";
  */
 const SHEET_MEASURE = "max-w-[32rem]";
 
-/** One entry of the record — everything already asked and answered. */
+/** One entry of the record — everything already asked and answered. A plan
+ *  entry is `superseded` once a later plan has landed on the sheet: it stays
+ *  in the record (annotated as the plan before this one) rather than being
+ *  hidden (#223). */
 type RecordEntry =
   | { kind: "goal"; text: string }
   | { kind: "note"; text: string }
   | { kind: "milestone"; text: string }
   | { kind: "answer"; asked: string | null; text: string | string[] }
   | { kind: "answeredProbe"; card: ProbeCard; picked: number | undefined }
-  | { kind: "plan"; plan: PlanBody };
+  | { kind: "plan"; plan: PlanBody; superseded: boolean };
 
 /**
  * Project the core's bubbles into the record. The first app turn is the
@@ -89,8 +94,10 @@ type RecordEntry =
  * line that ends a phase — is a panel; an app question is held until the
  * learner answers it, so a question and its answer land in the record
  * together; the ask that is still open is held by the core's view-model
- * instead. A plan entry replaces every earlier one: the plan on screen is the
- * whole contract.
+ * instead. Every plan the learner has seen stays in the record: an adjustment
+ * adds the revised plan and marks the earlier one as superseded, never hides
+ * it (#223) — the latest plan is the contract being approved, and the older
+ * ones are the record of what it changed.
  */
 function projectRecord(
   bubbles: Bubble[],
@@ -140,10 +147,13 @@ function projectRecord(
       }
       return;
     }
+    // The new plan is the one being approved; every earlier plan stays in the
+    // record as the plan before this one (#223).
     for (let i = entries.length - 1; i >= 0; i -= 1) {
-      if (entries[i].kind === "plan") entries.splice(i, 1);
+      const entry = entries[i];
+      if (entry.kind === "plan") entries[i] = { ...entry, superseded: true };
     }
-    entries.push({ kind: "plan", plan: bubble.plan });
+    entries.push({ kind: "plan", plan: bubble.plan, superseded: false });
   });
 
   // An app turn that asked for nothing the learner can give — the boundary is
@@ -464,6 +474,7 @@ export function NewSessionDialog({
                   notQuite={tVerdict("notQuite")}
                   why={t("explanation")}
                   buildsOn={t("planBuildsOn")}
+                  earlierPlan={t("earlierPlan")}
                 />
               ))}
 
@@ -520,6 +531,7 @@ function RecordEntryView({
   notQuite,
   why,
   buildsOn,
+  earlierPlan,
 }: {
   entry: RecordEntry;
   yourAnswer: string;
@@ -528,6 +540,7 @@ function RecordEntryView({
   notQuite: string;
   why: string;
   buildsOn: string;
+  earlierPlan: string;
 }) {
   if (entry.kind === "goal") {
     // The narrowed goal: the one line on the sheet set in the highlighter.
@@ -609,9 +622,16 @@ function RecordEntryView({
   const plan = entry.plan;
   const titleOf = (id: string) =>
     plan.steps.find((step) => step.id === id)?.title ?? id;
+  // A superseded plan keeps the same numbered list — the learner reads what
+  // the change changed — but drops to the pencil tone: on this sheet tone is
+  // what states which plan is the one being approved (#223).
+  const planTone = entry.superseded
+    ? "text-on-surface-variant"
+    : "text-on-surface";
   return (
     <div className="border-t border-outline-variant pt-1">
-      <h3 className="text-[15px] font-semibold leading-6 text-on-surface">
+      {entry.superseded && <FieldLabel>{earlierPlan}</FieldLabel>}
+      <h3 className={cn("text-[15px] font-semibold leading-6", planTone)}>
         <MathText content={plan.prose_summary} />
       </h3>
       <ol className="mt-3 flex flex-col gap-3">
@@ -621,7 +641,7 @@ function RecordEntryView({
               {index + 1}.
             </span>
             <div className="min-w-0">
-              <p className="text-[15px] font-semibold leading-6 text-on-surface">
+              <p className={cn("text-[15px] font-semibold leading-6", planTone)}>
                 {step.title}
               </p>
               <p className="text-[15px] leading-6 text-on-surface-variant">
