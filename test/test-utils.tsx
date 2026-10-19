@@ -83,8 +83,6 @@ export function clip(el: HTMLElement, hidden: boolean) {
 export type StubbedVisualViewport = {
   /** The keyboard opening, or closing. */
   resizeTo: (next: { height: number }) => void;
-  /** The learner pinch-zooming: the visual viewport shrinks with no keyboard. */
-  zoomTo: (next: { height: number; scale: number }) => void;
   /** What the page registered on it, so a test can assert none are left. */
   handlers: Map<string, EventListener>;
   /** Take the stand-in back off `window`. */
@@ -100,6 +98,10 @@ export function stubVisualViewport({
   height: number;
   scale?: number;
 }): StubbedVisualViewport {
+  const originalInnerHeight = Object.getOwnPropertyDescriptor(
+    window,
+    "innerHeight",
+  );
   Object.defineProperty(window, "innerHeight", {
     value: innerHeight,
     configurable: true,
@@ -128,13 +130,11 @@ export function stubVisualViewport({
       visual.height = next;
       handlers.get("resize")?.(new Event("resize"));
     },
-    zoomTo: ({ height: next, scale: nextScale }) => {
-      visual.height = next;
-      visual.scale = nextScale;
-      handlers.get("resize")?.(new Event("resize"));
-    },
     restore: () => {
       delete (window as unknown as { visualViewport?: unknown }).visualViewport;
+      if (originalInnerHeight) {
+        Object.defineProperty(window, "innerHeight", originalInnerHeight);
+      }
     },
   };
 }
