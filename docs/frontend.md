@@ -11,7 +11,7 @@ A Next.js (App Router) + React + TypeScript app. Styling uses Tailwind with a se
 | `app/` | Routes. Root `layout.tsx` + one `page.tsx` per route (e.g. `/`, `/demo`). |
 | `views/` | The interactive "page" component. Client component that owns state. |
 | `components/` | Pure, props-driven leaf components + `ui/` primitives. |
-| `lib/` | Frontend helpers — `time.ts` (relative time), `utils.ts` (`cn()`), `keyboard-inset.ts` (what the on-screen keyboard covers, measured from the browser). |
+| `lib/` | Frontend helpers — `time.ts` (relative time), `utils.ts` (`cn()`), `auth-events.ts` (cross-tree signals), `keyboard-inset.ts` (what the on-screen keyboard covers, measured from the browser). |
 
 ## The 3-layer model
 
@@ -71,7 +71,7 @@ Every backend interaction the view owns (#87) gets a loading state, an error sta
 
 - ✅ Add `app/<route>/page.tsx`; let the layout supply the frame.
 - ✅ Keep route entries thin (render the view), and interactivity **plus data fetching** in the `views/` client component.
-- ✅ When a surface's content must stay reachable while the on-screen keyboard is out, follow `lib/keyboard-inset.ts` (`onKeyboardInsetChange`) and **reserve** the covered room in that surface's own scroll, then re-pin to the reserved bottom — The Keyboard Room Rule in `design/DESIGN.md` (#230).
+- ✅ When a surface's content must stay reachable while the on-screen keyboard is out, follow `lib/keyboard-inset.ts` (`onKeyboardInsetChange`) and **reserve** the covered room in that surface's own scroll, then re-pin to the reserved bottom — The Keyboard Room Rule in `design/DESIGN.md` (#230). The Session intake record is the surface that does this today; a new one follows the same rule rather than inventing its own number, and a surface that has not been measured against a keyboard is not assumed to need it.
 - ✅ Make leaves pure and reusable.
 - ❌ Don't re-wrap in `<Frame>`/`<TopBar>` in the page.
 - ❌ Don't fetch data in a route entry — views own their fetches (#87).

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   ApiError,
@@ -52,6 +52,35 @@ function reserveKeyboardRoom(
 }
 
 /**
+ * Watch the record for changes: its own DOM is the fact that something landed
+ * on it — an answer, the next question, a re-rendered option list, a refusal —
+ * and each of those is when the open ask has to be pinned again. A counter of
+ * entries cannot see a record that grows without gaining one (#230).
+ */
+function onRecordChange(panel: HTMLElement, onChange: () => void): () => void {
+  const observer = new MutationObserver(onChange);
+  observer.observe(panel, { childList: true, subtree: true });
+  return () => observer.disconnect();
+}
+
+/**
+ * A node the binding acts on, and whether it is in the DOM yet. The Radix
+ * portal content lands a commit later than the render that asked for it, so a
+ * plain ref is not enough. The attach callback is stable, so React does not
+ * detach and re-attach it — and every render — tearing down whatever follows the
+ * node.
+ */
+function useNodePresence<T extends HTMLElement>() {
+  const ref = useRef<T | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const attach = useCallback((node: T | null) => {
+    ref.current = node;
+    setMounted(node !== null);
+  }, []);
+  return { ref, mounted, attach };
+}
+
+/**
  * The thin React binding over the pure intake core. It owns: the state ref
  * (source of truth), the effect runner (fire the API calls, feed results back
  * as feedback events), the dialog-local `paragraph`, and the DOM effects the
@@ -79,20 +108,8 @@ export function useSessionIntake({
   });
 
   const [paragraph, setParagraph] = useState("");
-  const recordRef = useRef<HTMLDivElement | null>(null);
-  const [recordMounted, setRecordMounted] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [textareaMounted, setTextareaMounted] = useState(false);
-  /** Callback refs: track the node and flag it mounted (the Radix portal
-   *  content lands in a later commit than the first render). */
-  function attachRecord(node: HTMLDivElement | null) {
-    recordRef.current = node;
-    setRecordMounted(node !== null);
-  }
-  function attachTextarea(node: HTMLTextAreaElement | null) {
-    textareaRef.current = node;
-    setTextareaMounted(node !== null);
-  }
+  const record = useNodePresence<HTMLDivElement>();
+  const field = useNodePresence<HTMLTextAreaElement>();
 
   const view = deriveViewModel(state, translator);
 
@@ -211,46 +228,51 @@ export function useSessionIntake({
     close();
   }
 
-  // Keep the record pinned to the item that just landed.
+  // Keep the record pinned to the open ask: once when its record appears, and
+  // again whenever the record changes — whatever the reason it changed.
   useEffect(() => {
-    pinRecordToOpenAsk(recordRef.current);
-  }, [view.bubbles.length]);
+    const panel = record.ref.current;
+    if (!open || !record.mounted || !panel) return;
+    pinRecordToOpenAsk(panel);
+    return onRecordChange(panel, () => pinRecordToOpenAsk(record.ref.current));
+  }, [open, record.mounted]);
 
   // …and keep the open ask above a keyboard that covers part of the screen
   // (#230). Subscribed while the **record** is in the DOM — not while its field
   // is: an ask at the boundary is a set of option rows, and the reservation
-  // belongs to the record, not to whichever control is answering it. The Radix
-  // portal mounts the record a commit after this hook runs, and the measure is
-  // asked for as a value rather than as a change, so a sheet that opens into a
-  // room the keyboard had already taken is told that room the moment its record
-  // appears. That is the reported case — the learner reaches the sheet from a
-  // field they were already typing in, nothing shrinks in front of them, and the
-  // open ask was simply out of sight with no scroll left that could reach it.
+  // belongs to the record, not to whichever control is answering it. The measure
+  // is asked for as a value rather than as a change, so a sheet that opens into
+  // a room the keyboard had already taken is told that room the moment its
+  // record appears. That is the reported case — the learner reaches the sheet
+  // from a field they were already typing in, nothing shrinks in front of them,
+  // and the open ask was simply out of sight with no scroll left that could
+  // reach it.
   useEffect(() => {
-    if (!open || !recordMounted) return;
+    if (!open || !record.mounted) return;
     return onKeyboardInsetChange((insetPx) => {
-      const panel = recordRef.current;
+      const panel = record.ref.current;
       reserveKeyboardRoom(panel, insetPx);
       // Pinned *after* the padding is set: the padded bottom is the point above
-      // the keys. Where nothing covers the record it is left with the scroll the
-      // reader chose.
+      // the keys. Where nothing covers the record the reservation comes off and
+      // the scroll is the reader's again — the pane clamps itself to its new
+      // range, which lands the open ask back at the bottom of what is visible.
       if (insetPx > 0) pinRecordToOpenAsk(panel);
     });
-  }, [open, recordMounted]);
+  }, [open, record.mounted]);
 
   // Focus the intake textarea when it becomes enabled and is mounted (the
   // dialog opening for the first time, and again after any in-flight request
-  // settles). The Radix portal content lands in a later commit, so gate on
-  // `textareaMounted` to focus once the node is actually in the DOM. The focus
+  // settles). The Radix portal content lands in a later commit, so gate on the
+  // field being mounted to focus once the node is actually in the DOM. The focus
   // is asked not to scroll: the record is held at this field by the effect over
   // there, and a browser invited to chase the field pans the page a second time
   // (#230).
   const enabled = !view.intake.pending && !view.intake.disabled;
   useEffect(() => {
-    if (open && enabled && textareaMounted) {
-      textareaRef.current?.focus({ preventScroll: true });
+    if (open && enabled && field.mounted) {
+      field.ref.current?.focus({ preventScroll: true });
     }
-  }, [open, enabled, textareaMounted]);
+  }, [open, enabled, field.mounted]);
 
   return {
     view,
@@ -262,8 +284,7 @@ export function useSessionIntake({
     close,
     confirm,
     handleOpenChange,
-    attachRecord,
-    textareaRef,
-    attachTextarea,
+    attachRecord: record.attach,
+    attachTextarea: field.attach,
   };
 }

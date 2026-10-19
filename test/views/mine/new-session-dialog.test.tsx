@@ -59,6 +59,63 @@ const mockGeneratePlan = vi.mocked(generatePlan);
 const mockAdjustPlan = vi.mocked(adjustPlan);
 const mockApprovePlan = vi.mocked(approvePlan);
 
+/**
+ * jsdom lays nothing out: `scrollHeight` is 0 and assigning `scrollTop` goes
+ * nowhere. State a scrolled record instead — one whose bottom sits 1200px down
+ * its pane — and record every pin the sheet asks for.
+ */
+const RECORD_BOTTOM_PX = 1200;
+
+function stubRecordScroll() {
+  const proto = Element.prototype;
+  const originalTop = Object.getOwnPropertyDescriptor(proto, "scrollTop")!;
+  const originalHeight = Object.getOwnPropertyDescriptor(
+    proto,
+    "scrollHeight",
+  )!;
+  const pins: number[] = [];
+  Object.defineProperty(proto, "scrollTop", {
+    configurable: true,
+    get: () => pins.at(-1) ?? 0,
+    set: (value: number) => {
+      pins.push(value);
+    },
+  });
+  Object.defineProperty(proto, "scrollHeight", {
+    configurable: true,
+    get: () => RECORD_BOTTOM_PX,
+  });
+  return {
+    pins,
+    restore: () => {
+      Object.defineProperty(proto, "scrollTop", originalTop);
+      Object.defineProperty(proto, "scrollHeight", originalHeight);
+    },
+  };
+}
+
+/** Every focus the sheet asks for, with the options it gave the browser. */
+function stubFocus() {
+  const proto = HTMLElement.prototype;
+  const original = Object.getOwnPropertyDescriptor(proto, "focus")!;
+  const calls: unknown[] = [];
+  Object.defineProperty(proto, "focus", {
+    configurable: true,
+    value: function (this: HTMLElement, options?: FocusOptions) {
+      calls.push(options);
+    },
+  });
+  return {
+    calls,
+    restore: () => Object.defineProperty(proto, "focus", original),
+  };
+}
+
+/** The record pane the sheet renders. */
+function recordPane(): HTMLElement {
+  return document.querySelector(".overflow-y-auto") as HTMLElement;
+}
+
 beforeEach(() => {
   mockCreateSession.mockReset();
   mockClarifySession.mockReset();
@@ -762,29 +819,22 @@ describe("NewSessionDialog", () => {
       phase: "clarifying",
       clarifying_questions: ["One more detail, please."],
     });
+    const record = stubRecordScroll();
     await openDialog(SHORT);
-    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    clickSend();
     await screen.findByText("A bit more, please.");
-
-    // jsdom performs no layout, so spy the panel's scrollTop setter and
-    // verify the effect pins it to the panel's scrollHeight.
-    const panel = document.querySelector(
-      ".overflow-y-auto",
-    ) as HTMLElement;
-    const setScrollTop = vi.fn();
-    Object.defineProperty(panel, "scrollTop", {
-      set: setScrollTop,
-      get: () => 0,
-      configurable: true,
-    });
 
     fireEvent.change(screen.getByLabelText("A bit more, please."), {
       target: { value: "More detail." },
     });
-    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    clickSend();
     await screen.findByText("One more detail, please.");
 
-    expect(setScrollTop).toHaveBeenCalledWith(panel.scrollHeight);
+    // jsdom lays nothing out, so `stubRecordScroll` states the record's scroll:
+    // a pin is an assignment to its bottom.
+    expect(record.pins).toContain(RECORD_BOTTOM_PX);
+
+    record.restore();
   });
 
   it("bounds the sheet so the record scrolls instead of overflowing it", async () => {
@@ -805,7 +855,7 @@ describe("NewSessionDialog", () => {
     expect(form.classList.contains("flex-1")).toBe(true);
     expect(form.classList.contains("min-h-0")).toBe(true);
 
-    const panel = document.querySelector(".overflow-y-auto") as HTMLElement;
+    const panel = recordPane();
     expect(panel.classList.contains("flex-1")).toBe(true);
     expect(panel.classList.contains("min-h-0")).toBe(true);
 
@@ -1117,63 +1167,6 @@ describe("NewSessionDialog — the first field", () => {
   });
 });
 
-/**
- * jsdom lays nothing out: `scrollHeight` is 0 and assigning `scrollTop` goes
- * nowhere. State a scrolled record instead — one whose bottom sits 1200px down
- * its pane — and record every pin the sheet asks for.
- */
-const RECORD_BOTTOM_PX = 1200;
-
-function stubRecordScroll() {
-  const proto = Element.prototype;
-  const originalTop = Object.getOwnPropertyDescriptor(proto, "scrollTop")!;
-  const originalHeight = Object.getOwnPropertyDescriptor(
-    proto,
-    "scrollHeight",
-  )!;
-  const pins: number[] = [];
-  Object.defineProperty(proto, "scrollTop", {
-    configurable: true,
-    get: () => pins.at(-1) ?? 0,
-    set: (value: number) => {
-      pins.push(value);
-    },
-  });
-  Object.defineProperty(proto, "scrollHeight", {
-    configurable: true,
-    get: () => RECORD_BOTTOM_PX,
-  });
-  return {
-    pins,
-    restore: () => {
-      Object.defineProperty(proto, "scrollTop", originalTop);
-      Object.defineProperty(proto, "scrollHeight", originalHeight);
-    },
-  };
-}
-
-/** Every focus the sheet asks for, with the options it gave the browser. */
-function stubFocus() {
-  const proto = HTMLElement.prototype;
-  const original = Object.getOwnPropertyDescriptor(proto, "focus")!;
-  const calls: unknown[] = [];
-  Object.defineProperty(proto, "focus", {
-    configurable: true,
-    value: function (this: HTMLElement, options?: FocusOptions) {
-      calls.push(options);
-    },
-  });
-  return {
-    calls,
-    restore: () => Object.defineProperty(proto, "focus", original),
-  };
-}
-
-/** The record pane the sheet renders. */
-function recordPane(): HTMLElement {
-  return document.querySelector(".overflow-y-auto") as HTMLElement;
-}
-
 describe("NewSessionDialog — the record above the keyboard (#230)", () => {
   afterEach(() => {
     delete (window as unknown as { visualViewport?: unknown }).visualViewport;
@@ -1240,6 +1233,31 @@ describe("NewSessionDialog — the record above the keyboard (#230)", () => {
     await openDialog();
 
     expect(recordPane().style.paddingBottom).toBe("");
+
+    record.restore();
+    stub.restore();
+  });
+
+  it("re-pins when the record changes for a reason the entry count cannot see", async () => {
+    // A boundary pick adds no entry: the card on the record changes state and
+    // the refusal is printed beneath it, while the open ask re-renders below
+    // that. The record visibly got longer and the keyboard is still up — only
+    // watching the record itself notices, which is why the pin follows the
+    // record rather than a count of entries (#230).
+    mockCreateSession.mockResolvedValue({ session_id: "s-1", phase: "probing" });
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
+    mockAnswerProbe.mockRejectedValue(new Error("no answer came back"));
+    const stub = stubVisualViewport({ innerHeight: 844, height: 844 });
+    const record = stubRecordScroll();
+    await openDialog(GOAL);
+    clickSend();
+    await screen.findByText(Q1.text);
+    const before = record.pins.length;
+
+    fireEvent.click(screen.getByRole("button", { name: /5 m\/s²/ }));
+    await screen.findByText(/Something went wrong/);
+
+    expect(record.pins.length).toBeGreaterThan(before);
 
     record.restore();
     stub.restore();
