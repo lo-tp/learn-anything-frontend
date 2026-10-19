@@ -50,6 +50,20 @@ When writing a Git commit message:
 6. Avoid vague messages: “fix bug”, “update code”, “changes”, “WIP”, “misc”.
 7. Output only the commit message unless I ask for explanation. No markdown fences.
 
+## Branch promotion
+
+- `main` → `release`: merge as a **merge commit** (the PR's merge commit,
+  never its rebase or squash).
+- `feature/<slug>` → `main`: rebase-merge.
+- The same work lands on one branch at a time — not on both `main` and
+  `release` (a cherry-pick across the pair counts as landing it twice).
+
+If a `main` → `release` PR conflicts in files both branches recently
+touched, the lineages may be duplicated; diagnose before resolving: `git
+cherry release main` (a `-` line is work already on `release`), `git
+merge-base main release`, `git merge-tree --write-tree main release` (the
+merge's conflicts, without touching a working tree).
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 ## How a change here reaches a browser
