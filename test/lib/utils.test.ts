@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { displayOrder, shuffleIndices } from "@/lib/utils";
+import { displayOrder, padPage, shuffleIndices } from "@/lib/utils";
+
+describe("padPage", () => {
+  it("pads to two digits, like a form page number", () => {
+    expect(padPage(1)).toBe("01");
+    expect(padPage(10)).toBe("10");
+    expect(padPage(45)).toBe("45");
+    expect(padPage(100)).toBe("100");
+  });
+});
 
 /** A deterministic RNG cycling a fixed sequence of values in [0, 1). */
 function seededRandom(sequence: number[]): () => number {

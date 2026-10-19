@@ -157,9 +157,14 @@ function asVisitor() {
   mockGetSignedInUser.mockResolvedValue(null);
 }
 
-/** The ControlBar counter, labelled `Slide {index} of {total}`. */
+/**
+ * The ControlBar's counter chip — now the go-to affordance (#229), whose name
+ * carries both the position it prints and the dialog it opens.
+ */
 function counterAt(index: number, total: number) {
-  return screen.getByLabelText(new RegExp(`^slide ${index} of ${total}$`, "i"));
+  return screen.getByLabelText(
+    new RegExp(`^go to a slide \\(slide ${index} of ${total}\\)$`, "i"),
+  );
 }
 
 describe("Session", () => {
@@ -329,6 +334,58 @@ describe("Session", () => {
       fireEvent.keyDown(document.body, { key: "ArrowDown", ctrlKey: true });
       fireEvent.keyDown(document.body, { key: "ArrowDown", metaKey: true });
       expect(counterAt(1, 3)).toBeTruthy();
+    });
+  });
+
+  describe("jumping to a slide (#229)", () => {
+    it("opens from the footer's counter chip", async () => {
+      renderSession();
+      await settle();
+      fireEvent.click(counterAt(1, 3));
+      expect(screen.getByRole("dialog")).toBeTruthy();
+      expect(
+        screen.getByRole("heading", { name: /go to a slide/i }),
+      ).toBeTruthy();
+    });
+
+    it("goes to the picked page, and the dialog closes", async () => {
+      renderSession();
+      await settle();
+      fireEvent.click(counterAt(1, 3));
+      fireEvent.click(screen.getByRole("button", { name: /^page 3$/i }));
+      expect(counterAt(3, 3)).toBeTruthy();
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("lands on the typed page, and the dialog closes", async () => {
+      renderSession();
+      await settle();
+      fireEvent.click(counterAt(1, 3));
+      const input = screen.getByRole("spinbutton");
+      fireEvent.change(input, { target: { value: "3" } });
+      fireEvent.submit(input.closest("form")!);
+      expect(counterAt(3, 3)).toBeTruthy();
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("holds the deck still while the dialog is open", async () => {
+      renderSession();
+      await settle();
+      fireEvent.click(counterAt(1, 3));
+      fireEvent.keyDown(document.body, { key: "ArrowDown" });
+      expect(counterAt(1, 3)).toBeTruthy();
+    });
+
+    it("a fresh open starts the box on the page the reader is on", async () => {
+      renderSession();
+      await settle();
+      // Walk to page 2, then ask for the jump — the box must start on 2,
+      // not on the page the deck began on.
+      fireEvent.click(screen.getByRole("button", { name: "Next slide" }));
+      fireEvent.click(counterAt(2, 3));
+      expect((screen.getByRole("spinbutton") as HTMLInputElement).value).toBe(
+        "2",
+      );
     });
   });
 

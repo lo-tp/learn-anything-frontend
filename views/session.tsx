@@ -15,6 +15,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { GoToSlideDialog } from "@/components/session/go-to-slide";
 import { SessionSidebar, type SidebarGroup } from "@/components/session/session-sidebar";
 import { SandboxFrame } from "@/components/sandbox/sandbox-frame";
 import { useTheme } from "@/hooks/use-theme";
@@ -143,6 +144,10 @@ export function Session({ sessionId }: { sessionId: string }) {
   const inFlight = useRef(false);
   // Ref so the sign-in handler reads the current pending misses (#152)
   const pendingMissesRef = useRef<ReviewCardIn[]>([]);
+  // True while the go-to-slide dialog is open — the deck's arrow keys hold
+  // the deck still for it, the same way they hold for the regeneration sheet
+  // (#229).
+  const [jumpDialogOpen, setJumpDialogOpen] = useState(false);
   // ── One-slide regeneration (#213) ─────────────────────────────────────
   // The slide the regeneration sheet is open for, if any.
   const [regenSheetFor, setRegenSheetFor] = useState<string | null>(null);
@@ -390,6 +395,21 @@ export function Session({ sessionId }: { sessionId: string }) {
   );
 
   /**
+   * Land on a named page of the deck, 1-based (#229). The go-to dialog's two
+   * roads (the grid, the typed number) both end here. The dialog already
+   * clamps against the total it was handed; this clamp stands as well,
+   * because only the view holds the deck the landing is made against — a
+   * deck that changes between the ask and the answer must not strand the
+   * reader past its last page.
+   */
+  const jumpTo = useCallback(
+    (page: number) => {
+      setActiveIndex(Math.min(total - 1, Math.max(0, page - 1)));
+    },
+    [total],
+  );
+
+  /**
    * Keyboard deck navigation: ArrowUp/ArrowDown walk the flattened deck
    * exactly like the footer's prev/next. The listener is window-level and
    * answers only when the deck is on screen (`total > 0` — the friendly
@@ -400,8 +420,10 @@ export function Session({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     // The sheet is a modal ask about one slide: while it is open the deck is
     // held still, so the reader cannot walk away from the slide they are asking
-    // about mid-question (#213).
-    if (total === 0 || regenSheetFor !== null) return;
+    // about mid-question (#213). The go-to dialog is the same kind of ask —
+    // the reader is mid-decision about where to land, so the deck holds still
+    // for it too (#229).
+    if (total === 0 || regenSheetFor !== null || jumpDialogOpen) return;
     const onKey = (e: KeyboardEvent) => {
       const move = deckMoveFor(e);
       if (move === null) return;
@@ -410,7 +432,7 @@ export function Session({ sessionId }: { sessionId: string }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [total, stepDeck, regenSheetFor]);
+  }, [total, stepDeck, regenSheetFor, jumpDialogOpen]);
 
   // The slide player is one persistent iframe whose `src` is built **once per
   // deck** and never changes after that: it always loads the session's first
@@ -815,6 +837,7 @@ export function Session({ sessionId }: { sessionId: string }) {
             total={total}
             onPrev={() => stepDeck("prev")}
             onNext={() => stepDeck("next")}
+            onOpenJump={() => setJumpDialogOpen(true)}
           />
         </footer>
 
@@ -824,6 +847,16 @@ export function Session({ sessionId }: { sessionId: string }) {
         <span role="status" aria-live="polite" className="sr-only">
           {regenDone ? t("regenerate.announced.done") : ""}
         </span>
+
+        {jumpDialogOpen && (
+          <GoToSlideDialog
+            open
+            onOpenChange={setJumpDialogOpen}
+            index={clampedIndex + 1}
+            total={total}
+            onGoTo={jumpTo}
+          />
+        )}
 
         {regenSheetFor !== null && (
           <RegenerateSlideSheet
