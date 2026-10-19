@@ -54,7 +54,9 @@ When writing a Git commit message:
 
 - `main` → `release`: merge as a **merge commit** (the PR's merge commit,
   never its rebase or squash).
-- `feature/<slug>` → `main`: rebase-merge.
+- `feature/<slug>` → `main` and `hotfix/<slug>` → `main`: rebase-merge;
+  a hotfix reaches `release` only through the `main` → `release`
+  promotion, never committed to `release` directly.
 - The same work lands on one branch at a time — not on both `main` and
   `release` (a cherry-pick across the pair counts as landing it twice).
 
