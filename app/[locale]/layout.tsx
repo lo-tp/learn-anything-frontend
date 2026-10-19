@@ -11,12 +11,16 @@ import { VisualViewportMetrics } from "@/components/visual-viewport";
 /**
  * The viewport declaration (#230). `interactive-widget=resizes-content` is the
  * standards-track way to tell a browser that an on-screen keyboard takes room
- * out of the layout viewport instead of merely drawing over it (Safari 26,
- * Chrome 108+). It is asked for because it is the honest answer: where the
- * browser resizes the layout viewport, `100dvh`, `vh` and every fixed surface
- * become the room the learner actually has. `lib/visual-viewport.ts` measures
- * the same room where a browser does not honour it — iOS 18 and 26 shipped the
- * keyboard behaviour this ticket reports, and no viewport meta tag changes it.
+ * out of the layout viewport instead of merely drawing over it. Chrome honours
+ * it from 108; WebKit does not — WebKit bug 259770 and
+ * WebKit/standards-positions#65 are both still open, and no viewport meta tag
+ * changes what iPhone Safari does with a keyboard. So this is asked for as the
+ * honest answer where a browser honours it — the layout viewport, `100dvh` and
+ * every fixed surface then become the room the learner actually has — and
+ * `lib/visual-viewport.ts` measures that same room off `window.visualViewport`
+ * where a browser does not, publishing it as the properties those surfaces are
+ * sized from. One measure, two routes: a declaration where the browser will act
+ * on it, a measurement where it will not.
  *
  * `width` and `initial-scale` are Next's own defaults; they are written out
  * here because this declaration is read as the app's viewport contract, not as
