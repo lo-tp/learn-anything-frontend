@@ -83,6 +83,7 @@ declare const messages: {
     "yourGoal": "What you asked to learn",
     "explanation": "Why",
     "planBuildsOn": "Builds on:",
+    "earlierPlan": "An earlier plan",
     "updatePlan": "Update plan",
     "approvePlan": "Approve plan",
     "errorFallback": "Something went wrong starting your session. Please try again.",

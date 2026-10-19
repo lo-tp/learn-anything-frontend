@@ -392,7 +392,7 @@ describe("NewSessionDialog", () => {
     expect(screen.queryByRole("button", { name: /Confirm/ })).toBeNull();
   });
 
-  it("submits a plan adjustment from the review step (no hand-off)", async () => {
+  it("keeps the earlier plan on the sheet when the learner adjusts it (#223)", async () => {
     const onAccept = vi.fn();
     const review = await reachReview(onAccept);
     mockAdjustPlan.mockResolvedValue(PLAN_OUT_REVISED);
@@ -400,11 +400,26 @@ describe("NewSessionDialog", () => {
     fireEvent.keyDown(review, { key: "Enter" });
 
     expect(mockAdjustPlan).toHaveBeenCalledWith("s-1", "drop the last step");
-    // The revised plan lands in a new plan entry; the earlier plan is gone
-    // (an adjustment replaces the plan, it does not add a second one).
+    // The revised plan lands in its own entry, and the earlier plan is not
+    // hidden: both versions stay on the sheet, in the order they happened,
+    // with the earlier one annotated as the plan before this one (#223).
+    const revised = await screen.findByText(
+      "A tighter two-step path from scalar F = ma to vectors.",
+    );
     expect(
-      await screen.findByText("A tighter two-step path from scalar F = ma to vectors."),
+      screen.getByText("Start from scalar F = ma, extend to vectors, then combine forces."),
     ).toBeTruthy();
+    // The step the adjustment dropped is still on the sheet, in the old plan.
+    expect(screen.getByText("Combining forces")).toBeTruthy();
+    // The earlier plan carries the annotation that names it.
+    expect(screen.getByText("An earlier plan")).toBeTruthy();
+    // And it is set in the pencil tone, not the ink rung of the current one:
+    // the record states which plan is the one being approved, by tone.
+    const earlier = screen.getByText(
+      "Start from scalar F = ma, extend to vectors, then combine forces.",
+    );
+    expect(earlier.closest("h3")?.className).toContain("text-on-surface-variant");
+    expect(revised.closest("h3")?.className).not.toContain("text-on-surface-variant");
     expect(onAccept).not.toHaveBeenCalled();
     expect(screen.getByRole("heading", { name: TITLE })).toBeTruthy();
   });
