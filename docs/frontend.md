@@ -11,7 +11,7 @@ A Next.js (App Router) + React + TypeScript app. Styling uses Tailwind with a se
 | `app/` | Routes. Root `layout.tsx` + one `page.tsx` per route (e.g. `/`, `/demo`). |
 | `views/` | The interactive "page" component. Client component that owns state. |
 | `components/` | Pure, props-driven leaf components + `ui/` primitives. |
-| `lib/` | Frontend helpers — `time.ts` (relative time), `utils.ts` (`cn()`). |
+| `lib/` | Frontend helpers — `time.ts` (relative time), `utils.ts` (`cn()`), `keyboard-inset.ts` (what the on-screen keyboard covers, measured from the browser). |
 
 ## The 3-layer model
 
@@ -71,9 +71,11 @@ Every backend interaction the view owns (#87) gets a loading state, an error sta
 
 - ✅ Add `app/<route>/page.tsx`; let the layout supply the frame.
 - ✅ Keep route entries thin (render the view), and interactivity **plus data fetching** in the `views/` client component.
+- ✅ When a surface's content must stay reachable while the on-screen keyboard is out, follow `lib/keyboard-inset.ts` (`onKeyboardInsetChange`) and **reserve** the covered room in that surface's own scroll, then re-pin to the reserved bottom — The Keyboard Room Rule in `design/DESIGN.md` (#230).
 - ✅ Make leaves pure and reusable.
 - ❌ Don't re-wrap in `<Frame>`/`<TopBar>` in the page.
 - ❌ Don't fetch data in a route entry — views own their fetches (#87).
+- ❌ Don't hard-code how tall a keyboard is, and don't expect a pane's scroll to reach something the keyboard is covering: on iOS the layout viewport keeps its full height, so the room has to be measured and reserved first (#230).
 - ❌ Don't put state in a leaf, or data-fetching in a component that isn't the view (shared chrome mounted in the frame is the exception — see Conventions).
 - ❌ Don't probe `GET /auth/me` from a component — read `useSignInState()` (#143/ADR-0005).
 - ✅ Session data comes from the typed backend client (`lib/api-client`); `types/api.d.ts` is generated (`npm run generate:types`), never hand-edited.

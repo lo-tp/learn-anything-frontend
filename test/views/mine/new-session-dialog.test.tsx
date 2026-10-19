@@ -13,7 +13,7 @@ import {
   fireEvent,
   screen,
 } from "@testing-library/react";
-import { renderWithLocale } from "@/test/test-utils";
+import { renderWithLocale, stubVisualViewport } from "@/test/test-utils";
 import { NewSessionDialog } from "@/views/mine/new-session-dialog";
 import {
   ApiError,
@@ -36,6 +36,7 @@ import {
   REVIEW_LABEL,
   SHORT,
   TITLE,
+  clickSend,
   openDialog,
 } from "./test-fixtures";
 
@@ -1113,5 +1114,175 @@ describe("NewSessionDialog — the first field", () => {
     fireEvent.submit(screen.getByRole("textbox"));
     expect(mockCreateSession).not.toHaveBeenCalled();
     expect(screen.queryByText(/Something went wrong/)).toBeNull();
+  });
+});
+
+/**
+ * jsdom lays nothing out: `scrollHeight` is 0 and assigning `scrollTop` goes
+ * nowhere. State a scrolled record instead — one whose bottom sits 1200px down
+ * its pane — and record every pin the sheet asks for.
+ */
+const RECORD_BOTTOM_PX = 1200;
+
+function stubRecordScroll() {
+  const proto = Element.prototype;
+  const originalTop = Object.getOwnPropertyDescriptor(proto, "scrollTop")!;
+  const originalHeight = Object.getOwnPropertyDescriptor(
+    proto,
+    "scrollHeight",
+  )!;
+  const pins: number[] = [];
+  Object.defineProperty(proto, "scrollTop", {
+    configurable: true,
+    get: () => pins.at(-1) ?? 0,
+    set: (value: number) => {
+      pins.push(value);
+    },
+  });
+  Object.defineProperty(proto, "scrollHeight", {
+    configurable: true,
+    get: () => RECORD_BOTTOM_PX,
+  });
+  return {
+    pins,
+    restore: () => {
+      Object.defineProperty(proto, "scrollTop", originalTop);
+      Object.defineProperty(proto, "scrollHeight", originalHeight);
+    },
+  };
+}
+
+/** Every focus the sheet asks for, with the options it gave the browser. */
+function stubFocus() {
+  const proto = HTMLElement.prototype;
+  const original = Object.getOwnPropertyDescriptor(proto, "focus")!;
+  const calls: unknown[] = [];
+  Object.defineProperty(proto, "focus", {
+    configurable: true,
+    value: function (this: HTMLElement, options?: FocusOptions) {
+      calls.push(options);
+    },
+  });
+  return {
+    calls,
+    restore: () => Object.defineProperty(proto, "focus", original),
+  };
+}
+
+/** The record pane the sheet renders. */
+function recordPane(): HTMLElement {
+  return document.querySelector(".overflow-y-auto") as HTMLElement;
+}
+
+describe("NewSessionDialog — the record above the keyboard (#230)", () => {
+  afterEach(() => {
+    delete (window as unknown as { visualViewport?: unknown }).visualViewport;
+  });
+
+  it("reserves the room an opening keyboard covers at the record's bottom, and pins to it", async () => {
+    const stub = stubVisualViewport({ innerHeight: 844, height: 844 });
+    const record = stubRecordScroll();
+    await openDialog();
+    const panel = recordPane();
+    const before = record.pins.length;
+
+    // The keyboard opens: 330px of the screen is gone, and the record's own
+    // scroll is the only way to reach the field being answered.
+    stub.resizeTo({ height: 514 });
+
+    expect(panel.style.paddingBottom).toBe("330px");
+    expect(record.pins.length).toBeGreaterThan(before);
+    expect(record.pins.at(-1)).toBe(RECORD_BOTTOM_PX);
+
+    record.restore();
+    stub.restore();
+  });
+
+  it("reserves the room when the sheet opens into a keyboard already up", async () => {
+    // The reported case: the learner arrives at the sheet from a field they were
+    // typing in, so nothing shrinks in front of the sheet — the room it opens
+    // into is already the keyboard's.
+    const stub = stubVisualViewport({ innerHeight: 844, height: 514 });
+    const record = stubRecordScroll();
+    await openDialog();
+
+    expect(recordPane().style.paddingBottom).toBe("330px");
+    expect(record.pins).toContain(RECORD_BOTTOM_PX);
+
+    record.restore();
+    stub.restore();
+  });
+
+  it("takes the reservation back when the keyboard goes, and leaves the reader's scroll alone", async () => {
+    const stub = stubVisualViewport({ innerHeight: 844, height: 514 });
+    const record = stubRecordScroll();
+    await openDialog();
+    const panel = recordPane();
+    expect(panel.style.paddingBottom).toBe("330px");
+
+    // The reader scrolls up to re-read a question the app asked earlier.
+    panel.scrollTop = 400;
+
+    stub.resizeTo({ height: 844 });
+
+    // Nothing covers the record any more, so it is not padded — and nothing is
+    // scrolled either: the room is whole again and the scroll is the reader's.
+    expect(panel.style.paddingBottom).toBe("");
+    expect(record.pins.at(-1)).toBe(400);
+
+    record.restore();
+    stub.restore();
+  });
+
+  it("leaves the record unpadded where no room is taken", async () => {
+    const stub = stubVisualViewport({ innerHeight: 844, height: 844 });
+    const record = stubRecordScroll();
+    await openDialog();
+
+    expect(recordPane().style.paddingBottom).toBe("");
+
+    record.restore();
+    stub.restore();
+  });
+
+  it("holds the reservation through an ask that is a choice, not a field", async () => {
+    // The record's ask is not always a textarea: at the boundary it is a set of
+    // option rows. The reservation belongs to the record, not to the control, so
+    // it has to survive that change — and the keyboard closing still has to take
+    // it back off.
+    mockCreateSession.mockResolvedValue({ session_id: "s-1", phase: "probing" });
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
+    const stub = stubVisualViewport({ innerHeight: 844, height: 514 });
+    const record = stubRecordScroll();
+    await openDialog(GOAL);
+    const panel = recordPane();
+    expect(panel.style.paddingBottom).toBe("330px");
+
+    clickSend();
+    await screen.findByText(Q1.text);
+    expect(document.querySelector("textarea")).toBeNull();
+
+    stub.resizeTo({ height: 844 });
+
+    expect(panel.style.paddingBottom).toBe("");
+
+    record.restore();
+    stub.restore();
+  });
+
+  it("asks the browser not to scroll when it focuses the field", async () => {
+    const stub = stubVisualViewport({ innerHeight: 844, height: 514 });
+    const focus = stubFocus();
+    await openDialog();
+
+    // The record above the field has just been pinned to it. A browser asked to
+    // chase the field pans the whole page a second time, which is what puts the
+    // pinned band and the record out of sight (#230).
+    expect(focus.calls.some((o) => (o as FocusOptions)?.preventScroll === true)).toBe(
+      true,
+    );
+
+    focus.restore();
+    stub.restore();
   });
 });

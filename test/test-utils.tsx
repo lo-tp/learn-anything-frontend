@@ -70,3 +70,71 @@ export function clip(el: HTMLElement, hidden: boolean) {
   Object.defineProperty(el, "scrollWidth", { value: textWidth, configurable: true });
   return el;
 }
+
+/**
+ * The room on screen a browser leaves the app, as a test states it.
+ *
+ * jsdom has no `window.visualViewport`, and that is exactly where
+ * `lib/keyboard-inset.ts` reads the keyboard inset from — so a test puts one on
+ * `window`, keeps the handlers the page registers, and drives the two events a
+ * real keyboard causes (#230). Without it nothing in this suite can say what a
+ * surface does when a phone takes half the screen away.
+ */
+export type StubbedVisualViewport = {
+  /** The keyboard opening, or closing. */
+  resizeTo: (next: { height: number }) => void;
+  /** The learner pinch-zooming: the visual viewport shrinks with no keyboard. */
+  zoomTo: (next: { height: number; scale: number }) => void;
+  /** What the page registered on it, so a test can assert none are left. */
+  handlers: Map<string, EventListener>;
+  /** Take the stand-in back off `window`. */
+  restore: () => void;
+};
+
+export function stubVisualViewport({
+  innerHeight,
+  height,
+  scale = 1,
+}: {
+  innerHeight: number;
+  height: number;
+  scale?: number;
+}): StubbedVisualViewport {
+  Object.defineProperty(window, "innerHeight", {
+    value: innerHeight,
+    configurable: true,
+    writable: true,
+  });
+  const handlers = new Map<string, EventListener>();
+  const visual = { height, scale };
+  const viewport = {
+    get height() {
+      return visual.height;
+    },
+    get scale() {
+      return visual.scale;
+    },
+    addEventListener: (type: string, handler: EventListener) => {
+      handlers.set(type, handler);
+    },
+    removeEventListener: (type: string, handler: EventListener) => {
+      if (handlers.get(type) === handler) handlers.delete(type);
+    },
+  };
+  (window as unknown as { visualViewport: unknown }).visualViewport = viewport;
+  return {
+    handlers,
+    resizeTo: ({ height: next }) => {
+      visual.height = next;
+      handlers.get("resize")?.(new Event("resize"));
+    },
+    zoomTo: ({ height: next, scale: nextScale }) => {
+      visual.height = next;
+      visual.scale = nextScale;
+      handlers.get("resize")?.(new Event("resize"));
+    },
+    restore: () => {
+      delete (window as unknown as { visualViewport?: unknown }).visualViewport;
+    },
+  };
+}
