@@ -117,6 +117,119 @@ function recordPane(): HTMLElement {
   return document.querySelector(".overflow-y-auto") as HTMLElement;
 }
 
+/**
+ * A record that grows, shown as a real pane would show it: `clientHeight` is
+ * the room the pane has (so the bottom of the scroll is `scrollHeight`
+ * minus that), a pinned `scrollTop` clamps to the scrollable maximum the way
+ * a browser clamps it, and the bottom is a number the test can move — which
+ * is what the sheet's pinning actually has to cope with: content that lands
+ * keeps laying out afterwards, so the record ends lower than the height it
+ * had the moment it was measured (#236).
+ */
+const RECORD_PANE_VIEW_PX = 600;
+
+function stubRecordGrowth(startBottomPx: number) {
+  const proto = Element.prototype;
+  const originalTop = Object.getOwnPropertyDescriptor(proto, "scrollTop")!;
+  const originalHeight = Object.getOwnPropertyDescriptor(
+    proto,
+    "scrollHeight",
+  )!;
+  const originalClient = Object.getOwnPropertyDescriptor(
+    proto,
+    "clientHeight",
+  )!;
+  let bottom = startBottomPx;
+  const pins: number[] = [];
+  const maxScroll = () => Math.max(0, bottom - RECORD_PANE_VIEW_PX);
+  Object.defineProperty(proto, "scrollTop", {
+    configurable: true,
+    get: () => pins.at(-1) ?? 0,
+    set: (value: number) => {
+      pins.push(Math.min(value, maxScroll()));
+    },
+  });
+  Object.defineProperty(proto, "scrollHeight", {
+    configurable: true,
+    get: () => bottom,
+  });
+  Object.defineProperty(proto, "clientHeight", {
+    configurable: true,
+    get: () => RECORD_PANE_VIEW_PX,
+  });
+  /** The offset a pin at this bottom lands at, as a browser would clamp it. */
+  const offset = (bottomPx: number) =>
+    Math.max(0, bottomPx - RECORD_PANE_VIEW_PX);
+  return {
+    pins,
+    offset,
+    setBottom: (px: number) => {
+      bottom = px;
+    },
+    restore: () => {
+      Object.defineProperty(proto, "scrollTop", originalTop);
+      Object.defineProperty(proto, "scrollHeight", originalHeight);
+      Object.defineProperty(proto, "clientHeight", originalClient);
+    },
+  };
+}
+
+/**
+ * Animation frames and resize reports, driven by hand: `flushFrames(n)` runs
+ * the queued frames — one wave per call — and `fireResize()` delivers the
+ * resize observations the browser would have made. jsdom lays nothing out
+ * and ships no ResizeObserver, so the sheet's follow is only testable
+ * through its own frame and resize seams (#236).
+ */
+function stubFramesAndResizes() {
+  const win = window as Window & {
+    ResizeObserver?: typeof ResizeObserver | undefined;
+  };
+  const original = {
+    raf: window.requestAnimationFrame,
+    caf: window.cancelAnimationFrame,
+    ro: win.ResizeObserver,
+  };
+  const queue = new Map<number, FrameRequestCallback>();
+  let nextId = 1;
+  window.requestAnimationFrame = ((cb: FrameRequestCallback) => {
+    const id = nextId++;
+    queue.set(id, cb);
+    return id;
+  }) as typeof window.requestAnimationFrame;
+  window.cancelAnimationFrame = ((id: number) => {
+    queue.delete(id);
+  }) as typeof window.cancelAnimationFrame;
+  const observers: ResizeObserverCallback[] = [];
+  class StubResizeObserver {
+    constructor(cb: ResizeObserverCallback) {
+      observers.push(cb);
+    }
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  win.ResizeObserver = StubResizeObserver as unknown as typeof ResizeObserver;
+  return {
+    flushFrames: (waves = 1) => {
+      for (let wave = 0; wave < waves; wave += 1) {
+        const pending = [...queue.values()];
+        queue.clear();
+        for (const cb of pending) cb(0);
+      }
+    },
+    fireResize: () => {
+      for (const cb of observers) cb([], {} as unknown as ResizeObserver);
+    },
+    restore: () => {
+      window.requestAnimationFrame = original.raf;
+      window.cancelAnimationFrame = original.caf;
+      if (original.ro === undefined) delete win.ResizeObserver;
+      else win.ResizeObserver = original.ro;
+    },
+  };
+}
+
 beforeEach(() => {
   mockCreateSession.mockReset();
   mockClarifySession.mockReset();
@@ -1302,22 +1415,27 @@ describe("NewSessionDialog — the record above the keyboard (#230)", () => {
   it("takes the reservation back when the keyboard goes, and leaves the reader's scroll alone", async () => {
     const stub = stubVisualViewport({ innerHeight: 844, height: 514 });
     const record = stubRecordScroll();
+    const frames = stubFramesAndResizes(); // no follow frames while the reader scrolls
     await openDialog();
-    const panel = recordPane();
-    expect(panel.style.paddingBottom).toBe("330px");
+    try {
+      const panel = recordPane();
+      expect(panel.style.paddingBottom).toBe("330px");
 
-    // The reader scrolls up to re-read a question the app asked earlier.
-    panel.scrollTop = 400;
+      // The reader scrolls up to re-read a question the app asked earlier.
+      panel.scrollTop = 400;
 
-    stub.resizeTo({ height: 844 });
+      stub.resizeTo({ height: 844 });
 
-    // Nothing covers the record any more, so it is not padded — and nothing is
-    // scrolled either: the room is whole again and the scroll is the reader's.
-    expect(panel.style.paddingBottom).toBe("");
-    expect(record.pins.at(-1)).toBe(400);
-
-    record.restore();
-    stub.restore();
+      // Nothing covers the record any more, so it is not padded — and nothing
+      // is scrolled either: the room is whole again and the scroll is the
+      // reader's.
+      expect(panel.style.paddingBottom).toBe("");
+      expect(record.pins.at(-1)).toBe(400);
+    } finally {
+      frames.restore();
+      record.restore();
+      stub.restore();
+    }
   });
 
   it("leaves the record unpadded where no room is taken", async () => {
@@ -1395,5 +1513,120 @@ describe("NewSessionDialog — the record above the keyboard (#230)", () => {
 
     focus.restore();
     stub.restore();
+  });
+});
+
+describe("NewSessionDialog — keeping the record at its bottom (#236)", () => {
+  it("re-pins when the record finishes laying out after the pin that measured it", async () => {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: ["What do you already know about forces?"],
+    });
+    const record = stubRecordGrowth(1200);
+    const frames = stubFramesAndResizes();
+    try {
+      await openDialog(GOAL);
+      clickSend();
+
+      // A question lands on the record, and the sheet pins to the bottom the
+      // record measures at that moment — clamped, as a browser clamps, to the
+      // scrollable maximum.
+      await screen.findByText("What do you already know about forces?");
+      expect(record.pins.at(-1)).toBe(record.offset(1200));
+
+      // …then that content finishes laying out — the equation renders, the
+      // text re-wraps — and the record ends 300px lower without another DOM
+      // change. The follow re-measures in the frames after the pin and finds
+      // the bottom the first measurement missed (#236: the reported failure
+      // was the scroll finishing before the appended content arrived).
+      record.setBottom(1500);
+      frames.flushFrames(1);
+      expect(record.pins.at(-1)).toBe(record.offset(1500));
+
+      // The follow stops when the bottom stops moving: the pane is at rest,
+      // not chased forever.
+      const settled = record.pins.length;
+      frames.flushFrames(3);
+      expect(record.pins).toHaveLength(settled);
+    } finally {
+      frames.restore();
+      record.restore();
+    }
+  });
+
+  it("follows a record that gets longer with no DOM change at all", async () => {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: ["What do you already know about forces?"],
+    });
+    const record = stubRecordGrowth(1200);
+    const frames = stubFramesAndResizes();
+    try {
+      await openDialog(GOAL);
+      clickSend();
+      await screen.findByText("What do you already know about forces?");
+      frames.flushFrames(2); // let the first follow settle at 1200
+
+      // A web font arrives: every recorded line reflows a little taller.
+      // No node was added or changed — a MutationObserver can never see this
+      // one. The record column's own resize is the fact, and the sheet
+      // treats it as one.
+      record.setBottom(1800);
+      frames.fireResize();
+      expect(record.pins.at(-1)).toBe(record.offset(1800));
+    } finally {
+      frames.restore();
+      record.restore();
+    }
+  });
+
+  it("leaves a reader who scrolled up out of a re-layout, and returns to what lands", async () => {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: ["What do you already know about forces?"],
+    });
+    mockClarifySession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: ["And what happens when the mass changes?"],
+    });
+    const record = stubRecordGrowth(1200);
+    const frames = stubFramesAndResizes();
+    try {
+      await openDialog(GOAL);
+      clickSend();
+      await screen.findByText("What do you already know about forces?");
+      frames.flushFrames(2); // let the first follow settle at 1200
+
+      // The reader scrolls up to re-read the opening lines.
+      const panel = recordPane();
+      panel.scrollTop = 400;
+
+      // Then a web font arrives and every recorded line reflows taller. The
+      // new bottom is not a reason to move a reader who had already scrolled
+      // away from the old one (#230's promise, extended to re-lays).
+      record.setBottom(1800);
+      frames.fireResize();
+      expect(record.pins.at(-1)).toBe(400);
+      const settled = record.pins.length;
+      frames.flushFrames(3);
+      expect(record.pins).toHaveLength(settled);
+
+      // An answer arriving on the record is different: it is the open ask
+      // moving, and the sheet goes back to it even when the reader had
+      // scrolled away.
+      fireEvent.change(await screen.findByRole("textbox"), {
+        target: { value: "Forces make things speed up." },
+      });
+      clickSend();
+      await screen.findByText("Forces make things speed up.");
+      expect(record.pins.at(-1)).toBe(record.offset(1800));
+    } finally {
+      frames.restore();
+      record.restore();
+    }
   });
 });
