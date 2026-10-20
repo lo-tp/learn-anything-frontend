@@ -12,6 +12,7 @@ import {
   startProbe,
 } from "@/lib/api-client";
 import { onKeyboardInsetChange } from "@/lib/keyboard-inset";
+import { onVisualViewportChange } from "@/lib/visual-viewport";
 import {
   apply,
   deriveViewModel,
@@ -204,8 +205,9 @@ function useNodePresence<T extends HTMLElement>() {
  * (source of truth), the effect runner (fire the API calls, feed results back
  * as feedback events), the dialog-local `paragraph`, and the DOM effects the
  * dialog can't do from its own render (keep the record pinned to the open ask,
- * keep the open ask above a keyboard, focus the open field). The dialog receives
- * render-ready view-model data and calls these intents.
+ * keep that ask above a keyboard — by reserving the room it covers, and by
+ * re-pinning when the room the sheet has shrinks — and focus the open field).
+ * The dialog receives render-ready view-model data and calls these intents.
  */
 export function useSessionIntake({
   open,
@@ -379,11 +381,34 @@ export function useSessionIntake({
     });
   }, [open, record.mounted]);
 
+  // …and pinned there again when the room the sheet has *shrinks* (#230). A
+  // sheet sized to the visible viewport shrinks with the room, and a scroll
+  // container keeps its offset from the *top* when it shrinks — which is how the
+  // field being filled ended up under the keyboard with its action below it.
+  // Where a keyboard disagrees with the layout viewport the effect above has an
+  // inset to reserve and pins with it; this is the case where there is nothing
+  // to reserve — a browser that resizes its own layout viewport for the keyboard
+  // (what `interactive-widget=resizes-content` asks of Chrome) leaves the pane
+  // shorter and the reservation already gone. Nothing else re-pins: a room that
+  // grows hides nothing, and a room that only moved is the browser panning after
+  // a focused field. Both are left to the scroll the reader chose.
+  const roomRef = useRef<number | null>(null);
+  useEffect(
+    () =>
+      onVisualViewportChange(({ heightPx }) => {
+        const previous = roomRef.current;
+        roomRef.current = heightPx;
+        if (previous === null || heightPx >= previous) return;
+        pinRecordToOpenAsk(record.ref.current);
+      }),
+    [],
+  );
+
   // Focus the intake textarea when it becomes enabled and is mounted (the
   // dialog opening for the first time, and again after any in-flight request
   // settles). The Radix portal content lands in a later commit, so gate on the
   // field being mounted to focus once the node is actually in the DOM. The focus
-  // is asked not to scroll: the record is held at this field by the effect over
+  // is asked not to scroll: the record is held at this field by the effects over
   // there, and a browser invited to chase the field pans the page a second time
   // (#230).
   const enabled = !view.intake.pending && !view.intake.disabled;

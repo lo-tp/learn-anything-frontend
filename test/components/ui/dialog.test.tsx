@@ -72,4 +72,60 @@ describe("Dialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open dialog" }));
     expect(await screen.findByRole("dialog")).toBeTruthy();
   });
+
+  // The room a sheet is placed in is the visible viewport — what is on screen
+  // after the browser's own furniture (#230). jsdom has no layout, so these
+  // guard the placement itself: the measure a sheet is sized from.
+  it("places a centred sheet in the middle of the visible viewport, capped to it", () => {
+    render(
+      <Dialog open>
+        <DialogContent>
+          <DialogTitle>Centred</DialogTitle>
+        </DialogContent>
+      </Dialog>,
+    );
+    const sheet = document.querySelector(
+      '[data-slot="dialog-content"]',
+    ) as HTMLElement;
+    // The scrim behind it covers the same room, not the layout viewport.
+    const scrim = document.querySelector('[data-slot="dialog-overlay"]') as HTMLElement;
+    expect(scrim.classList.contains("h-[var(--visual-viewport-height)]")).toBe(true);
+    expect(scrim.classList.contains("inset-0")).toBe(false);
+    const placed = (name: string) => sheet.classList.contains(name);
+    expect(placed("top-[var(--visual-viewport-centre)]")).toBe(true);
+    expect(placed("max-h-[var(--visual-viewport-sheet-max-height)]")).toBe(true);
+    // A sheet with no room left to be centred in scrolls instead of running
+    // off the screen.
+    expect(placed("overflow-y-auto")).toBe(true);
+    // Nothing here is stated in viewport units: on iOS `100dvh` and `top-1/2`
+    // describe the layout viewport, which keeps its height when the keyboard
+    // opens, and a sheet placed against it ends under the keyboard.
+    expect(sheet.className).not.toMatch(/\b(top|left|h|w)-\[?\d+d?vh\]/);
+    expect(sheet.className).not.toContain("top-1/2");
+  });
+
+  it("places a full-bleed sheet across the visible viewport", () => {
+    render(
+      <Dialog open>
+        <DialogContent placement="full-bleed" showCloseButton={false}>
+          <DialogTitle>Full bleed</DialogTitle>
+        </DialogContent>
+      </Dialog>,
+    );
+    const sheet = document.querySelector(
+      '[data-slot="dialog-content"]',
+    ) as HTMLElement;
+    const placed = (name: string) => sheet.classList.contains(name);
+    expect(placed("top-[var(--visual-viewport-offset-top)]")).toBe(true);
+    expect(placed("h-[var(--visual-viewport-height)]")).toBe(true);
+    // The full-bleed surface *is* the room, so the placement gives it the shape
+    // that follows: no corners, no border, no padding of its own.
+    expect(placed("rounded-none")).toBe(true);
+    expect(placed("border-0")).toBe(true);
+    expect(placed("p-0")).toBe(true);
+    // Neither centred nor capped: it owns its own scrolling.
+    expect(placed("top-[var(--visual-viewport-centre)]")).toBe(false);
+    expect(placed("max-h-[var(--visual-viewport-sheet-max-height)]")).toBe(false);
+    expect(placed("-translate-y-1/2")).toBe(false);
+  });
 });
