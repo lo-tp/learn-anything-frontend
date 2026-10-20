@@ -11,7 +11,10 @@ import {
   generatePlan,
   startProbe,
 } from "@/lib/api-client";
-import { onKeyboardInsetChange } from "@/lib/keyboard-inset";
+import {
+  measureRoomShortfall,
+  onKeyboardInsetChange,
+} from "@/lib/keyboard-inset";
 import { onVisualViewportChange } from "@/lib/visual-viewport";
 import {
   apply,
@@ -34,22 +37,70 @@ function pinRecordToOpenAsk(panel: HTMLDivElement | null) {
 }
 
 /**
- * Reserve the room a keyboard covers at the record's bottom (#230).
+ * The room this surface has itself reserved at the record's bottom. The record
+ * pane carries no padding of its own, so whatever inline padding is there was put
+ * there by `reserveKeyboardRoom` — and it is not part of the record.
+ */
+function reservedRoomPx(panel: HTMLDivElement): number {
+  return Number.parseFloat(panel.style.paddingBottom) || 0;
+}
+
+/**
+ * How far the record reaches past the room its pane has.
+ *
+ * The sheet is sized to the visible viewport (The Visible-Viewport Rule), so the
+ * pane's bottom edge is the top edge of the keys: whatever reaches past the
+ * pane's room is whatever the keyboard is hiding, and whatever does not is
+ * entirely above the keys already. That is the difference the reservation has to
+ * make (#230) — a keyboard covering a stretch of screen the record was never
+ * using asks for nothing.
+ */
+function recordRoomShortfallPx(panel: HTMLDivElement): number {
+  return measureRoomShortfall({
+    contentHeightPx: panel.scrollHeight,
+    visibleHeightPx: panel.clientHeight,
+    reservedPx: reservedRoomPx(panel),
+  });
+}
+
+/**
+ * Decide whether the room a keyboard covers is reserved at the record's bottom,
+ * for a record the keyboard is actually hiding (#230), and report what was
+ * decided — because a surface that reserved is a surface whose bottom has moved,
+ * and only its caller knows whether it is the one to move the reader there.
  *
  * iOS leaves the layout viewport at its full height when its keyboard opens, so
- * the pane keeps the height it was given and its lower half is under the
- * keyboard — where the open ask is. Padding the pane by exactly the inset does
- * two things at once: it gives the pane's own scroll enough range to bring the
- * open ask above the keyboard, and it makes pinning to the pane's bottom land
- * the ask just above the keys instead of behind them. The inset is measured, so
- * nothing here guesses at how tall a keyboard is on some device.
+ * where a sheet has not been sized to the room the keyboard leaves, its pane
+ * keeps the height it was given and its lower half is under the keys — where the
+ * open ask is. Padding the pane by exactly the measured inset does two things at
+ * once: it gives the pane's own scroll enough range to bring the open ask above
+ * the keyboard, and it makes pinning to the pane's bottom land the ask just above
+ * the keys instead of behind them. The inset is measured, so nothing here guesses
+ * at how tall a keyboard is on some device.
+ *
+ * Neither half of that is owed to a keyboard that hides nothing. A record that
+ * fits the room above the keys needs no extra scroll range, and is not cut off:
+ * padding it would add a blank stretch below the last item and — because a padded
+ * pane can suddenly scroll — a pin would move a record the learner could already
+ * read in full. So the reservation is decided from both measures: the room the
+ * keyboard covers, and what the record reaches past its own room. Either one
+ * empty, and the pane is left as it is.
  */
 function reserveKeyboardRoom(
   panel: HTMLDivElement | null,
   insetPx: number,
-) {
-  if (!panel) return;
-  panel.style.paddingBottom = insetPx > 0 ? `${insetPx}px` : "";
+): boolean {
+  if (!panel) return false;
+  const hiddenPx = recordRoomShortfallPx(panel);
+  if (insetPx > 0 && hiddenPx > 0) {
+    panel.style.paddingBottom = `${insetPx}px`;
+    return true;
+  }
+  // Nothing covered, or nothing hidden: the reservation comes off and the scroll
+  // stays the reader's. Where the pane was padded, taking it off leaves a shorter
+  // range, which the pane clamps itself to.
+  panel.style.paddingBottom = "";
+  return false;
 }
 
 /** A settled scroll can sit 1px off its stated maximum — the browser clamps a
@@ -205,8 +256,9 @@ function useNodePresence<T extends HTMLElement>() {
  * (source of truth), the effect runner (fire the API calls, feed results back
  * as feedback events), the dialog-local `paragraph`, and the DOM effects the
  * dialog can't do from its own render (keep the record pinned to the open ask,
- * keep that ask above a keyboard — by reserving the room it covers, and by
- * re-pinning when the room the sheet has shrinks — and focus the open field).
+ * keep that ask above a keyboard — reserving the room it covers, and re-pinning
+ * when the room the sheet has shrinks, but only where the keyboard leaves part
+ * of the record out of sight — and focus the open field).
  * The dialog receives render-ready view-model data and calls these intents.
  */
 export function useSessionIntake({
@@ -368,17 +420,52 @@ export function useSessionIntake({
   // from a field they were already typing in, nothing shrinks in front of them,
   // and the open ask was simply out of sight with no scroll left that could
   // reach it.
+  //
+  // Whether the keys are hiding part of the record is a fact about *both* the
+  // keyboard and the record, so both are reasons to decide it again: every report
+  // of the keyboard's room, and every change to the record's own size. A record
+  // that grows past the room it fitted is one the keys have begun covering; one
+  // that fell back into the room was never covered, and its reservation goes back
+  // off. The record's size is watched here only to re-ask the reservation —
+  // whether the sheet is at the bottom the reader was last at is the record
+  // follow's question, and moving a reader who had scrolled up to re-read is its
+  // refusal to make.
+  //
+  // The room is read off the pane, and the pane is only as tall as the shell
+  // sized it: `components/visual-viewport.tsx` holds the measurement of the
+  // visible viewport from the page's own mount, so it is the first listener the
+  // browser tells and it publishes a changed room before this sheet is told the
+  // keyboard took it — and the pane's own resize is the second reason to re-read
+  // it, whichever order the two reports arrive in.
+  const insetRef = useRef(0);
   useEffect(() => {
     if (!open || !record.mounted) return;
-    return onKeyboardInsetChange((insetPx) => {
+    const followInset = onKeyboardInsetChange((insetPx) => {
+      insetRef.current = insetPx;
       const panel = record.ref.current;
-      reserveKeyboardRoom(panel, insetPx);
       // Pinned *after* the padding is set: the padded bottom is the point above
-      // the keys. Where nothing covers the record the reservation comes off and
-      // the scroll is the reader's again — the pane clamps itself to its new
-      // range, which lands the open ask back at the bottom of what is visible.
-      if (insetPx > 0) pinRecordToOpenAsk(panel);
+      // the keys. Where nothing covers the record, or nothing is hidden, the
+      // reservation comes off and the scroll is the reader's again — the pane
+      // clamps itself to its new range.
+      if (reserveKeyboardRoom(panel, insetPx)) pinRecordToOpenAsk(panel);
     });
+    let stopWatchingRecord = () => {};
+    const panel = record.ref.current;
+    if (panel && typeof ResizeObserver === "function") {
+      const resizes = new ResizeObserver(() => {
+        reserveKeyboardRoom(record.ref.current, insetRef.current);
+      });
+      // The record column is the pane's only child: its box is the record's
+      // length. The pane's own box is watched too, since a shorter room moves the
+      // line the record has to fit under.
+      resizes.observe(panel);
+      if (panel.firstElementChild) resizes.observe(panel.firstElementChild);
+      stopWatchingRecord = () => resizes.disconnect();
+    }
+    return () => {
+      followInset();
+      stopWatchingRecord();
+    };
   }, [open, record.mounted]);
 
   // …and pinned there again when the room the sheet has *shrinks* (#230). A
@@ -391,7 +478,9 @@ export function useSessionIntake({
   // (what `interactive-widget=resizes-content` asks of Chrome) leaves the pane
   // shorter and the reservation already gone. Nothing else re-pins: a room that
   // grows hides nothing, and a room that only moved is the browser panning after
-  // a focused field. Both are left to the scroll the reader chose.
+  // a focused field. Both are left to the scroll the reader chose. Nor is a
+  // shorter room a reason in itself: a record that still fits the room it was
+  // left with was never hidden, and stays where the reader has it (#230).
   const roomRef = useRef<number | null>(null);
   useEffect(
     () =>
@@ -399,7 +488,10 @@ export function useSessionIntake({
         const previous = roomRef.current;
         roomRef.current = heightPx;
         if (previous === null || heightPx >= previous) return;
-        pinRecordToOpenAsk(record.ref.current);
+        const panel = record.ref.current;
+        if (panel && recordRoomShortfallPx(panel) > 0) {
+          pinRecordToOpenAsk(panel);
+        }
       }),
     [],
   );
