@@ -82,8 +82,18 @@ export function clip(el: HTMLElement, hidden: boolean) {
  * phone takes half the screen away.
  */
 export type StubbedVisualViewport = {
-  /** The keyboard opening, or closing — and where it leaves the room. */
-  resizeTo: (next: { height: number; offsetTop?: number }) => void;
+  /**
+   * The keyboard opening, or closing — and where it leaves the room. Pass
+   * `innerHeight` as well to state a browser that resizes its *own* layout
+   * viewport for the keyboard (`interactive-widget=resizes-content`, Chrome from
+   * 108): the two viewports stay equal, so there is no inset for a surface to
+   * reserve, only a shorter room (#230).
+   */
+  resizeTo: (next: {
+    height: number;
+    offsetTop?: number;
+    innerHeight?: number;
+  }) => void;
   /** The browser panning the layout viewport after a focused field: the room
    *  is the same size, it has simply moved. */
   panTo: (offsetTop: number) => void;
@@ -135,6 +145,13 @@ export function stubVisualViewport({
     }
   };
   const visual = { height, offsetTop, scale };
+  const setInnerHeight = (value: number) => {
+    Object.defineProperty(window, "innerHeight", {
+      value,
+      configurable: true,
+      writable: true,
+    });
+  };
   const viewport = {
     get height() {
       return visual.height;
@@ -162,9 +179,14 @@ export function stubVisualViewport({
   return {
     handlers,
     added,
-    resizeTo: ({ height: nextHeight, offsetTop: nextOffset }) => {
+    resizeTo: ({
+      height: nextHeight,
+      offsetTop: nextOffset,
+      innerHeight: nextInnerHeight,
+    }) => {
       visual.height = nextHeight;
       if (nextOffset !== undefined) visual.offsetTop = nextOffset;
+      if (nextInnerHeight !== undefined) setInnerHeight(nextInnerHeight);
       fire("resize");
     },
     panTo: (offset: number) => {

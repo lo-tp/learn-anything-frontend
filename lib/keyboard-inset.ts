@@ -10,9 +10,15 @@
  *
  * So the answer is not to make a surface shorter than the page. It is to give
  * the surface's own scrolling enough room to bring the thing being answered
- * above the keyboard, and to run that scroll when the keyboard arrives.
+ * above the keyboard, and to run that scroll when the keyboard arrives — and to
+ * do that only where the keyboard actually leaves something of the surface's
+ * content out of sight (#230). A keyboard that takes a stretch of screen the
+ * surface was never using asks for nothing.
+ *
  * `measureKeyboardInset` states how much room the keyboard covers;
- * `onKeyboardInsetChange` keeps that number current for whoever acts on it.
+ * `onKeyboardInsetChange` keeps that number current for whoever acts on it;
+ * `measureRoomShortfall` states whether the surface's own content reaches past
+ * the room it has, which is the part the keyboard is hiding.
  */
 
 /** What a browser reports about its viewports. */
@@ -33,6 +39,46 @@ export function measureKeyboardInset(source: KeyboardInsetSource): number {
   if (!visual || Math.abs(visual.scale - 1) > SCALE_TOLERANCE) return 0;
   const covered = source.innerHeight - visual.height;
   return covered > INSET_TOLERANCE_PX ? Math.round(covered) : 0;
+}
+
+/** What one surface's own scroll says about the room it was given. */
+export type RoomShortfallSource = {
+  /** The length of the surface's content, as its own node reports it —
+   *  `scrollHeight`, padding included. */
+  contentHeightPx: number;
+  /** The room the surface shows that content through — `clientHeight`. For a
+   *  surface sized to the visible viewport this is the room above the keys. */
+  visibleHeightPx: number;
+  /** The room the surface reserved for itself at its own bottom. The content
+   *  ends above that padding, so it is not something the keyboard is hiding —
+   *  and subtracting it is what keeps a reservation from becoming its own
+   *  reason to keep reserving. */
+  reservedPx: number;
+};
+
+/** A pane's own measurements are rounded, so a settled record can report itself
+ *  a couple of pixels longer than the room it fits in. Calling that a hidden
+ *  item would pad the record and move the reader for nothing; leaving it is two
+ *  pixels of one line. */
+const SHORTFALL_TOLERANCE_PX = 2;
+
+/**
+ * How far a surface's content reaches past the room it has: what sits below the
+ * bottom of its pane, out of the reader's reach.
+ *
+ * This is the test a surface acts on (#230). A full-bleed surface is sized to
+ * the room the keyboard leaves, so its pane's bottom edge is the top edge of
+ * the keys: the content that reaches past the pane's room is exactly the content
+ * the keyboard is hiding, and the content that does not is entirely above the
+ * keys already — nothing to reserve room for, and nothing to scroll. Measured
+ * against the room rather than against the reader's current scroll position, so
+ * the same record gives the same answer whichever way the pane happens to be
+ * scrolled.
+ */
+export function measureRoomShortfall(source: RoomShortfallSource): number {
+  const shortfall =
+    source.contentHeightPx - source.reservedPx - source.visibleHeightPx;
+  return shortfall > SHORTFALL_TOLERANCE_PX ? Math.round(shortfall) : 0;
 }
 
 type Listener = (insetPx: number) => void;

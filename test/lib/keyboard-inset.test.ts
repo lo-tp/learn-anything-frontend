@@ -1,6 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { measureKeyboardInset, onKeyboardInsetChange } from "@/lib/keyboard-inset";
+import {
+  measureKeyboardInset,
+  measureRoomShortfall,
+  onKeyboardInsetChange,
+} from "@/lib/keyboard-inset";
 import { stubVisualViewport } from "@/test/test-utils";
 
 /**
@@ -50,6 +54,90 @@ describe("measureKeyboardInset", () => {
         visualViewport: { height: 843.2, scale: 1 },
       }),
     ).toBe(0);
+  });
+});
+
+/**
+ * The other half of what a keyboard asks of a surface: not how much of the
+ * screen it covers, but whether that leaves anything of the surface's own
+ * content out of sight. A surface is sized to the room the keyboard leaves
+ * (The Visible-Viewport Rule), so the part of its content that reaches past
+ * the room it has is the part the keyboard is hiding.
+ *
+ * The worked examples are the iPhone 14 the report came from: 514px of the
+ * screen is left above the keyboard, the sheet's pinned band takes 150px of
+ * that, so a record reaches its reader through a 364px pane.
+ */
+describe("measureRoomShortfall", () => {
+  it("states how far a record reaches past the room its pane has", () => {
+    expect(
+      measureRoomShortfall({
+        contentHeightPx: 1200,
+        visibleHeightPx: 364,
+        reservedPx: 0,
+      }),
+    ).toBe(836);
+  });
+
+  it("states nothing where the room shows the whole record", () => {
+    // The keyboard is out — and the sheet has the record, the open ask and the
+    // field being filled all above it. There is nothing for a surface to reach
+    // for, so nothing is reserved and nothing is scrolled.
+    expect(
+      measureRoomShortfall({
+        contentHeightPx: 300,
+        visibleHeightPx: 364,
+        reservedPx: 0,
+      }),
+    ).toBe(0);
+  });
+
+  it("reads a room exactly as tall as its record as showing all of it", () => {
+    expect(
+      measureRoomShortfall({
+        contentHeightPx: 364,
+        visibleHeightPx: 364,
+        reservedPx: 0,
+      }),
+    ).toBe(0);
+  });
+
+  it("does not count the room a surface reserved for itself", () => {
+    // A pane padded by the keyboard reports its own padding in its scroll
+    // height. The record ends above that padding, so it is not content the
+    // keyboard hides — and leaving it in would make a reservation its own
+    // reason to keep reserving, whatever the record itself did.
+    expect(
+      measureRoomShortfall({
+        contentHeightPx: 1530,
+        visibleHeightPx: 364,
+        reservedPx: 330,
+      }),
+    ).toBe(836);
+  });
+
+  it("reads a two-pixel disagreement as a rounding gap, not a hidden item", () => {
+    // A pane's measurements are rounded, so a settled record can report itself
+    // a couple of pixels longer than the room it fits in. Calling that hidden
+    // would pad the record and move the reader; leaving it is two pixels of
+    // one line.
+    expect(
+      measureRoomShortfall({
+        contentHeightPx: 366,
+        visibleHeightPx: 364,
+        reservedPx: 0,
+      }),
+    ).toBe(0);
+  });
+
+  it("states a record that genuinely reaches past its room", () => {
+    expect(
+      measureRoomShortfall({
+        contentHeightPx: 400,
+        visibleHeightPx: 364,
+        reservedPx: 0,
+      }),
+    ).toBe(36);
   });
 });
 
