@@ -51,16 +51,135 @@ function reserveKeyboardRoom(
   panel.style.paddingBottom = insetPx > 0 ? `${insetPx}px` : "";
 }
 
+/** A settled scroll can sit 1px off its stated maximum — the browser clamps a
+ *  pin to the scrollable range and rounds its measurements — so "close to the
+ *  bottom" is the bottom, and a rounding gap is not a record still growing. */
+const BOTTOM_TOLERANCE_PX = 2;
+
+/** A follow measures the record a bounded while: hosts differ in when a late
+ *  layout settles, and a follow that chased forever would move a reader who
+ *  had scrolled up to re-read. Anything that truly lands starts a new one. */
+const FOLLOW_LIMIT_MS = 2000;
+
 /**
- * Watch the record for changes: its own DOM is the fact that something landed
- * on it — an answer, the next question, a re-rendered option list, a refusal —
- * and each of those is when the open ask has to be pinned again. A counter of
- * entries cannot see a record that grows without gaining one (#230).
+ * Keep the record at the bottom the record is actually at (#236).
+ *
+ * A pin measures the pane at the instant it is asked for — and the record is
+ * not finished at that instant. Content that has landed is not yet laid out:
+ * an equation renders a beat after the text it was typed from, a line reflows
+ * when a web font arrives. A pane pinned at the first measurement can stop
+ * above the bottom it was told to reach — the reported failure was the scroll
+ * finishing first and the record's growth arriving after it.
+ *
+ * So a trigger starts a follow, not a one-shot pin: it pins now, then in each
+ * following frame measures the record again and re-pins while that measurement
+ * keeps growing — the re-measurement is what sees the late layout. The follow
+ * stops when the record's own size stops changing, and never longer than a
+ * bounded watch (hosts differ in when a late layout settles; a runaway follow
+ * would be the sheet chasing a bottom forever, moving a reader who had
+ * scrolled up to re-read).
+ *
+ * What may start a follow: the record's DOM changing, and the record column's
+ * or the pane's own resize — but a resize only re-follows while the reader is
+ * at the bottom the sheet last measured. A reader who has scrolled up to
+ * re-read something earlier is not dragged back for a reflow (the same
+ * promise the keyboard reservation keeps, #230); a thing *landing* on the
+ * record is an answer arriving at the open ask, and the sheet goes back to
+ * it.
  */
-function onRecordChange(panel: HTMLElement, onChange: () => void): () => void {
-  const observer = new MutationObserver(onChange);
+function followRecordBottom(panel: HTMLDivElement): () => void {
+  // The record column is the pane's only child: its height is the record's
+  // length, so it is the box whose growth the follow has to chase. The pane
+  // itself is watched too: when its own box shrinks, the bottom the reader
+  // was holding moves out from under them.
+  const column = panel.firstElementChild;
+  let running = false;
+  let frame = 0;
+  let deadline = 0;
+  let lastHeight = 0;
+  let stableFrames = 0;
+
+  const stop = () => {
+    running = false;
+    if (frame) cancelAnimationFrame(frame);
+    frame = 0;
+  };
+
+  const checkNextFrame = () => {
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      if (!running) return;
+      const height = panel.scrollHeight - panel.clientHeight;
+      if (
+        height !== lastHeight ||
+        panel.scrollTop < height - BOTTOM_TOLERANCE_PX
+      ) {
+        // The record changed since the last measurement, or the pane no
+        // longer sits at the height it measured. Re-pin and keep looking.
+        lastHeight = height;
+        stableFrames = 0;
+        pinRecordToOpenAsk(panel);
+      } else {
+        stableFrames += 1;
+      }
+      if (stableFrames >= 2 || Date.now() > deadline) {
+        // The record's size stopped changing. That is the bottom. (A pane
+        // that cannot scroll at all is already at its bottom too.)
+        stop();
+      } else {
+        checkNextFrame();
+      }
+    });
+  };
+
+  const start = () => {
+    // Every trigger pins: an arrival on the record is never lost, even while
+    // a follow is already running — this one just re-arms its measurement.
+    // Reading the height after the pin measures a laid-out pane.
+    pinRecordToOpenAsk(panel);
+    lastHeight = panel.scrollHeight - panel.clientHeight;
+    stableFrames = 0;
+    deadline = Date.now() + FOLLOW_LIMIT_MS;
+    if (!running) {
+      running = true;
+      checkNextFrame();
+    }
+  };
+
+  const startIfAtBottom = () => {
+    const height = panel.scrollHeight - panel.clientHeight;
+    // "At the bottom" is judged against the bottom as the sheet last measured
+    // it *or* the one the pane reports now — a shrink moves the bottom up to
+    // a clamped reader, and the new measurement is taken so it cannot go
+    // stale for the next trigger. A reader who has scrolled away from both is
+    // not moved by a re-layout.
+    const readerIsAtABottom =
+      panel.scrollTop >= lastHeight - BOTTOM_TOLERANCE_PX ||
+      panel.scrollTop >= height - BOTTOM_TOLERANCE_PX;
+    lastHeight = height;
+    if (readerIsAtABottom) start();
+  };
+
+  // The record's own DOM is the fact that something landed on it — an answer,
+  // the next question, a re-rendered option list, a refusal — and each of
+  // those is an arrival at the open ask: always a reason to follow, even if
+  // the reader had scrolled away (#230).
+  const observer = new MutationObserver(start);
   observer.observe(panel, { childList: true, subtree: true });
-  return () => observer.disconnect();
+
+  let resizes: ResizeObserver | null = null;
+  if (typeof ResizeObserver === "function") {
+    resizes = new ResizeObserver(startIfAtBottom);
+    resizes.observe(panel);
+    if (column) resizes.observe(column);
+  }
+
+  start();
+  return () => {
+    stop();
+    observer.disconnect();
+    resizes?.disconnect();
+  };
 }
 
 /**
@@ -228,13 +347,13 @@ export function useSessionIntake({
     close();
   }
 
-  // Keep the record pinned to the open ask: once when its record appears, and
-  // again whenever the record changes — whatever the reason it changed.
+  // Keep the record at its bottom: once when its record appears, and again
+  // whenever the record changes or keeps growing — whatever the reason (#230,
+  // #236).
   useEffect(() => {
     const panel = record.ref.current;
     if (!open || !record.mounted || !panel) return;
-    pinRecordToOpenAsk(panel);
-    return onRecordChange(panel, () => pinRecordToOpenAsk(record.ref.current));
+    return followRecordBottom(panel);
   }, [open, record.mounted]);
 
   // …and keep the open ask above a keyboard that covers part of the screen
