@@ -11,7 +11,7 @@ A Next.js (App Router) + React + TypeScript app. Styling uses Tailwind with a se
 | `app/` | Routes. Root `layout.tsx` + one `page.tsx` per route (e.g. `/`, `/demo`). |
 | `views/` | The interactive "page" component. Client component that owns state. |
 | `components/` | Pure, props-driven leaf components + `ui/` primitives. |
-| `lib/` | Frontend helpers — `time.ts` (relative time), `utils.ts` (`cn()`). |
+| `lib/` | Frontend helpers — `time.ts` (relative time), `utils.ts` (`cn()`), `auth-events.ts` (cross-tree signals), `visual-viewport.ts` (the shell's measure of the room on screen), `keyboard-inset.ts` (what the on-screen keyboard covers, measured from the browser). |
 
 ## The 3-layer model
 
@@ -52,6 +52,7 @@ Navigate to the new route — the frame/top bar come free from the layout.
 - **`"use client"`**: only on the view and any leaf that uses state/hooks/events. Pure leaves stay server-compatible.
 - **Content frame**: reuse the standard wrapper verbatim — a scrollable `main` holding a centered, max-width, padded `div` (see `views/mine/index.tsx`).
 - **Styling**: use the design tokens, not raw hex — `text-on-surface`, `text-on-surface-variant`, `bg-surface-container`, `bg-surface-container-high`, `text-primary`, `border-outline-variant`, `text-error`, `font-display`, `font-mono`. (Full list in `app/globals.css`.)
+- **Full-height surfaces**: the shell publishes the room on screen — `--visual-viewport-height` and `--visual-viewport-offset-top`, measured by `lib/visual-viewport.ts` and kept current by `components/visual-viewport.tsx` — and a full-bleed surface is sized and pinned from those two values, never from `vh`/`dvh` or `inset-0` (#230: on iOS the layout viewport keeps its full height when the keyboard opens, so a surface measured against it ends under the keyboard). A surface that scrolls in its own pane re-pins its content when the measured *height* changes, the way the intake binding keeps its record at the open ask.
 - **Data flow**: the view is the **single state owner** — and the single **fetcher**; leaves receive props and report back via callbacks (see `NewSessionDialog` → `onAccept` → parent `refresh()`). The exception is **shared chrome**: frame-level components mounted in `components/frame.tsx` (top-bar widgets, dialogs) may own their own state and fetches, because they live outside any single page's view (e.g. `account-menu.tsx`, `sign-in-form.tsx`, `sign-in-modal.tsx` — the sign-in form belongs to the modal, which replaces the old login page, #147).
 - **Cross-component signals**: components outside each other's trees communicate through the plain event bus in `lib/auth-events.ts` (#147) — e.g. the API client asks the sign-in modal to open on a 401; surfaces re-fetch on a sign-in. A sign-out is announced too, but the account menu pairs it with a navigation to the public Explore list at the site root: a User-only page is never asked to render without an owner.
 - **Identity**: the viewer's sign-in state is settled once per page load by `hooks/use-sign-in-state.ts` — the `GET /auth/me` probe, where a 401 is a Visitor and never opens the modal. Chrome and views read that hook; nothing probes identity for itself, and the top bar offers Explore to a Visitor or Study to a User, never both (#143, ADR-0005).
@@ -70,10 +71,14 @@ Every backend interaction the view owns (#87) gets a loading state, an error sta
 ## Do / Don't
 
 - ✅ Add `app/<route>/page.tsx`; let the layout supply the frame.
+- ✅ Size a full-height surface from the measure the shell publishes (#230).
 - ✅ Keep route entries thin (render the view), and interactivity **plus data fetching** in the `views/` client component.
+- ✅ When a surface's content must stay reachable while the on-screen keyboard is out, follow `lib/keyboard-inset.ts` (`onKeyboardInsetChange`) and **reserve** the covered room in that surface's own scroll, then re-pin to the reserved bottom — The Keyboard Room Rule in `design/DESIGN.md` (#230). Where a browser takes the room out of its own layout viewport (`interactive-widget=resizes-content`, Chrome from 108) there is nothing to reserve — the surface is already the room the learner has — and the pane is pinned at its new bottom instead, following `lib/visual-viewport.ts` (`onVisualViewportChange`). The Session intake record is the surface that does this today; a new one follows the same rule rather than inventing its own number, and a surface that has not been measured against a keyboard is not assumed to need it.
 - ✅ Make leaves pure and reusable.
 - ❌ Don't re-wrap in `<Frame>`/`<TopBar>` in the page.
 - ❌ Don't fetch data in a route entry — views own their fetches (#87).
+- ❌ Don't size a surface `h-dvh`/`vh` or place one `inset-0` when it is meant to fill the screen; the visible viewport is what the shell publishes, and `dvh` is not what is on a phone with the keyboard out (#230).
+- ❌ Don't hard-code how tall a keyboard is, and don't expect a pane's scroll to reach something the keyboard is covering: on iOS the layout viewport keeps its full height, so the room has to be measured and reserved first (#230).
 - ❌ Don't put state in a leaf, or data-fetching in a component that isn't the view (shared chrome mounted in the frame is the exception — see Conventions).
 - ❌ Don't probe `GET /auth/me` from a component — read `useSignInState()` (#143/ADR-0005).
 - ✅ Session data comes from the typed backend client (`lib/api-client`); `types/api.d.ts` is generated (`npm run generate:types`), never hand-edited.

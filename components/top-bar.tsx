@@ -23,13 +23,19 @@ import { requestSignIn } from "@/lib/auth-events";
  * to open; a signed-in User sees the account menu instead. Both halves read
  * the page's one sign-in state (`useSignInState`), so the bar cannot
  * contradict itself or ask a signed-in person to sign in again.
+ *
+ * The bar is pinned to the top edge of the *visible* viewport, not the layout
+ * one (#230): the frame below it is sized from the same measure, and a bar left
+ * at `top-0` is the one piece of chrome that stays behind when the browser moves
+ * the room — the learner's own content following the keyboard while the way back
+ * to every other page does not.
  */
 export function TopBar() {
   const t = useTranslations("topbar");
   const { signedIn } = useSignInState();
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between bg-surface px-4 double-rule-b md:px-gutter">
+    <header className="fixed inset-x-0 top-[var(--visual-viewport-offset-top)] z-50 flex h-16 items-center justify-between bg-surface px-4 double-rule-b md:px-gutter">
       <div className="flex items-center gap-6">
         <Link
           href="/"

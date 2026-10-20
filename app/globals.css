@@ -6,6 +6,25 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* The visual viewport — the room on screen the browser leaves the app, stated
+ * once so every full-bleed surface sizes from it instead of from `vh` (#230).
+ * iOS Safari shrinks only the visual viewport when the software keyboard opens:
+ * `100dvh`, `vh` and `position: fixed` all keep the layout viewport's height,
+ * so a sheet sized that way keeps its bottom half under the keyboard.
+ * `lib/visual-viewport.ts` measures the real room and writes these two
+ * properties onto `<html>`; the values here are what the page has before it is
+ * measured — the layout viewport, which is the same room when no keyboard is
+ * out. The other two are that room's middle and the height a centred sheet may
+ * take inside it, kept here so the arithmetic lives in CSS. */
+:root {
+  --visual-viewport-height: 100dvh;
+  --visual-viewport-offset-top: 0px;
+  --visual-viewport-centre: calc(
+    var(--visual-viewport-offset-top) + var(--visual-viewport-height) / 2
+  );
+  --visual-viewport-sheet-max-height: calc(var(--visual-viewport-height) - 2rem);
+}
+
 /* Keyboard focus ring — the single visible-focus treatment for the app's
  * custom controls (shadcn primitives carry their own ring via Button).
  * Uses the theme's --ring token: engagement blue in both themes — focus is

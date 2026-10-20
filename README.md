@@ -61,6 +61,27 @@ How the two halves talk:
 
 In production the origin is `https://sandbox.lotp.xyz`, inlined at image build time like the backend URL (`.github/workflows/build-image.yml`); the sandbox's `frame-ancestors` policy is what lets this app frame it.
 
+### Another device on your network
+
+`npm run dev` listens on `0.0.0.0` and prints the address it considers yours (`Network: http://192.168.31.178:3000`), so a phone on the same network can open the app. Until you name that origin, the page it shows has nothing on it.
+
+Next refuses cross-origin requests for dev-only resources — `/_next/hmr` and the HMR payloads — unless the requesting origin is listed in `allowedDevOrigins`. Refused, the client never finishes booting: no hydration, so the fetch a view owns never runs, and what the browser keeps displaying is the loading panel the server rendered. Nothing is thrown, and the only trace is one line in the dev log:
+
+```
+⚠ Blocked cross-origin request to Next.js dev resource /_next/hmr from "192.168.31.178".
+```
+
+Name the host in `.env.local` (gitignored) and restart `npm run dev`; `next.config.ts` reads it through `devAllowedOrigins`:
+
+```bash
+# a host, or a comma-separated list — no scheme, no port
+DEV_ALLOWED_ORIGINS=192.168.31.178
+```
+
+Two ways to write it that fail with that same symptom, so they are worth knowing: `192.168.*`, because the wildcard covers subdomains and not IP prefixes, and `http://192.168.31.178:3000`, because the setting is matched against the host a browser names, not a URL.
+
+On that device you are a Visitor, not a copy of your signed-in session: the sign-in cookie is host-only unless `COOKIE_DOMAIN` names a shared parent (`core/security.cookie_policy` in the backend), so a cookie minted for `localhost` is never sent to a page served from the LAN address. To carry your sessions there too, point `NEXT_PUBLIC_BACKEND_URL` at the same host as the page you browse — `http://192.168.31.178:8001` — and sign in there; the backend's `CORS_ORIGINS` exists to list exactly that kind of origin.
+
 ## Backend integration
 
 The frontend talks to the backend's session API directly through a typed client — `lib/api-client.ts` (built on `openapi-fetch`) — instead of a Next.js proxy. New-session creation in the dialog and the Home History (`GET /sessions`, all phases, newest first) both go through it.

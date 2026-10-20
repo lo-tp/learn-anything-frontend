@@ -128,9 +128,17 @@
     "quiz": "测验",
     "correct": "答对了。",
     "notQuite": "不太对。",
-    "slideOf": "第 {n} / {total} 张",
     "prevSlide": "上一张",
     "nextSlide": "下一张",
+    "jump": {
+      "chip": "跳转到幻灯片（第 {n} / {total} 张）",
+      "title": "跳转到幻灯片",
+      "note": "选一页，直接跳过去。",
+      "label": "跳转到幻灯片",
+      "go": "前往",
+      "invalid": "请输入 1 到 {total} 之间的数字。",
+      "page": "第 {n} 页"
+    },
     "loading": {
       "title": "正在加载会话…",
       "note": "请稍候 — 你的会话正在加载。"

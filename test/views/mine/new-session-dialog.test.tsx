@@ -12,8 +12,9 @@ import {
   cleanup,
   fireEvent,
   screen,
+  within,
 } from "@testing-library/react";
-import { renderWithLocale } from "@/test/test-utils";
+import { renderWithLocale, stubVisualViewport } from "@/test/test-utils";
 import { NewSessionDialog } from "@/views/mine/new-session-dialog";
 import {
   ApiError,
@@ -36,6 +37,7 @@ import {
   REVIEW_LABEL,
   SHORT,
   TITLE,
+  clickSend,
   openDialog,
 } from "./test-fixtures";
 
@@ -57,6 +59,176 @@ const mockAnswerProbe = vi.mocked(answerProbe);
 const mockGeneratePlan = vi.mocked(generatePlan);
 const mockAdjustPlan = vi.mocked(adjustPlan);
 const mockApprovePlan = vi.mocked(approvePlan);
+
+/**
+ * jsdom lays nothing out: `scrollHeight` is 0 and assigning `scrollTop` goes
+ * nowhere. State a scrolled record instead — one whose bottom sits 1200px down
+ * its pane — and record every pin the sheet asks for.
+ */
+const RECORD_BOTTOM_PX = 1200;
+
+function stubRecordScroll() {
+  const proto = Element.prototype;
+  const originalTop = Object.getOwnPropertyDescriptor(proto, "scrollTop")!;
+  const originalHeight = Object.getOwnPropertyDescriptor(
+    proto,
+    "scrollHeight",
+  )!;
+  const pins: number[] = [];
+  Object.defineProperty(proto, "scrollTop", {
+    configurable: true,
+    get: () => pins.at(-1) ?? 0,
+    set: (value: number) => {
+      pins.push(value);
+    },
+  });
+  Object.defineProperty(proto, "scrollHeight", {
+    configurable: true,
+    get: () => RECORD_BOTTOM_PX,
+  });
+  return {
+    pins,
+    restore: () => {
+      Object.defineProperty(proto, "scrollTop", originalTop);
+      Object.defineProperty(proto, "scrollHeight", originalHeight);
+    },
+  };
+}
+
+/** Every focus the sheet asks for, with the options it gave the browser. */
+function stubFocus() {
+  const proto = HTMLElement.prototype;
+  const original = Object.getOwnPropertyDescriptor(proto, "focus")!;
+  const calls: unknown[] = [];
+  Object.defineProperty(proto, "focus", {
+    configurable: true,
+    value: function (this: HTMLElement, options?: FocusOptions) {
+      calls.push(options);
+    },
+  });
+  return {
+    calls,
+    restore: () => Object.defineProperty(proto, "focus", original),
+  };
+}
+
+/** The record pane the sheet renders. */
+function recordPane(): HTMLElement {
+  return document.querySelector(".overflow-y-auto") as HTMLElement;
+}
+
+/**
+ * A record that grows, shown as a real pane would show it: `clientHeight` is
+ * the room the pane has (so the bottom of the scroll is `scrollHeight`
+ * minus that), a pinned `scrollTop` clamps to the scrollable maximum the way
+ * a browser clamps it, and the bottom is a number the test can move — which
+ * is what the sheet's pinning actually has to cope with: content that lands
+ * keeps laying out afterwards, so the record ends lower than the height it
+ * had the moment it was measured (#236).
+ */
+const RECORD_PANE_VIEW_PX = 600;
+
+function stubRecordGrowth(startBottomPx: number) {
+  const proto = Element.prototype;
+  const originalTop = Object.getOwnPropertyDescriptor(proto, "scrollTop")!;
+  const originalHeight = Object.getOwnPropertyDescriptor(
+    proto,
+    "scrollHeight",
+  )!;
+  const originalClient = Object.getOwnPropertyDescriptor(
+    proto,
+    "clientHeight",
+  )!;
+  let bottom = startBottomPx;
+  const pins: number[] = [];
+  const maxScroll = () => Math.max(0, bottom - RECORD_PANE_VIEW_PX);
+  Object.defineProperty(proto, "scrollTop", {
+    configurable: true,
+    get: () => pins.at(-1) ?? 0,
+    set: (value: number) => {
+      pins.push(Math.min(value, maxScroll()));
+    },
+  });
+  Object.defineProperty(proto, "scrollHeight", {
+    configurable: true,
+    get: () => bottom,
+  });
+  Object.defineProperty(proto, "clientHeight", {
+    configurable: true,
+    get: () => RECORD_PANE_VIEW_PX,
+  });
+  /** The offset a pin at this bottom lands at, as a browser would clamp it. */
+  const offset = (bottomPx: number) =>
+    Math.max(0, bottomPx - RECORD_PANE_VIEW_PX);
+  return {
+    pins,
+    offset,
+    setBottom: (px: number) => {
+      bottom = px;
+    },
+    restore: () => {
+      Object.defineProperty(proto, "scrollTop", originalTop);
+      Object.defineProperty(proto, "scrollHeight", originalHeight);
+      Object.defineProperty(proto, "clientHeight", originalClient);
+    },
+  };
+}
+
+/**
+ * Animation frames and resize reports, driven by hand: `flushFrames(n)` runs
+ * the queued frames — one wave per call — and `fireResize()` delivers the
+ * resize observations the browser would have made. jsdom lays nothing out
+ * and ships no ResizeObserver, so the sheet's follow is only testable
+ * through its own frame and resize seams (#236).
+ */
+function stubFramesAndResizes() {
+  const win = window as Window & {
+    ResizeObserver?: typeof ResizeObserver | undefined;
+  };
+  const original = {
+    raf: window.requestAnimationFrame,
+    caf: window.cancelAnimationFrame,
+    ro: win.ResizeObserver,
+  };
+  const queue = new Map<number, FrameRequestCallback>();
+  let nextId = 1;
+  window.requestAnimationFrame = ((cb: FrameRequestCallback) => {
+    const id = nextId++;
+    queue.set(id, cb);
+    return id;
+  }) as typeof window.requestAnimationFrame;
+  window.cancelAnimationFrame = ((id: number) => {
+    queue.delete(id);
+  }) as typeof window.cancelAnimationFrame;
+  const observers: ResizeObserverCallback[] = [];
+  class StubResizeObserver {
+    constructor(cb: ResizeObserverCallback) {
+      observers.push(cb);
+    }
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  win.ResizeObserver = StubResizeObserver as unknown as typeof ResizeObserver;
+  return {
+    flushFrames: (waves = 1) => {
+      for (let wave = 0; wave < waves; wave += 1) {
+        const pending = [...queue.values()];
+        queue.clear();
+        for (const cb of pending) cb(0);
+      }
+    },
+    fireResize: () => {
+      for (const cb of observers) cb([], {} as unknown as ResizeObserver);
+    },
+    restore: () => {
+      window.requestAnimationFrame = original.raf;
+      window.cancelAnimationFrame = original.caf;
+      if (original.ro === undefined) delete win.ResizeObserver;
+      else win.ResizeObserver = original.ro;
+    },
+  };
+}
 
 beforeEach(() => {
   mockCreateSession.mockReset();
@@ -486,6 +658,98 @@ describe("NewSessionDialog", () => {
     expect(screen.getByText("10 m/s²")).toBeTruthy();
   });
 
+  it("keeps every option of a boundary check on the record after the learner picks (#231)", async () => {
+    mockCreateSession.mockResolvedValue({ session_id: "s-1", phase: "probing" });
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
+    mockAnswerProbe.mockResolvedValue({ phase: "probing", questions: [Q2] });
+    await openDialog(GOAL);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    // What the learner was shown, in the order they were shown it.
+    const question = await screen.findByText(Q1.text);
+    const buttons = Array.from(
+      question.closest("fieldset")!.querySelectorAll("button"),
+    ) as HTMLButtonElement[];
+    const presented = buttons.map((button) => button.textContent ?? "");
+    fireEvent.click(
+      buttons.find((button) => (button.textContent ?? "").includes("10 m/s²"))!,
+    );
+    await screen.findByText("Not quite.");
+
+    // The record keeps the whole question: every option the check presented,
+    // in the order it presented them (#231) — answering never reorders the
+    // learner's own answer out from under them.
+    const entry = screen.getByText(Q1.text).closest(".border-t") as HTMLElement;
+    const fields = Array.from(
+      entry.querySelectorAll(".bg-surface-container-lowest"),
+    ) as HTMLElement[];
+    expect(fields.map((field) => field.textContent ?? "")).toEqual(presented);
+
+    // The pick is still labelled as the learner's own, and the record states
+    // the verdict in the reserved inks: the wrong pick in correction ink, the
+    // option the check verifies in verified green, the alternatives in pencil.
+    const fieldOf = (option: string) =>
+      within(entry)
+        .getByText(option)
+        .closest(".bg-surface-container-lowest") as HTMLElement;
+    expect(within(entry).getByText("Your answer")).toBeTruthy();
+    expect(fieldOf("10 m/s²").classList.contains("text-error")).toBe(true);
+    expect(fieldOf("5 m/s²").classList.contains("text-tertiary")).toBe(true);
+    expect(fieldOf("2 m/s²").classList.contains("text-on-surface-variant")).toBe(
+      true,
+    );
+    expect(
+      fieldOf("I don't know").classList.contains("text-on-surface-variant"),
+    ).toBe(true);
+
+    // The verified option is named in words too — the record states its
+    // verdict in the reserved ink, never in colour alone.
+    const verifiedLabel = fieldOf("5 m/s²")
+      .previousElementSibling as HTMLElement;
+    expect(verifiedLabel.textContent).toBe("Correct.");
+    expect(verifiedLabel.classList.contains("text-tertiary")).toBe(true);
+    expect(within(entry).getAllByText("Correct.")).toHaveLength(1);
+  });
+
+  it("keeps the whole question on the record after a right answer too (#231)", async () => {
+    mockCreateSession.mockResolvedValue({ session_id: "s-1", phase: "probing" });
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
+    mockAnswerProbe.mockResolvedValue({ phase: "probing", questions: [Q2] });
+    await openDialog(GOAL);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    const question = await screen.findByText(Q1.text);
+    const buttons = Array.from(
+      question.closest("fieldset")!.querySelectorAll("button"),
+    ) as HTMLButtonElement[];
+    fireEvent.click(
+      buttons.find((button) => (button.textContent ?? "").includes("5 m/s²"))!,
+    );
+    await screen.findByText("Correct.");
+
+    const entry = screen.getByText(Q1.text).closest(".border-t") as HTMLElement;
+    for (const option of Q1.options) {
+      expect(within(entry).getByText(option)).toBeTruthy();
+    }
+    // The verified pick wears the verified ink; the alternatives stay pencil.
+    const picked = within(entry)
+      .getByText("5 m/s²")
+      .closest(".bg-surface-container-lowest") as HTMLElement;
+    expect(picked.classList.contains("text-tertiary")).toBe(true);
+    expect(within(entry).getByText("Your answer")).toBeTruthy();
+    // A pick that was right needs no second name: the record's one
+    // "Correct." is the verdict caption itself.
+    expect(within(entry).getAllByText("Correct.")).toHaveLength(1);
+    expect(picked.previousElementSibling?.textContent).toBe("Your answer");
+    expect(
+      within(entry)
+        .getByText("20 m/s²")
+        .closest(".bg-surface-container-lowest")!.classList.contains(
+          "text-on-surface-variant",
+        ),
+    ).toBe(true);
+  });
+
   it("renders the end of the probe as a panel that names what the learner did (#204)", async () => {
     mockCreateSession.mockResolvedValue({ session_id: "s-1", phase: "probing" });
     mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
@@ -761,29 +1025,95 @@ describe("NewSessionDialog", () => {
       phase: "clarifying",
       clarifying_questions: ["One more detail, please."],
     });
+    const record = stubRecordScroll();
     await openDialog(SHORT);
-    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    clickSend();
     await screen.findByText("A bit more, please.");
-
-    // jsdom performs no layout, so spy the panel's scrollTop setter and
-    // verify the effect pins it to the panel's scrollHeight.
-    const panel = document.querySelector(
-      ".overflow-y-auto",
-    ) as HTMLElement;
-    const setScrollTop = vi.fn();
-    Object.defineProperty(panel, "scrollTop", {
-      set: setScrollTop,
-      get: () => 0,
-      configurable: true,
-    });
 
     fireEvent.change(screen.getByLabelText("A bit more, please."), {
       target: { value: "More detail." },
     });
-    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+    clickSend();
     await screen.findByText("One more detail, please.");
 
-    expect(setScrollTop).toHaveBeenCalledWith(panel.scrollHeight);
+    // jsdom lays nothing out, so `stubRecordScroll` states the record's scroll:
+    // a pin is an assignment to its bottom.
+    expect(record.pins).toContain(RECORD_BOTTOM_PX);
+
+    record.restore();
+  });
+
+  it("pins the record to the open ask again when the keyboard takes the room (#230)", async () => {
+    // The reported iPhone case: the sheet is 844px tall with the keyboard out,
+    // 514px of it is left above the keyboard once it is up. A scroll container
+    // keeps its offset from the top when it shrinks, so the field being filled
+    // — the last item in the record — is what ends under the keyboard.
+    const stub = stubVisualViewport({ innerHeight: 844, height: 844 });
+    try {
+      await openDialog();
+      const panel = document.querySelector(".overflow-y-auto") as HTMLElement;
+      const setScrollTop = vi.fn();
+      Object.defineProperty(panel, "scrollTop", {
+        set: setScrollTop,
+        get: () => 0,
+        configurable: true,
+      });
+      Object.defineProperty(panel, "scrollHeight", { value: 1200, configurable: true });
+
+      stub.resizeTo({ height: 514 });
+      expect(setScrollTop).toHaveBeenCalledWith(1200);
+
+      // A room that only *moves* is the browser panning after a focused field,
+      // and a room that grows hides nothing: neither touches the scroll the
+      // reader chose. What reserves the room, and what pins with it, is a
+      // keyboard covering the screen — which this has stopped doing.
+      setScrollTop.mockClear();
+      stub.panTo(37);
+      stub.resizeTo({ height: 844 });
+      expect(setScrollTop).not.toHaveBeenCalled();
+    } finally {
+      stub.restore();
+    }
+  });
+
+  /** Watch every `scrollTop` the page writes while the sheet mounts: the record
+   *  is the one that may not be touched unless the room asks for it. */
+  function watchScrollWrites() {
+    const original = Object.getOwnPropertyDescriptor(Element.prototype, "scrollTop");
+    const written: Element[] = [];
+    Object.defineProperty(Element.prototype, "scrollTop", {
+      configurable: true,
+      get: original?.get,
+      set(this: Element, value: number) {
+        written.push(this);
+        original?.set?.call(this, value);
+      },
+    });
+    return {
+      written,
+      restore: () => {
+        if (original) {
+          Object.defineProperty(Element.prototype, "scrollTop", original);
+        }
+      },
+    };
+  }
+
+  it("pins the record when the sheet opens into a room the keyboard had already taken (#230)", async () => {
+    // The case the report showed: a learner reaching the sheet from a field they
+    // were already typing in. Nothing shrinks in front of the sheet — the room it
+    // opens into is already the keyboard's — so the measure has to be read as a
+    // fact the moment the record appears, not as a change to wait for.
+    const stub = stubVisualViewport({ innerHeight: 844, height: 514 });
+    const scrollWrites = watchScrollWrites();
+    try {
+      await openDialog();
+      const panel = document.querySelector(".overflow-y-auto") as HTMLElement;
+      expect(scrollWrites.written).toContain(panel);
+    } finally {
+      scrollWrites.restore();
+      stub.restore();
+    }
   });
 
   it("bounds the sheet so the record scrolls instead of overflowing it", async () => {
@@ -800,11 +1130,21 @@ describe("NewSessionDialog", () => {
     expect(sheet.classList.contains("flex")).toBe(true);
     expect(sheet.classList.contains("grid")).toBe(false);
 
+    // The room the sheet is bounded to is the measured one, not the layout
+    // viewport (#230): the shell states it as two properties and the sheet is
+    // sized and pinned from them.
+    expect(
+      sheet.classList.contains("h-[var(--visual-viewport-height)]"),
+    ).toBe(true);
+    expect(
+      sheet.classList.contains("top-[var(--visual-viewport-offset-top)]"),
+    ).toBe(true);
+
     const form = sheet.querySelector("form") as HTMLElement;
     expect(form.classList.contains("flex-1")).toBe(true);
     expect(form.classList.contains("min-h-0")).toBe(true);
 
-    const panel = document.querySelector(".overflow-y-auto") as HTMLElement;
+    const panel = recordPane();
     expect(panel.classList.contains("flex-1")).toBe(true);
     expect(panel.classList.contains("min-h-0")).toBe(true);
 
@@ -1113,5 +1453,263 @@ describe("NewSessionDialog — the first field", () => {
     fireEvent.submit(screen.getByRole("textbox"));
     expect(mockCreateSession).not.toHaveBeenCalled();
     expect(screen.queryByText(/Something went wrong/)).toBeNull();
+  });
+});
+
+describe("NewSessionDialog — the record above the keyboard (#230)", () => {
+  afterEach(() => {
+    delete (window as unknown as { visualViewport?: unknown }).visualViewport;
+  });
+
+  it("reserves the room an opening keyboard covers at the record's bottom, and pins to it", async () => {
+    const stub = stubVisualViewport({ innerHeight: 844, height: 844 });
+    const record = stubRecordScroll();
+    await openDialog();
+    const panel = recordPane();
+    const before = record.pins.length;
+
+    // The keyboard opens: 330px of the screen is gone, and the record's own
+    // scroll is the only way to reach the field being answered.
+    stub.resizeTo({ height: 514 });
+
+    expect(panel.style.paddingBottom).toBe("330px");
+    expect(record.pins.length).toBeGreaterThan(before);
+    expect(record.pins.at(-1)).toBe(RECORD_BOTTOM_PX);
+
+    record.restore();
+    stub.restore();
+  });
+
+  it("reserves the room when the sheet opens into a keyboard already up", async () => {
+    // The reported case: the learner arrives at the sheet from a field they were
+    // typing in, so nothing shrinks in front of the sheet — the room it opens
+    // into is already the keyboard's.
+    const stub = stubVisualViewport({ innerHeight: 844, height: 514 });
+    const record = stubRecordScroll();
+    await openDialog();
+
+    expect(recordPane().style.paddingBottom).toBe("330px");
+    expect(record.pins).toContain(RECORD_BOTTOM_PX);
+
+    record.restore();
+    stub.restore();
+  });
+
+  it("takes the reservation back when the keyboard goes, and leaves the reader's scroll alone", async () => {
+    const stub = stubVisualViewport({ innerHeight: 844, height: 514 });
+    const record = stubRecordScroll();
+    const frames = stubFramesAndResizes(); // no follow frames while the reader scrolls
+    await openDialog();
+    try {
+      const panel = recordPane();
+      expect(panel.style.paddingBottom).toBe("330px");
+
+      // The reader scrolls up to re-read a question the app asked earlier.
+      panel.scrollTop = 400;
+
+      stub.resizeTo({ height: 844 });
+
+      // Nothing covers the record any more, so it is not padded — and nothing
+      // is scrolled either: the room is whole again and the scroll is the
+      // reader's.
+      expect(panel.style.paddingBottom).toBe("");
+      expect(record.pins.at(-1)).toBe(400);
+    } finally {
+      frames.restore();
+      record.restore();
+      stub.restore();
+    }
+  });
+
+  it("leaves the record unpadded where no room is taken", async () => {
+    const stub = stubVisualViewport({ innerHeight: 844, height: 844 });
+    const record = stubRecordScroll();
+    await openDialog();
+
+    expect(recordPane().style.paddingBottom).toBe("");
+
+    record.restore();
+    stub.restore();
+  });
+
+  it("re-pins when the record changes for a reason the entry count cannot see", async () => {
+    // A boundary pick adds no entry: the card on the record changes state and
+    // the refusal is printed beneath it, while the open ask re-renders below
+    // that. The record visibly got longer and the keyboard is still up — only
+    // watching the record itself notices, which is why the pin follows the
+    // record rather than a count of entries (#230).
+    mockCreateSession.mockResolvedValue({ session_id: "s-1", phase: "probing" });
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
+    mockAnswerProbe.mockRejectedValue(new Error("no answer came back"));
+    const stub = stubVisualViewport({ innerHeight: 844, height: 844 });
+    const record = stubRecordScroll();
+    await openDialog(GOAL);
+    clickSend();
+    await screen.findByText(Q1.text);
+    const before = record.pins.length;
+
+    fireEvent.click(screen.getByRole("button", { name: /5 m\/s²/ }));
+    await screen.findByText(/Something went wrong/);
+
+    expect(record.pins.length).toBeGreaterThan(before);
+
+    record.restore();
+    stub.restore();
+  });
+
+  it("holds the reservation through an ask that is a choice, not a field", async () => {
+    // The record's ask is not always a textarea: at the boundary it is a set of
+    // option rows. The reservation belongs to the record, not to the control, so
+    // it has to survive that change — and the keyboard closing still has to take
+    // it back off.
+    mockCreateSession.mockResolvedValue({ session_id: "s-1", phase: "probing" });
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
+    const stub = stubVisualViewport({ innerHeight: 844, height: 514 });
+    const record = stubRecordScroll();
+    await openDialog(GOAL);
+    const panel = recordPane();
+    expect(panel.style.paddingBottom).toBe("330px");
+
+    clickSend();
+    await screen.findByText(Q1.text);
+    expect(document.querySelector("textarea")).toBeNull();
+
+    stub.resizeTo({ height: 844 });
+
+    expect(panel.style.paddingBottom).toBe("");
+
+    record.restore();
+    stub.restore();
+  });
+
+  it("asks the browser not to scroll when it focuses the field", async () => {
+    const stub = stubVisualViewport({ innerHeight: 844, height: 514 });
+    const focus = stubFocus();
+    await openDialog();
+
+    // The record above the field has just been pinned to it. A browser asked to
+    // chase the field pans the whole page a second time, which is what puts the
+    // pinned band and the record out of sight (#230).
+    expect(focus.calls.some((o) => (o as FocusOptions)?.preventScroll === true)).toBe(
+      true,
+    );
+
+    focus.restore();
+    stub.restore();
+  });
+});
+
+describe("NewSessionDialog — keeping the record at its bottom (#236)", () => {
+  it("re-pins when the record finishes laying out after the pin that measured it", async () => {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: ["What do you already know about forces?"],
+    });
+    const record = stubRecordGrowth(1200);
+    const frames = stubFramesAndResizes();
+    try {
+      await openDialog(GOAL);
+      clickSend();
+
+      // A question lands on the record, and the sheet pins to the bottom the
+      // record measures at that moment — clamped, as a browser clamps, to the
+      // scrollable maximum.
+      await screen.findByText("What do you already know about forces?");
+      expect(record.pins.at(-1)).toBe(record.offset(1200));
+
+      // …then that content finishes laying out — the equation renders, the
+      // text re-wraps — and the record ends 300px lower without another DOM
+      // change. The follow re-measures in the frames after the pin and finds
+      // the bottom the first measurement missed (#236: the reported failure
+      // was the scroll finishing before the appended content arrived).
+      record.setBottom(1500);
+      frames.flushFrames(1);
+      expect(record.pins.at(-1)).toBe(record.offset(1500));
+
+      // The follow stops when the bottom stops moving: the pane is at rest,
+      // not chased forever.
+      const settled = record.pins.length;
+      frames.flushFrames(3);
+      expect(record.pins).toHaveLength(settled);
+    } finally {
+      frames.restore();
+      record.restore();
+    }
+  });
+
+  it("follows a record that gets longer with no DOM change at all", async () => {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: ["What do you already know about forces?"],
+    });
+    const record = stubRecordGrowth(1200);
+    const frames = stubFramesAndResizes();
+    try {
+      await openDialog(GOAL);
+      clickSend();
+      await screen.findByText("What do you already know about forces?");
+      frames.flushFrames(2); // let the first follow settle at 1200
+
+      // A web font arrives: every recorded line reflows a little taller.
+      // No node was added or changed — a MutationObserver can never see this
+      // one. The record column's own resize is the fact, and the sheet
+      // treats it as one.
+      record.setBottom(1800);
+      frames.fireResize();
+      expect(record.pins.at(-1)).toBe(record.offset(1800));
+    } finally {
+      frames.restore();
+      record.restore();
+    }
+  });
+
+  it("leaves a reader who scrolled up out of a re-layout, and returns to what lands", async () => {
+    mockCreateSession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: ["What do you already know about forces?"],
+    });
+    mockClarifySession.mockResolvedValue({
+      session_id: "s-1",
+      phase: "clarifying",
+      clarifying_questions: ["And what happens when the mass changes?"],
+    });
+    const record = stubRecordGrowth(1200);
+    const frames = stubFramesAndResizes();
+    try {
+      await openDialog(GOAL);
+      clickSend();
+      await screen.findByText("What do you already know about forces?");
+      frames.flushFrames(2); // let the first follow settle at 1200
+
+      // The reader scrolls up to re-read the opening lines.
+      const panel = recordPane();
+      panel.scrollTop = 400;
+
+      // Then a web font arrives and every recorded line reflows taller. The
+      // new bottom is not a reason to move a reader who had already scrolled
+      // away from the old one (#230's promise, extended to re-lays).
+      record.setBottom(1800);
+      frames.fireResize();
+      expect(record.pins.at(-1)).toBe(400);
+      const settled = record.pins.length;
+      frames.flushFrames(3);
+      expect(record.pins).toHaveLength(settled);
+
+      // An answer arriving on the record is different: it is the open ask
+      // moving, and the sheet goes back to it even when the reader had
+      // scrolled away.
+      fireEvent.change(await screen.findByRole("textbox"), {
+        target: { value: "Forces make things speed up." },
+      });
+      clickSend();
+      await screen.findByText("Forces make things speed up.");
+      expect(record.pins.at(-1)).toBe(record.offset(1800));
+    } finally {
+      frames.restore();
+      record.restore();
+    }
   });
 });

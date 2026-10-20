@@ -128,9 +128,17 @@
     "quiz": "Quiz",
     "correct": "Correct.",
     "notQuite": "Not quite.",
-    "slideOf": "Slide {n} of {total}",
     "prevSlide": "Previous slide",
     "nextSlide": "Next slide",
+    "jump": {
+      "chip": "Go to a slide (slide {n} of {total})",
+      "title": "Go to a slide",
+      "note": "Pick a page to go straight to it.",
+      "label": "Go to slide",
+      "go": "Go",
+      "invalid": "Type a number between 1 and {total}.",
+      "page": "Page {n}"
+    },
     "loading": {
       "title": "Loading session…",
       "note": "Hang tight — your session is loading."

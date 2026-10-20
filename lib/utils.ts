@@ -70,6 +70,15 @@ export function optionLetter(index: number): string {
 }
 
 /**
+ * The page number, zero-padded to at least two digits — like a form page
+ * number. The footer's slide counter and the go-to dialog's page grid both
+ * print the deck's pages in this voice (#229).
+ */
+export function padPage(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/**
  * A display order for one question: a permutation of 0..n-1.
  * When `pinLast` is true the last index is kept fixed at the end
  * (the probe's "I don't know" option); all other options are shuffled.
@@ -83,4 +92,26 @@ export function displayOrder(
   return pinLast
     ? [...shuffleIndices(n - 1, random), n - 1]
     : shuffleIndices(n, random);
+}
+
+/**
+ * A draw seeded from one identity: the same seed always yields the same
+ * sequence (FNV-1a hash into a mulberry32 generator). A card's option order
+ * is seeded from the card's own id, so every rendering of that card — the
+ * open ask and the record entry that takes its place — draws the same
+ * permutation: answering a check never reorders the options the learner is
+ * looking at out from under their own answer (#231).
+ */
+export function seededRandom(seed: string): () => number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return () => {
+    h = (h + 0x6d2b79f5) | 0;
+    let t = Math.imul(h ^ (h >>> 15), h | 1);
+    t = (t + Math.imul(t ^ (t >>> 7), t | 61)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
