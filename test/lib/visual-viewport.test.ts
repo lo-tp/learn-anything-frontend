@@ -44,7 +44,44 @@ describe("measureVisualViewport", () => {
         innerHeight: 844,
         visualViewport: { height: 514, offsetTop: 0 },
       }),
-    ).toEqual({ heightPx: 514, offsetTopPx: 0 });
+    ).toEqual({ heightPx: 514, offsetTopPx: 0, roomTakenByBrowserPx: 330 });
+  });
+
+  it("states how much shorter the room is than the layout viewport (#230)", () => {
+    // The consumer needs a state it can read on its first measure, not a change
+    // it happened to be present for: a sheet opened while the keyboard is up has
+    // never seen the room any other way.
+    expect(
+      measureVisualViewport({
+        innerHeight: 844,
+        visualViewport: { height: 514, offsetTop: 0 },
+      }),
+    ).toEqual({ heightPx: 514, offsetTopPx: 0, roomTakenByBrowserPx: 330 });
+
+    // Panning moves the room and takes none of it: the same keyboard, the same
+    // reading.
+    expect(
+      measureVisualViewport({
+        innerHeight: 844,
+        visualViewport: { height: 514, offsetTop: 37 },
+      }),
+    ).toEqual({ heightPx: 514, offsetTopPx: 37, roomTakenByBrowserPx: 330 });
+
+    // The keyboard out: the room is the viewport.
+    expect(
+      measureVisualViewport({
+        innerHeight: 844,
+        visualViewport: { height: 844, offsetTop: 0 },
+      }),
+    ).toEqual({ heightPx: 844, offsetTopPx: 0, roomTakenByBrowserPx: 0 });
+
+    // Heights differing by a hair are a browser mid-transition, not a keyboard.
+    expect(
+      measureVisualViewport({
+        innerHeight: 844,
+        visualViewport: { height: 843.4, offsetTop: 0 },
+      }),
+    ).toEqual({ heightPx: 843.4, offsetTopPx: 0, roomTakenByBrowserPx: 0 });
   });
 
   it("keeps the room the browser has panned away", () => {
@@ -55,7 +92,7 @@ describe("measureVisualViewport", () => {
         innerHeight: 844,
         visualViewport: { height: 514, offsetTop: 37 },
       }),
-    ).toEqual({ heightPx: 514, offsetTopPx: 37 });
+    ).toEqual({ heightPx: 514, offsetTopPx: 37, roomTakenByBrowserPx: 330 });
   });
 
   it("never claims more room than the layout viewport has", () => {
@@ -64,13 +101,14 @@ describe("measureVisualViewport", () => {
         innerHeight: 844,
         visualViewport: { height: 900, offsetTop: 0 },
       }),
-    ).toEqual({ heightPx: 844, offsetTopPx: 0 });
+    ).toEqual({ heightPx: 844, offsetTopPx: 0, roomTakenByBrowserPx: 0 });
   });
 
   it("measures the layout viewport where there is no visual-viewport API", () => {
     expect(measureVisualViewport({ innerHeight: 900 })).toEqual({
       heightPx: 900,
       offsetTopPx: 0,
+      roomTakenByBrowserPx: 0,
     });
   });
 
@@ -171,10 +209,18 @@ describe("onVisualViewportChange", () => {
     const seen = vi.fn();
     const unsubscribe = onVisualViewportChange(seen);
     // A subscriber is told where the room is before it can be told it moved.
-    expect(seen).toHaveBeenCalledWith({ heightPx: 844, offsetTopPx: 0 });
+    expect(seen).toHaveBeenCalledWith({
+      heightPx: 844,
+      offsetTopPx: 0,
+      roomTakenByBrowserPx: 0,
+    });
 
     stub.resizeTo({ height: 514, offsetTop: 0 });
-    expect(seen).toHaveBeenLastCalledWith({ heightPx: 514, offsetTopPx: 0 });
+    expect(seen).toHaveBeenLastCalledWith({
+      heightPx: 514,
+      offsetTopPx: 0,
+      roomTakenByBrowserPx: 330,
+    });
 
     unsubscribe();
     stub.resizeTo({ height: 400, offsetTop: 0 });
@@ -193,8 +239,16 @@ describe("onVisualViewportChange", () => {
     expect(stub.added).toEqual(["resize", "scroll"]);
 
     stub.resizeTo({ height: 514, offsetTop: 0 });
-    expect(first).toHaveBeenLastCalledWith({ heightPx: 514, offsetTopPx: 0 });
-    expect(second).toHaveBeenLastCalledWith({ heightPx: 514, offsetTopPx: 0 });
+    expect(first).toHaveBeenLastCalledWith({
+      heightPx: 514,
+      offsetTopPx: 0,
+      roomTakenByBrowserPx: 330,
+    });
+    expect(second).toHaveBeenLastCalledWith({
+      heightPx: 514,
+      offsetTopPx: 0,
+      roomTakenByBrowserPx: 330,
+    });
 
     offFirst();
     offSecond();

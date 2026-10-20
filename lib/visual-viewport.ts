@@ -34,7 +34,30 @@ const OFFSET_PROPERTY = "--visual-viewport-offset-top";
 export type VisualViewportMeasure = {
   heightPx: number;
   offsetTopPx: number;
+  /**
+   * How much shorter the room is than the layout viewport offers — the software
+   * keyboard, in practice. `0` means the room is the whole viewport.
+   *
+   * It is a measure of *size*, not position: a browser that pans the page after
+   * a focused field moves the room without taking any of it, and this stays the
+   * same. Stated as a *state* rather than a change on purpose (#230). A surface
+   * that only reacts to the room *shrinking* never learns that the keyboard was
+   * already up when it mounted, and that is how a sheet opened straight from a
+   * focused field leaves its open ask under the keyboard with nothing left to
+   * move it.
+   */
+  roomTakenByBrowserPx: number;
 };
+
+/** Sub-pixel disagreement between the two viewports is measurement noise — a
+ *  browser reports odd heights mid-transition — not a keyboard. */
+const ROOM_TOLERANCE_PX = 1;
+
+/** How much shorter the room is than the layout viewport. */
+function roomTakenByBrowser(innerHeight: number, heightPx: number): number {
+  const taken = innerHeight - heightPx;
+  return taken > ROOM_TOLERANCE_PX ? Math.round(taken) : 0;
+}
 
 /** What a measurement reads: the layout viewport, and — where the browser
  *  reports one — the visual viewport inside it. */
@@ -60,12 +83,20 @@ export function measureVisualViewport(
     if (!(heightPx > 0)) return null;
     // Panning the layout viewport down leaves its top above the screen; the
     // room starts at the edge the browser has not covered.
-    return { heightPx, offsetTopPx: Math.max(0, room.offsetTop) };
+    return {
+      heightPx,
+      offsetTopPx: Math.max(0, room.offsetTop),
+      roomTakenByBrowserPx: roomTakenByBrowser(source.innerHeight, heightPx),
+    };
   }
   // No visual-viewport API: the layout viewport is the only room there is, and
-  // `100dvh` already describes it.
+  // `100dvh` already describes it. Nothing is covering it — and a browser that
+  // resizes the layout viewport itself (the `interactive-widget=resizes-content`
+  // behaviour Android offers) reports a room equal to it, so "the keyboard is
+  // up" there reads only from the room changing. That is the holder's business;
+  // this function reports what the two viewports actually say.
   return source.innerHeight > 0
-    ? { heightPx: source.innerHeight, offsetTopPx: 0 }
+    ? { heightPx: source.innerHeight, offsetTopPx: 0, roomTakenByBrowserPx: 0 }
     : null;
 }
 
