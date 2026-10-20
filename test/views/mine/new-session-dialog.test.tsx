@@ -1043,6 +1043,38 @@ describe("NewSessionDialog", () => {
     record.restore();
   });
 
+  it("pins the record to the open ask again when the keyboard takes the room (#230)", async () => {
+    // The reported iPhone case: the sheet is 844px tall with the keyboard out,
+    // 514px of it is left above the keyboard once it is up. A scroll container
+    // keeps its offset from the top when it shrinks, so the field being filled
+    // — the last item in the record — is what ends under the keyboard.
+    const stub = stubVisualViewport({ innerHeight: 844, height: 844 });
+    try {
+      await openDialog();
+      const panel = document.querySelector(".overflow-y-auto") as HTMLElement;
+      const setScrollTop = vi.fn();
+      Object.defineProperty(panel, "scrollTop", {
+        set: setScrollTop,
+        get: () => 0,
+        configurable: true,
+      });
+      Object.defineProperty(panel, "scrollHeight", { value: 1200, configurable: true });
+
+      stub.resizeTo({ height: 514 });
+      expect(setScrollTop).toHaveBeenCalledWith(1200);
+
+      // A room that only *moves* is the browser panning after a focused field,
+      // and a room that grows hides nothing: neither touches the scroll the
+      // reader chose.
+      setScrollTop.mockClear();
+      stub.panTo(37);
+      stub.resizeTo({ height: 844 });
+      expect(setScrollTop).not.toHaveBeenCalled();
+    } finally {
+      stub.restore();
+    }
+  });
+
   it("bounds the sheet so the record scrolls instead of overflowing it", async () => {
     // jsdom has no layout engine, so this guards the height contract the
     // scrolling depends on: the sheet is a bounded flex column, the form is
@@ -1056,6 +1088,16 @@ describe("NewSessionDialog", () => {
     ) as HTMLElement;
     expect(sheet.classList.contains("flex")).toBe(true);
     expect(sheet.classList.contains("grid")).toBe(false);
+
+    // The room the sheet is bounded to is the measured one, not the layout
+    // viewport (#230): the shell states it as two properties and the sheet is
+    // sized and pinned from them.
+    expect(
+      sheet.classList.contains("h-[var(--visual-viewport-height)]"),
+    ).toBe(true);
+    expect(
+      sheet.classList.contains("top-[var(--visual-viewport-offset-top)]"),
+    ).toBe(true);
 
     const form = sheet.querySelector("form") as HTMLElement;
     expect(form.classList.contains("flex-1")).toBe(true);

@@ -39,10 +39,14 @@ import { useSessionIntake } from "./use-session-intake";
  * The sheet has one measure: the record column is 30rem wide (`SHEET_MEASURE`)
  * and everything in it — a recorded answer, the question above it, an open
  * field, an option row — fills it, so no item on the form is wider than the
- * answer it sits beside (#204: "Equal width"). Its *height* is the viewport's
- * and stays that way on purpose: the room an on-screen keyboard covers is
- * reserved inside the record's own scroll, by the binding, and the record is
- * pinned to the reserved bottom — The Keyboard Room Rule (#230).
+ * answer it sits beside (#204: "Equal width"). Its *height* is not its own
+ * either: the sheet takes the shared primitive's **full-bleed** placement, which
+ * sizes it to the visible viewport — the room the browser leaves the app after
+ * its own furniture — because a sheet sized to the *layout* viewport keeps its
+ * lower half, where the open ask is, under the iPhone's keyboard (#230). What a
+ * keyboard covers on top of that room is reserved inside the record's own
+ * scroll, by the binding, and the record is pinned to the reserved bottom — The
+ * Visible-Viewport Rule and The Keyboard Room Rule (#230).
  *
  * While a request is in flight the open ask's control is replaced by a line
  * saying what is happening; nothing floats over the sheet.
@@ -467,11 +471,14 @@ export function NewSessionDialog({
         showCloseButton={false}
         // Opt out of Radix's open auto-focus (it targets the close button);
         // the binding owns focus and puts it in the field when one is open.
-        // Full-screen, and a flex column rather than the shared grid: the
-        // record is the child that shrinks and scrolls, so the header and the
-        // open ask are never clipped off-screen by a long record.
+        // Full-bleed — the sheet is the visible viewport, not a sheet placed in
+        // it — and a flex column rather than the shared grid: the record is the
+        // child that shrinks and scrolls, so the header and the open ask are
+        // never clipped off-screen by a long record, and never displaced by a
+        // keyboard (#230).
+        placement="full-bleed"
         onOpenAutoFocus={(event) => event.preventDefault()}
-        className="inset-0 flex h-full w-full max-h-none max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 bg-surface p-0 text-on-surface sm:max-w-none"
+        className="flex flex-col gap-0 overflow-hidden bg-surface text-on-surface"
       >
         <form onSubmit={handleSubmit} className="flex min-h-0 w-full flex-1 flex-col">
           {/* Masthead — the sheet's original header, kept as the owner asked
