@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Archivo, JetBrains_Mono, Source_Sans_3 } from "next/font/google";
 import { notFound } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
@@ -6,6 +6,31 @@ import { getMessages, getTranslations, setRequestLocale } from "next-intl/server
 import { hasLocale, localeTag, routing } from "@/i18n/routing";
 import "../globals.css";
 import "temml/dist/Temml-Local.css";
+import { VisualViewportMetrics } from "@/components/visual-viewport";
+
+/**
+ * The viewport declaration (#230). `interactive-widget=resizes-content` is the
+ * standards-track way to tell a browser that an on-screen keyboard takes room
+ * out of the layout viewport instead of merely drawing over it. Chrome honours
+ * it from 108; WebKit does not — WebKit bug 259770 and
+ * WebKit/standards-positions#65 are both still open, and no viewport meta tag
+ * changes what iPhone Safari does with a keyboard. So this is asked for as the
+ * honest answer where a browser honours it — the layout viewport, `100dvh` and
+ * every fixed surface then become the room the learner actually has — and
+ * `lib/visual-viewport.ts` measures that same room off `window.visualViewport`
+ * where a browser does not, publishing it as the properties those surfaces are
+ * sized from. One measure, two routes: a declaration where the browser will act
+ * on it, a measurement where it will not.
+ *
+ * `width` and `initial-scale` are Next's own defaults; they are written out
+ * here because this declaration is read as the app's viewport contract, not as
+ * a diff against a framework default.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  interactiveWidget: "resizes-content",
+};
 
 /**
  * Pre-paint theme script: apply the stored theme (or the OS preference)
@@ -108,7 +133,12 @@ export default async function RootLayout({
       <head>
         <ThemeInitScript />
       </head>
-      <body className="h-dvh overflow-hidden">
+      <body className="fixed inset-x-0 top-[var(--visual-viewport-offset-top)] h-[var(--visual-viewport-height)] overflow-hidden">
+        {/* The measure the shell is sized from, kept current for the life of
+            the page (#230). It sits here, next to the pre-paint script, because
+            both are the shell's own boot-time business: one settles which theme
+            the page paints with, the other which room it paints into. */}
+        <VisualViewportMetrics />
         <NextIntlClientProvider locale={locale} messages={await getMessages()}>
           {children}
         </NextIntlClientProvider>

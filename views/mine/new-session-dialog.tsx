@@ -12,7 +12,7 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { cn, displayOrder } from "@/lib/utils";
+import { cn, displayOrder, seededRandom } from "@/lib/utils";
 import type { PlanBody } from "@/lib/api-client";
 import type { Bubble, IntakeAsk, ProbeCard } from "./intake";
 import { useSessionIntake } from "./use-session-intake";
@@ -25,7 +25,10 @@ import { useSessionIntake } from "./use-session-intake";
  * Every question the app asked and every answer the learner gave stays on the
  * sheet in the order it happened — the questions as the quiet line above their
  * answer, the answers in the filled state of a field, and the line that ends a
- * phase as the record's one panel. Only the thing being asked right now is
+ * phase as the record's one panel. An answered boundary check keeps its whole
+ * question: every option it presented stays on the record, in the order it
+ * presented them, the verdict stated in the reserved inks and the pick named
+ * in words (#231). Only the thing being asked right now is
  * open: one ask, its own control, its action at that item's right end. A
  * generated plan renders as a numbered list, and the learner changes it in
  * one field and approves it with one control. An adjustment does not hide
@@ -36,7 +39,14 @@ import { useSessionIntake } from "./use-session-intake";
  * The sheet has one measure: the record column is 30rem wide (`SHEET_MEASURE`)
  * and everything in it — a recorded answer, the question above it, an open
  * field, an option row — fills it, so no item on the form is wider than the
- * answer it sits beside (#204: "Equal width").
+ * answer it sits beside (#204: "Equal width"). Its *height* is not its own
+ * either: the sheet takes the shared primitive's **full-bleed** placement, which
+ * sizes it to the visible viewport — the room the browser leaves the app after
+ * its own furniture — because a sheet sized to the *layout* viewport keeps its
+ * lower half, where the open ask is, under the iPhone's keyboard (#230). What a
+ * keyboard covers on top of that room is reserved inside the record's own
+ * scroll, by the binding, and the record is pinned to the reserved bottom — The
+ * Visible-Viewport Rule and The Keyboard Room Rule (#230).
  *
  * While a request is in flight the open ask's control is replaced by a line
  * saying what is happening; nothing floats over the sheet.
@@ -186,19 +196,58 @@ function WrittenText({ text }: { text: string | string[] }) {
 
 /** The field itself, in its filled state: the value the learner gave. It takes
  *  the sheet's measure from the column, and so does every open control the
- *  learner will fill in after it. */
-function FilledField({ children }: { children: React.ReactNode }) {
+ *  learner will fill in after it.
+ *
+ *  `tone` is the record's own hand on an answered boundary check (#231): the
+ *  verified green on the option the check verifies, the correction ink on a
+ *  wrong pick, pencil on the alternatives the learner weighed and did not
+ *  choose. A field holding the learner's words keeps the ink rung — tone
+ *  states what a recorded line *is*, the way it states which plan is being
+ *  approved (#223); the filled-versus-outlined rule still states whether a
+ *  thing is open. */
+const FIELD_TONES = {
+  ink: "text-on-surface",
+  pencil: "text-on-surface-variant",
+  verified: "text-tertiary",
+  corrected: "text-error",
+} as const;
+
+function FilledField({
+  children,
+  tone = "ink",
+}: {
+  children: React.ReactNode;
+  tone?: keyof typeof FIELD_TONES;
+}) {
   return (
-    <div className="mt-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-3 text-[15px] leading-6 text-on-surface">
+    <div
+      className={cn(
+        "mt-1.5 rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-3 text-[15px] leading-6",
+        FIELD_TONES[tone],
+      )}
+    >
       {children}
     </div>
   );
 }
 
-/** The label that belongs to every entry the learner has filled in. */
-function FieldLabel({ children }: { children: React.ReactNode }) {
+/** The label that belongs to every entry the learner has filled in. A label
+ *  that itself states a verdict — the “Correct.” above a boundary check's
+ *  verified option — takes the ink that verdict calls for, as DESIGN.md's meta
+ *  rung prescribes. */
+function FieldLabel({
+  children,
+  tone = "pencil",
+}: {
+  children: React.ReactNode;
+  tone?: "pencil" | "verified" | "corrected";
+}) {
   return (
-    <p className="mt-4 text-[14px] font-semibold text-on-surface-variant">{children}</p>
+    <p
+      className={cn("mt-4 text-[14px] font-semibold", FIELD_TONES[tone])}
+    >
+      {children}
+    </p>
   );
 }
 
@@ -236,7 +285,7 @@ export function NewSessionDialog({
     confirm,
     close,
     handleOpenChange,
-    recordRef,
+    attachRecord,
     attachTextarea,
   } = useSessionIntake({ open, onOpenChange, onAccept });
 
@@ -422,11 +471,14 @@ export function NewSessionDialog({
         showCloseButton={false}
         // Opt out of Radix's open auto-focus (it targets the close button);
         // the binding owns focus and puts it in the field when one is open.
-        // Full-screen, and a flex column rather than the shared grid: the
-        // record is the child that shrinks and scrolls, so the header and the
-        // open ask are never clipped off-screen by a long record.
+        // Full-bleed — the sheet is the visible viewport, not a sheet placed in
+        // it — and a flex column rather than the shared grid: the record is the
+        // child that shrinks and scrolls, so the header and the open ask are
+        // never clipped off-screen by a long record, and never displaced by a
+        // keyboard (#230).
+        placement="full-bleed"
         onOpenAutoFocus={(event) => event.preventDefault()}
-        className="inset-0 flex h-full w-full max-h-none max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 bg-surface p-0 text-on-surface sm:max-w-none"
+        className="flex flex-col gap-0 overflow-hidden bg-surface text-on-surface"
       >
         <form onSubmit={handleSubmit} className="flex min-h-0 w-full flex-1 flex-col">
           {/* Masthead — the sheet's original header, kept as the owner asked
@@ -456,7 +508,7 @@ export function NewSessionDialog({
               it names is never printed as text. */}
           <ProgressRail rail={view.rail} />
 
-          <div ref={recordRef} className="min-h-0 flex-1 overflow-y-auto">
+          <div ref={attachRecord} className="min-h-0 flex-1 overflow-y-auto">
             <div className={`mx-auto flex w-full ${SHEET_MEASURE} flex-col gap-5 px-4 py-6`}>
               {intro.map((line, i) => (
                 <p key={i} className="text-[15px] leading-6 text-on-surface">
@@ -487,6 +539,17 @@ export function NewSessionDialog({
   );
 }
 
+/** The order one boundary check presents its options in: a shuffle seeded on
+ *  the card's identity, with the backend's "I don't know" option kept last.
+ *  The same card draws the same order on every rendering — the rows in the
+ *  open ask and each option's place in the record entry that replaces them
+ *  are the same place, so answering never reorders the learner's own answer
+ *  out from under them (#231). The canonical index is what the owner is
+ *  given back. */
+function presentedOrder(card: ProbeCard): number[] {
+  return displayOrder(card.options.length, true, seededRandom(card.id));
+}
+
 /** The option rows of a boundary check that is still open. A click answers it;
  *  there is no second "submit the answer" step. */
 function ProbeOptions({
@@ -498,11 +561,8 @@ function ProbeOptions({
   disabled: boolean;
   onPick: (canonicalIndex: number) => void;
 }) {
-  // Display order is the surface's concern: a stable permutation per card,
-  // with the backend's "I don't know" option kept last. The canonical index
-  // is what the owner is given back.
   const order = useMemo(
-    () => displayOrder(card.options.length, true),
+    () => presentedOrder(card),
     [card],
   );
   return (
@@ -592,21 +652,45 @@ function RecordEntryView({
 
   if (entry.kind === "answeredProbe") {
     const wasCorrect = entry.picked === entry.card.correct_index;
+    // #231: an answered check keeps its whole question on the record. Every
+    // option the learner was shown keeps its filled field at the position it
+    // was shown in — an answer that erases the alternatives leaves the sheet
+    // with nothing to compare against. The verdict is stated in words and in
+    // the reserved inks: the learner's pick named under the sheet's existing
+    // label (wearing the correction ink when it was wrong), and — when the
+    // pick missed — the verified option named too, under a "Correct."
+    // caption in the verified green. No verdict here is carried by colour
+    // alone; the alternatives the learner did not choose stay pencil.
+    const order = presentedOrder(entry.card);
     return (
       <div className="border-t border-outline-variant pt-1">
         <p className="text-[15px] leading-6 text-on-surface-variant">
           <MathText content={entry.card.text} />
         </p>
-        <FieldLabel>{yourAnswer}</FieldLabel>
-        <FilledField>
-          {entry.picked !== undefined && (
-            <MathText content={entry.card.options[entry.picked]} />
-          )}
-        </FilledField>
+        {order.map((canonical) => {
+          const isPicked =
+            entry.picked !== undefined && canonical === entry.picked;
+          const isCorrect = canonical === entry.card.correct_index;
+          return (
+            <div key={canonical}>
+              {isPicked && <FieldLabel>{yourAnswer}</FieldLabel>}
+              {isCorrect && !isPicked && (
+                <FieldLabel tone="verified">{correct}</FieldLabel>
+              )}
+              <FilledField
+                tone={
+                  isCorrect ? "verified" : isPicked ? "corrected" : "pencil"
+                }
+              >
+                <MathText content={entry.card.options[canonical]} />
+              </FilledField>
+            </div>
+          );
+        })}
         <p
           className={cn(
             "mt-2 text-[14px] font-semibold",
-            wasCorrect ? "text-tertiary" : "text-error",
+            FIELD_TONES[wasCorrect ? "verified" : "corrected"],
           )}
         >
           {wasCorrect ? correct : notQuite}

@@ -31,6 +31,30 @@ function DialogClose({
   return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
 }
 
+/**
+ * Where a sheet sits. Both placements are stated against the **visible**
+ * viewport — the room on screen the browser leaves the app — and never as `vh`
+ * or `inset-0`, because those describe the *layout* viewport, which iOS leaves
+ * at its full height when the software keyboard opens (#230). A sheet placed
+ * against the layout viewport keeps its lower half under the keyboard, which is
+ * exactly where its action lives.
+ *
+ * `centred` puts the sheet in the middle of the room and caps it to the room: a
+ * sheet taller than what is left scrolls in itself instead of running off the
+ * screen. `full-bleed` is the surface that *is* the room — the Session intake
+ * sheet, the “full-viewport plain form” DESIGN.md describes — and it owns its
+ * own scrolling, so it takes no cap — and it is the room, so it has no corners,
+ * no border and no padding of its own either.
+ */
+const SHEET_PLACEMENT = {
+  centred:
+    "top-[var(--visual-viewport-centre)] left-1/2 w-full max-w-[calc(100%-2rem)] max-h-[var(--visual-viewport-sheet-max-height)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto sm:max-w-sm",
+  "full-bleed":
+    "top-[var(--visual-viewport-offset-top)] left-0 h-[var(--visual-viewport-height)] w-full rounded-none border-0 p-0",
+} as const;
+
+export type DialogPlacement = keyof typeof SHEET_PLACEMENT;
+
 function DialogOverlay({
   className,
   ...props
@@ -39,7 +63,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 isolate z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        "fixed inset-x-0 top-[var(--visual-viewport-offset-top)] h-[var(--visual-viewport-height)] isolate z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className
       )}
       {...props}
@@ -51,9 +75,13 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  placement = "centred",
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
+  /** Which placement this sheet takes; the room it takes is the visible
+   *  viewport (#230). */
+  placement?: DialogPlacement
 }) {
   return (
     <DialogPortal>
@@ -61,7 +89,8 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed z-50 grid gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          SHEET_PLACEMENT[placement],
           className
         )}
         {...props}
