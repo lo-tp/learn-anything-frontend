@@ -12,6 +12,7 @@ import {
   cleanup,
   fireEvent,
   screen,
+  within,
 } from "@testing-library/react";
 import { renderWithLocale, stubVisualViewport } from "@/test/test-utils";
 import { NewSessionDialog } from "@/views/mine/new-session-dialog";
@@ -542,6 +543,98 @@ describe("NewSessionDialog", () => {
     expect(await screen.findByText("Not quite.")).toBeTruthy();
     expect(screen.getByText(Q1.explanation)).toBeTruthy();
     expect(screen.getByText("10 m/s²")).toBeTruthy();
+  });
+
+  it("keeps every option of a boundary check on the record after the learner picks (#231)", async () => {
+    mockCreateSession.mockResolvedValue({ session_id: "s-1", phase: "probing" });
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
+    mockAnswerProbe.mockResolvedValue({ phase: "probing", questions: [Q2] });
+    await openDialog(GOAL);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    // What the learner was shown, in the order they were shown it.
+    const question = await screen.findByText(Q1.text);
+    const buttons = Array.from(
+      question.closest("fieldset")!.querySelectorAll("button"),
+    ) as HTMLButtonElement[];
+    const presented = buttons.map((button) => button.textContent ?? "");
+    fireEvent.click(
+      buttons.find((button) => (button.textContent ?? "").includes("10 m/s²"))!,
+    );
+    await screen.findByText("Not quite.");
+
+    // The record keeps the whole question: every option the check presented,
+    // in the order it presented them (#231) — answering never reorders the
+    // learner's own answer out from under them.
+    const entry = screen.getByText(Q1.text).closest(".border-t") as HTMLElement;
+    const fields = Array.from(
+      entry.querySelectorAll(".bg-surface-container-lowest"),
+    ) as HTMLElement[];
+    expect(fields.map((field) => field.textContent ?? "")).toEqual(presented);
+
+    // The pick is still labelled as the learner's own, and the record states
+    // the verdict in the reserved inks: the wrong pick in correction ink, the
+    // option the check verifies in verified green, the alternatives in pencil.
+    const fieldOf = (option: string) =>
+      within(entry)
+        .getByText(option)
+        .closest(".bg-surface-container-lowest") as HTMLElement;
+    expect(within(entry).getByText("Your answer")).toBeTruthy();
+    expect(fieldOf("10 m/s²").classList.contains("text-error")).toBe(true);
+    expect(fieldOf("5 m/s²").classList.contains("text-tertiary")).toBe(true);
+    expect(fieldOf("2 m/s²").classList.contains("text-on-surface-variant")).toBe(
+      true,
+    );
+    expect(
+      fieldOf("I don't know").classList.contains("text-on-surface-variant"),
+    ).toBe(true);
+
+    // The verified option is named in words too — the record states its
+    // verdict in the reserved ink, never in colour alone.
+    const verifiedLabel = fieldOf("5 m/s²")
+      .previousElementSibling as HTMLElement;
+    expect(verifiedLabel.textContent).toBe("Correct.");
+    expect(verifiedLabel.classList.contains("text-tertiary")).toBe(true);
+    expect(within(entry).getAllByText("Correct.")).toHaveLength(1);
+  });
+
+  it("keeps the whole question on the record after a right answer too (#231)", async () => {
+    mockCreateSession.mockResolvedValue({ session_id: "s-1", phase: "probing" });
+    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
+    mockAnswerProbe.mockResolvedValue({ phase: "probing", questions: [Q2] });
+    await openDialog(GOAL);
+    fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    const question = await screen.findByText(Q1.text);
+    const buttons = Array.from(
+      question.closest("fieldset")!.querySelectorAll("button"),
+    ) as HTMLButtonElement[];
+    fireEvent.click(
+      buttons.find((button) => (button.textContent ?? "").includes("5 m/s²"))!,
+    );
+    await screen.findByText("Correct.");
+
+    const entry = screen.getByText(Q1.text).closest(".border-t") as HTMLElement;
+    for (const option of Q1.options) {
+      expect(within(entry).getByText(option)).toBeTruthy();
+    }
+    // The verified pick wears the verified ink; the alternatives stay pencil.
+    const picked = within(entry)
+      .getByText("5 m/s²")
+      .closest(".bg-surface-container-lowest") as HTMLElement;
+    expect(picked.classList.contains("text-tertiary")).toBe(true);
+    expect(within(entry).getByText("Your answer")).toBeTruthy();
+    // A pick that was right needs no second name: the record's one
+    // "Correct." is the verdict caption itself.
+    expect(within(entry).getAllByText("Correct.")).toHaveLength(1);
+    expect(picked.previousElementSibling?.textContent).toBe("Your answer");
+    expect(
+      within(entry)
+        .getByText("20 m/s²")
+        .closest(".bg-surface-container-lowest")!.classList.contains(
+          "text-on-surface-variant",
+        ),
+    ).toBe(true);
   });
 
   it("renders the end of the probe as a panel that names what the learner did (#204)", async () => {
