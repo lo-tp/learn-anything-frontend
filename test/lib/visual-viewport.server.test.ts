@@ -44,6 +44,6 @@ describe("visual-viewport without a browser", () => {
         innerHeight: 844,
         visualViewport: { height: 514, offsetTop: 37 },
       }),
-    ).toEqual({ heightPx: 514, offsetTopPx: 37 });
+    ).toEqual({ heightPx: 514, offsetTopPx: 37, roomTakenByBrowserPx: 330 });
   });
 });

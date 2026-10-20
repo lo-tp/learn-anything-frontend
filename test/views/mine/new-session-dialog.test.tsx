@@ -1065,12 +1065,53 @@ describe("NewSessionDialog", () => {
 
       // A room that only *moves* is the browser panning after a focused field,
       // and a room that grows hides nothing: neither touches the scroll the
-      // reader chose.
+      // reader chose. What reserves the room, and what pins with it, is a
+      // keyboard covering the screen — which this has stopped doing.
       setScrollTop.mockClear();
       stub.panTo(37);
       stub.resizeTo({ height: 844 });
       expect(setScrollTop).not.toHaveBeenCalled();
     } finally {
+      stub.restore();
+    }
+  });
+
+  /** Watch every `scrollTop` the page writes while the sheet mounts: the record
+   *  is the one that may not be touched unless the room asks for it. */
+  function watchScrollWrites() {
+    const original = Object.getOwnPropertyDescriptor(Element.prototype, "scrollTop");
+    const written: Element[] = [];
+    Object.defineProperty(Element.prototype, "scrollTop", {
+      configurable: true,
+      get: original?.get,
+      set(this: Element, value: number) {
+        written.push(this);
+        original?.set?.call(this, value);
+      },
+    });
+    return {
+      written,
+      restore: () => {
+        if (original) {
+          Object.defineProperty(Element.prototype, "scrollTop", original);
+        }
+      },
+    };
+  }
+
+  it("pins the record when the sheet opens into a room the keyboard had already taken (#230)", async () => {
+    // The case the report showed: a learner reaching the sheet from a field they
+    // were already typing in. Nothing shrinks in front of the sheet — the room it
+    // opens into is already the keyboard's — so the measure has to be read as a
+    // fact the moment the record appears, not as a change to wait for.
+    const stub = stubVisualViewport({ innerHeight: 844, height: 514 });
+    const scrollWrites = watchScrollWrites();
+    try {
+      await openDialog();
+      const panel = document.querySelector(".overflow-y-auto") as HTMLElement;
+      expect(scrollWrites.written).toContain(panel);
+    } finally {
+      scrollWrites.restore();
       stub.restore();
     }
   });
