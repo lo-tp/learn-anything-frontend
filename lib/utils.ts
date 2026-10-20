@@ -93,3 +93,25 @@ export function displayOrder(
     ? [...shuffleIndices(n - 1, random), n - 1]
     : shuffleIndices(n, random);
 }
+
+/**
+ * A draw seeded from one identity: the same seed always yields the same
+ * sequence (FNV-1a hash into a mulberry32 generator). A card's option order
+ * is seeded from the card's own id, so every rendering of that card — the
+ * open ask and the record entry that takes its place — draws the same
+ * permutation: answering a check never reorders the options the learner is
+ * looking at out from under their own answer (#231).
+ */
+export function seededRandom(seed: string): () => number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return () => {
+    h = (h + 0x6d2b79f5) | 0;
+    let t = Math.imul(h ^ (h >>> 15), h | 1);
+    t = (t + Math.imul(t ^ (t >>> 7), t | 61)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}

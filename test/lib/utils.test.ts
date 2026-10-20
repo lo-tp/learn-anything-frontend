@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { displayOrder, padPage, shuffleIndices } from "@/lib/utils";
+import {
+  displayOrder,
+  padPage,
+  seededRandom,
+  shuffleIndices,
+} from "@/lib/utils";
 
 describe("padPage", () => {
   it("pads to two digits, like a form page number", () => {
@@ -11,7 +16,7 @@ describe("padPage", () => {
 });
 
 /** A deterministic RNG cycling a fixed sequence of values in [0, 1). */
-function seededRandom(sequence: number[]): () => number {
+function drawSequence(sequence: number[]): () => number {
   let i = 0;
   return () => sequence[i++ % sequence.length];
 }
@@ -23,7 +28,7 @@ describe("shuffleIndices", () => {
   });
 
   it("always returns a permutation of 0..count-1", () => {
-    const rng = seededRandom([
+    const rng = drawSequence([
       0.1, 0.9, 0.4, 0.7, 0.2, 0.5, 0.8, 0.3, 0.6, 0.15,
     ]);
     for (const count of [2, 4, 8, 25]) {
@@ -40,12 +45,12 @@ describe("shuffleIndices", () => {
     // i=2 → j=floor(0.1*3)=0 → [3,1,0,2];
     // i=1 → j=floor(0.9*2)=1 → [3,1,0,2].
     const expected = [3, 1, 0, 2];
-    expect(shuffleIndices(4, seededRandom([0.5, 0.1, 0.9]))).toEqual(expected);
-    expect(shuffleIndices(4, seededRandom([0.5, 0.1, 0.9]))).toEqual(expected);
+    expect(shuffleIndices(4, drawSequence([0.5, 0.1, 0.9]))).toEqual(expected);
+    expect(shuffleIndices(4, drawSequence([0.5, 0.1, 0.9]))).toEqual(expected);
   });
 
   it("differs across draws for a varying random source", () => {
-    const rng = seededRandom([
+    const rng = drawSequence([
       0.1, 0.9, 0.4, 0.7, 0.2, 0.5, 0.8, 0.3, 0.6, 0.15,
     ]);
     const orders = new Set(
@@ -66,7 +71,7 @@ describe("displayOrder", () => {
   });
 
   it("returns a permutation of 0..n-1 (no pinLast)", () => {
-    const rng = seededRandom([0.1, 0.9, 0.4, 0.7, 0.2, 0.5, 0.8, 0.3, 0.6, 0.15]);
+    const rng = drawSequence([0.1, 0.9, 0.4, 0.7, 0.2, 0.5, 0.8, 0.3, 0.6, 0.15]);
     for (const n of [2, 4, 8]) {
       const order = displayOrder(n, false, rng);
       expect(order).toHaveLength(n);
@@ -77,7 +82,7 @@ describe("displayOrder", () => {
   });
 
   it("pins the last index at the end when pinLast is true", () => {
-    const rng = seededRandom([0.1, 0.9, 0.4, 0.7, 0.2, 0.5, 0.8, 0.3, 0.6, 0.15]);
+    const rng = drawSequence([0.1, 0.9, 0.4, 0.7, 0.2, 0.5, 0.8, 0.3, 0.6, 0.15]);
     for (const n of [2, 5, 10]) {
       const order = displayOrder(n, true, rng);
       expect(order[order.length - 1]).toBe(n - 1);
@@ -99,5 +104,37 @@ describe("displayOrder", () => {
     const a = displayOrder(4, false, rng);
     const b = displayOrder(4, false, rng);
     expect(a).toEqual(b);
+  });
+});
+
+describe("seededRandom", () => {
+  it("draws the same sequence every time from the same seed", () => {
+    const a = seededRandom("q1");
+    const b = seededRandom("q1");
+    expect([a(), a(), a()]).toEqual([b(), b(), b()]);
+  });
+
+  it("draws different sequences for different seeds", () => {
+    const q1 = Array.from({ length: 8 }, seededRandom("q1"));
+    const q2 = Array.from({ length: 8 }, seededRandom("q2"));
+    expect(q1).not.toEqual(q2);
+  });
+
+  it("draws values in [0, 1)", () => {
+    const draw = seededRandom("anything");
+    for (let i = 0; i < 100; i++) {
+      const v = draw();
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThan(1);
+    }
+  });
+
+  it("gives a card the same display order on every rendering (#231)", () => {
+    const first = displayOrder(5, true, seededRandom("q1"));
+    const again = displayOrder(5, true, seededRandom("q1"));
+    expect(again).toEqual(first);
+    expect(first).toHaveLength(5);
+    expect([...first].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4]);
+    expect(first[4]).toBe(4); // the "I don't know" option stays pinned last
   });
 });
