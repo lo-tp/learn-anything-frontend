@@ -27,6 +27,32 @@ The five canonical triage roles, one label per name: `needs-triage`, `needs-info
 
 The domain language lives in the `CONTEXT.md` glossary at the repo root, and the decisions live in the `docs/adr/` ADR set.
 
+## Subagent model routing (parent session only)
+
+Applies to the orchestrating session. Child sessions must not add or change `model`.
+Explicit user model choices always win over this rule.
+
+Before launching any subagent (direct call or `runs.run` / `runs.all` item):
+
+1. Read the parent model (`PI_PROVIDER` / `PI_MODEL`). It is the model to avoid.
+2. Read the allowed set from `subagents.modelScope.allow` and the exact `provider/id`
+  strings from the session registry. Never invent or abbreviate an id; never launch a
+  model outside the allow-list.
+3. Check occupancy with `subagent({ action: "status", view: "fleet" })` and tally
+  active children per model.
+4. Pick the allowed model with **no active child**, preferring one different from the
+  parent model. If every allowed model is occupied, pick the least occupied and say so.
+5. Pass that choice explicitly as `model: "<provider/id>"` on each launch, including
+  every workflow child.
+
+After a launch failure (provider, auth, quota, rate-limit, stream, empty-response, or
+context-overflow): re-launch the same task once on the other allowed model as a new
+child (new key for workflow runs), without asking. Note that `resume` keeps a retained
+child's stored model and cannot be re-routed.
+
+In the result, state which model each subagent actually ran on, and which were occupied
+at launch time. Do not add fixed role→model mappings to settings; routing stays here.
+
 ## Commit messages
 
 When writing a Git commit message:
