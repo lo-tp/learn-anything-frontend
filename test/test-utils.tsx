@@ -74,16 +74,26 @@ export function clip(el: HTMLElement, hidden: boolean) {
 /**
  * The room on screen a browser leaves the app, as a test states it.
  *
- * jsdom has no `window.visualViewport`, and that is exactly where both
- * `lib/keyboard-inset.ts` (what a keyboard covers) and `lib/visual-viewport.ts`
- * (the room itself) read from — so a test puts one on `window`, keeps the
- * handlers the page registers, and drives the two events a real keyboard causes
- * (#230). Without it nothing in this suite can say what a surface does when a
- * phone takes half the screen away.
+ * jsdom has no `window.visualViewport`, and that is exactly what
+ * `lib/visual-viewport.ts` measures the room from — so a test puts one on
+ * `window`, keeps the handlers the page registers, and drives the events a real
+ * keyboard causes (#230). Without it nothing in this suite can say what a surface
+ * does when a phone takes half the screen away.
  */
 export type StubbedVisualViewport = {
-  /** The keyboard opening, or closing — and where it leaves the room. */
-  resizeTo: (next: { height: number; offsetTop?: number }) => void;
+  /**
+   * The keyboard opening, or closing — and where it leaves the room. Pass
+   * `innerHeight` as well to state a browser that resizes its *own* layout
+   * viewport for the keyboard (`interactive-widget=resizes-content`, Chrome from
+   * 108): the two viewports stay equal, so the room the app is told about *is*
+   * the shorter layout viewport, and a surface is asked only to run its scroll,
+   * never to pad anything (#230).
+   */
+  resizeTo: (next: {
+    height: number;
+    offsetTop?: number;
+    innerHeight?: number;
+  }) => void;
   /** The browser panning the layout viewport after a focused field: the room
    *  is the same size, it has simply moved. */
   panTo: (offsetTop: number) => void;
@@ -99,20 +109,16 @@ export type StubbedVisualViewport = {
 
 /**
  * Stand in for the browser's own measure of the room on screen: the layout
- * viewport (`window.innerHeight`) and the visual viewport inside it, at the
- * scale the test chose. A pinch-zoom is what `lib/keyboard-inset.ts` refuses to
- * read as a keyboard, so the scale stays settable.
+ * viewport (`window.innerHeight`) and the visual viewport inside it.
  */
 export function stubVisualViewport({
   innerHeight,
   height,
   offsetTop = 0,
-  scale = 1,
 }: {
   innerHeight: number;
   height: number;
   offsetTop?: number;
-  scale?: number;
 }): StubbedVisualViewport {
   const originalInnerHeight = Object.getOwnPropertyDescriptor(
     window,
@@ -123,10 +129,10 @@ export function stubVisualViewport({
     configurable: true,
     writable: true,
   });
-  /** One event type, many listeners — as a browser has them. `resize` is
-   *  followed by both `lib/keyboard-inset.ts` and `lib/visual-viewport.ts`
-   *  (#230), and a stand-in that kept only one of them would tell those two
-   *  different stories about the same keyboard. */
+  /** One event type, many listeners — as a browser has them. The shell holds one
+   *  measurement of the room for the whole page and every surface that acts on it
+   *  joins that one measurement, so a stand-in that kept only the last listener to
+   *  register would tell the page there was nobody else listening (#230). */
   const handlers = new Map<string, Set<EventListener>>();
   const added: string[] = [];
   const fire = (type: string) => {
@@ -134,16 +140,20 @@ export function stubVisualViewport({
       handler(new Event(type));
     }
   };
-  const visual = { height, offsetTop, scale };
+  const visual = { height, offsetTop };
+  const setInnerHeight = (value: number) => {
+    Object.defineProperty(window, "innerHeight", {
+      value,
+      configurable: true,
+      writable: true,
+    });
+  };
   const viewport = {
     get height() {
       return visual.height;
     },
     get offsetTop() {
       return visual.offsetTop;
-    },
-    get scale() {
-      return visual.scale;
     },
     addEventListener: (type: string, handler: EventListener) => {
       added.push(type);
@@ -162,9 +172,14 @@ export function stubVisualViewport({
   return {
     handlers,
     added,
-    resizeTo: ({ height: nextHeight, offsetTop: nextOffset }) => {
+    resizeTo: ({
+      height: nextHeight,
+      offsetTop: nextOffset,
+      innerHeight: nextInnerHeight,
+    }) => {
       visual.height = nextHeight;
       if (nextOffset !== undefined) visual.offsetTop = nextOffset;
+      if (nextInnerHeight !== undefined) setInnerHeight(nextInnerHeight);
       fire("resize");
     },
     panTo: (offset: number) => {
