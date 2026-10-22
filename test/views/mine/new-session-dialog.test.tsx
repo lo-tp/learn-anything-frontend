@@ -118,17 +118,29 @@ function recordPane(): HTMLElement {
 }
 
 /**
- * A record that grows, shown as a real pane would show it: `clientHeight` is
- * the room the pane has (so the bottom of the scroll is `scrollHeight`
- * minus that), a pinned `scrollTop` clamps to the scrollable maximum the way
- * a browser clamps it, and the bottom is a number the test can move — which
- * is what the sheet's pinning actually has to cope with: content that lands
- * keeps laying out afterwards, so the record ends lower than the height it
- * had the moment it was measured (#236).
+ * The room a record pane has when no test states one: enough to scroll, fixed.
  */
 const RECORD_PANE_VIEW_PX = 600;
 
-function stubRecordGrowth(startBottomPx: number) {
+/**
+ * A record of a known length inside a pane of a known room, shown as a real pane
+ * shows it: `clientHeight` is the room, `scrollHeight` is the record, and a
+ * pinned `scrollTop` clamps to the scrollable maximum the way a browser clamps it
+ * — which is what the sheet's pinning actually has to cope with.
+ *
+ * Two numbers a test has to be able to move:
+ *
+ * - `setBottom(px)` — content that has landed is not finished laying out, so a
+ *   record ends lower than the height it had the moment it was measured (#236).
+ * - `roomPx` — read whenever the sheet measures the pane, because a sheet is
+ *   sized to the visible viewport and its pane shrinks with a keyboard: whether
+ *   the keys are hiding part of the record is a fact about the record *and* the
+ *   room it is left with (#230).
+ */
+function stubRecordPane(
+  startBottomPx: number,
+  { roomPx = () => RECORD_PANE_VIEW_PX }: { roomPx?: () => number } = {},
+) {
   const proto = Element.prototype;
   const originalTop = Object.getOwnPropertyDescriptor(proto, "scrollTop")!;
   const originalHeight = Object.getOwnPropertyDescriptor(
@@ -141,7 +153,7 @@ function stubRecordGrowth(startBottomPx: number) {
   )!;
   let bottom = startBottomPx;
   const pins: number[] = [];
-  const maxScroll = () => Math.max(0, bottom - RECORD_PANE_VIEW_PX);
+  const maxScroll = () => Math.max(0, bottom - roomPx());
   Object.defineProperty(proto, "scrollTop", {
     configurable: true,
     get: () => pins.at(-1) ?? 0,
@@ -155,11 +167,10 @@ function stubRecordGrowth(startBottomPx: number) {
   });
   Object.defineProperty(proto, "clientHeight", {
     configurable: true,
-    get: () => RECORD_PANE_VIEW_PX,
+    get: () => roomPx(),
   });
   /** The offset a pin at this bottom lands at, as a browser would clamp it. */
-  const offset = (bottomPx: number) =>
-    Math.max(0, bottomPx - RECORD_PANE_VIEW_PX);
+  const offset = (bottomPx: number) => Math.max(0, bottomPx - roomPx());
   return {
     pins,
     offset,
@@ -1065,8 +1076,8 @@ describe("NewSessionDialog", () => {
 
       // A room that only *moves* is the browser panning after a focused field,
       // and a room that grows hides nothing: neither touches the scroll the
-      // reader chose. What reserves the room, and what pins with it, is a
-      // keyboard covering the screen — which this has stopped doing.
+      // reader chose. What runs the record's scroll is a shorter room that leaves
+      // part of the record out of sight — nothing else.
       setScrollTop.mockClear();
       stub.panTo(37);
       stub.resizeTo({ height: 844 });
@@ -1457,11 +1468,178 @@ describe("NewSessionDialog — the first field", () => {
 });
 
 describe("NewSessionDialog — the record above the keyboard (#230)", () => {
+  /**
+   * The iPhone 14 the report came from: an 844px layout viewport, 514px of it
+   * left above the keyboard. The sheet's pinned band — the masthead and the
+   * progress rail — keeps its height, so the record reaches its reader through
+   * whatever is left: a 694px pane with the keyboard out, a 364px one with it
+   * up (The Visible-Viewport Rule).
+   */
+  const VIEWPORT_WITH_KEYBOARD_PX = 514;
+  const PINNED_BAND_PX = 150;
+  /** The room the record's pane has: the screen above the keys, less the band. */
+  const recordRoomPx = () =>
+    (window.visualViewport?.height ?? 0) - PINNED_BAND_PX;
+
   afterEach(() => {
     delete (window as unknown as { visualViewport?: unknown }).visualViewport;
   });
 
-  it("reserves the room an opening keyboard covers at the record's bottom, and pins to it", async () => {
+  it("leaves a record the room shows unpadded, and does not scroll it, when the keyboard opens (#230)", async () => {
+    // A 300px record fits the 694px pane with the keyboard out, and it fits the
+    // 364px pane the keyboard leaves. It is entirely above the keys, so the
+    // keyboard hides nothing: the sheet does not touch the record's scroll.
+    // Running the record's own scroll belongs to a record the keys are covering,
+    // not to a keyboard that happens to be out.
+    const stub = stubVisualViewport({
+      innerHeight: 844,
+      height: 844,
+    });
+    const record = stubRecordPane(300, { roomPx: recordRoomPx });
+    const frames = stubFramesAndResizes();
+    try {
+      await openDialog();
+      const panel = recordPane();
+      const scrolled = vi.fn();
+      Object.defineProperty(panel, "scrollTop", {
+        configurable: true,
+        get: () => 0,
+        set: scrolled,
+      });
+
+      stub.resizeTo({ height: VIEWPORT_WITH_KEYBOARD_PX });
+
+      expect(panel.style.paddingBottom).toBe("");
+      expect(scrolled).not.toHaveBeenCalled();
+    } finally {
+      frames.restore();
+      record.restore();
+      stub.restore();
+    }
+  });
+
+  it("runs the record's own scroll to the bottom the keys leave, and no further (#230)", async () => {
+    // The same viewport and the same pane, with a 500px record: it fits the 694px
+    // pane with the keyboard out, and it does not fit the 364px pane the keyboard
+    // leaves. What the keys are hiding is the 136px the record reaches past its
+    // room, so the sheet runs its scroll by exactly that much. It pads nothing:
+    // the pane is already the room above the keys — its bottom edge *is* the top
+    // edge of the keys — so padding by the keyboard's height moves a record a
+    // keyboard further from the keys than it needs to be, and leaves the padded
+    // pane scrollable down to a blank stretch below the last item (#230: "there
+    // are some spaces after the hidden content").
+    const stub = stubVisualViewport({
+      innerHeight: 844,
+      height: 844,
+    });
+    const record = stubRecordPane(500, { roomPx: recordRoomPx });
+    const frames = stubFramesAndResizes();
+    try {
+      await openDialog();
+      const panel = recordPane();
+      expect(panel.style.paddingBottom).toBe("");
+      expect(panel.scrollTop).toBe(0);
+
+      stub.resizeTo({ height: VIEWPORT_WITH_KEYBOARD_PX });
+
+      // 500px of record through a 364px room: its last item ends at the bottom of
+      // the room, which is where the keys begin.
+      expect(panel.style.paddingBottom).toBe("");
+      expect(panel.scrollTop).toBe(136);
+    } finally {
+      frames.restore();
+      record.restore();
+      stub.restore();
+    }
+  });
+
+  it("pins the record to the bottom of a room a browser shrank itself (#230)", async () => {
+    // The other half of #230: a browser that takes the room out of its own
+    // layout viewport (`interactive-widget=resizes-content`, Chrome from 108)
+    // leaves the two viewports equal, so the room the app is told about *is* the
+    // shorter layout viewport. The pane is still shorter, and a 500px record no
+    // longer fits the 364px room it now has — so it is pinned to the bottom it
+    // can reach, which is 500 - 364 = 136px down, with nothing padded.
+    const stub = stubVisualViewport({ innerHeight: 844, height: 844 });
+    const record = stubRecordPane(500, { roomPx: recordRoomPx });
+    const frames = stubFramesAndResizes();
+    try {
+      await openDialog();
+      const panel = recordPane();
+      expect(panel.style.paddingBottom).toBe("");
+
+      stub.resizeTo({ innerHeight: 514, height: 514 });
+
+      expect(panel.style.paddingBottom).toBe("");
+      expect(panel.scrollTop).toBe(136);
+    } finally {
+      frames.restore();
+      record.restore();
+      stub.restore();
+    }
+  });
+
+  it("leaves a record a shorter room still shows where the reader has it (#230)", async () => {
+    // A 300px record fits the 364px room the shrunk viewport leaves, so the
+    // shorter room hides nothing of it: nothing is padded and the sheet does not
+    // touch the record's scroll.
+    const stub = stubVisualViewport({ innerHeight: 844, height: 844 });
+    const record = stubRecordPane(300, { roomPx: recordRoomPx });
+    const frames = stubFramesAndResizes();
+    try {
+      await openDialog();
+      const panel = recordPane();
+      const scrolled = vi.fn();
+      Object.defineProperty(panel, "scrollTop", {
+        configurable: true,
+        get: () => 0,
+        set: scrolled,
+      });
+
+      stub.resizeTo({ innerHeight: 514, height: 514 });
+
+      expect(panel.style.paddingBottom).toBe("");
+      expect(scrolled).not.toHaveBeenCalled();
+    } finally {
+      frames.restore();
+      record.restore();
+      stub.restore();
+    }
+  });
+
+  it("moves the record by exactly what a longer record reaches past the room (#230)", async () => {
+    // The room the keys leave is 364px. A 500px record reaches 136px past it, so
+    // the sheet runs its own scroll by 136px. Then the learner answers a boundary
+    // check and the record is 700px — 336px past the room, so the sheet moves by
+    // 336px. The distance is always the length of what the keys are hiding, never
+    // a keyboard's height more than that.
+    const stub = stubVisualViewport({
+      innerHeight: 844,
+      height: 844,
+    });
+    const record = stubRecordPane(500, { roomPx: recordRoomPx });
+    const frames = stubFramesAndResizes();
+    try {
+      await openDialog();
+      const panel = recordPane();
+      stub.resizeTo({ height: VIEWPORT_WITH_KEYBOARD_PX });
+      expect(panel.scrollTop).toBe(136);
+
+      record.setBottom(700);
+      // The record got longer with no keyboard event in it: the sheet follows the
+      // record, not the keyboard (#236).
+      frames.fireResize();
+      frames.flushFrames(2);
+      expect(panel.style.paddingBottom).toBe("");
+      expect(panel.scrollTop).toBe(336);
+    } finally {
+      frames.restore();
+      record.restore();
+      stub.restore();
+    }
+  });
+
+  it("runs the record's own scroll when the keyboard opens, and pads nothing", async () => {
     const stub = stubVisualViewport({ innerHeight: 844, height: 844 });
     const record = stubRecordScroll();
     await openDialog();
@@ -1469,10 +1647,11 @@ describe("NewSessionDialog — the record above the keyboard (#230)", () => {
     const before = record.pins.length;
 
     // The keyboard opens: 330px of the screen is gone, and the record's own
-    // scroll is the only way to reach the field being answered.
+    // scroll is the only way to reach the field being answered — the room it
+    // scrolls through is already the room above the keys.
     stub.resizeTo({ height: 514 });
 
-    expect(panel.style.paddingBottom).toBe("330px");
+    expect(panel.style.paddingBottom).toBe("");
     expect(record.pins.length).toBeGreaterThan(before);
     expect(record.pins.at(-1)).toBe(RECORD_BOTTOM_PX);
 
@@ -1480,7 +1659,7 @@ describe("NewSessionDialog — the record above the keyboard (#230)", () => {
     stub.restore();
   });
 
-  it("reserves the room when the sheet opens into a keyboard already up", async () => {
+  it("runs the record's scroll when the sheet opens into a keyboard already up", async () => {
     // The reported case: the learner arrives at the sheet from a field they were
     // typing in, so nothing shrinks in front of the sheet — the room it opens
     // into is already the keyboard's.
@@ -1488,30 +1667,29 @@ describe("NewSessionDialog — the record above the keyboard (#230)", () => {
     const record = stubRecordScroll();
     await openDialog();
 
-    expect(recordPane().style.paddingBottom).toBe("330px");
+    expect(recordPane().style.paddingBottom).toBe("");
     expect(record.pins).toContain(RECORD_BOTTOM_PX);
 
     record.restore();
     stub.restore();
   });
 
-  it("takes the reservation back when the keyboard goes, and leaves the reader's scroll alone", async () => {
+  it("leaves the reader's scroll alone when the keyboard goes", async () => {
     const stub = stubVisualViewport({ innerHeight: 844, height: 514 });
     const record = stubRecordScroll();
     const frames = stubFramesAndResizes(); // no follow frames while the reader scrolls
     await openDialog();
     try {
       const panel = recordPane();
-      expect(panel.style.paddingBottom).toBe("330px");
+      expect(panel.style.paddingBottom).toBe("");
 
       // The reader scrolls up to re-read a question the app asked earlier.
       panel.scrollTop = 400;
 
       stub.resizeTo({ height: 844 });
 
-      // Nothing covers the record any more, so it is not padded — and nothing
-      // is scrolled either: the room is whole again and the scroll is the
-      // reader's.
+      // Nothing covers the record, and nothing is scrolled either: the room is
+      // whole again and the scroll is the reader's.
       expect(panel.style.paddingBottom).toBe("");
       expect(record.pins.at(-1)).toBe(400);
     } finally {
@@ -1557,31 +1735,6 @@ describe("NewSessionDialog — the record above the keyboard (#230)", () => {
     stub.restore();
   });
 
-  it("holds the reservation through an ask that is a choice, not a field", async () => {
-    // The record's ask is not always a textarea: at the boundary it is a set of
-    // option rows. The reservation belongs to the record, not to the control, so
-    // it has to survive that change — and the keyboard closing still has to take
-    // it back off.
-    mockCreateSession.mockResolvedValue({ session_id: "s-1", phase: "probing" });
-    mockStartProbe.mockResolvedValue({ phase: "probing", questions: [Q1] });
-    const stub = stubVisualViewport({ innerHeight: 844, height: 514 });
-    const record = stubRecordScroll();
-    await openDialog(GOAL);
-    const panel = recordPane();
-    expect(panel.style.paddingBottom).toBe("330px");
-
-    clickSend();
-    await screen.findByText(Q1.text);
-    expect(document.querySelector("textarea")).toBeNull();
-
-    stub.resizeTo({ height: 844 });
-
-    expect(panel.style.paddingBottom).toBe("");
-
-    record.restore();
-    stub.restore();
-  });
-
   it("asks the browser not to scroll when it focuses the field", async () => {
     const stub = stubVisualViewport({ innerHeight: 844, height: 514 });
     const focus = stubFocus();
@@ -1606,7 +1759,7 @@ describe("NewSessionDialog — keeping the record at its bottom (#236)", () => {
       phase: "clarifying",
       clarifying_questions: ["What do you already know about forces?"],
     });
-    const record = stubRecordGrowth(1200);
+    const record = stubRecordPane(1200);
     const frames = stubFramesAndResizes();
     try {
       await openDialog(GOAL);
@@ -1644,7 +1797,7 @@ describe("NewSessionDialog — keeping the record at its bottom (#236)", () => {
       phase: "clarifying",
       clarifying_questions: ["What do you already know about forces?"],
     });
-    const record = stubRecordGrowth(1200);
+    const record = stubRecordPane(1200);
     const frames = stubFramesAndResizes();
     try {
       await openDialog(GOAL);
@@ -1676,7 +1829,7 @@ describe("NewSessionDialog — keeping the record at its bottom (#236)", () => {
       phase: "clarifying",
       clarifying_questions: ["And what happens when the mass changes?"],
     });
-    const record = stubRecordGrowth(1200);
+    const record = stubRecordPane(1200);
     const frames = stubFramesAndResizes();
     try {
       await openDialog(GOAL);
